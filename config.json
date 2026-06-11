@@ -1,0 +1,91 @@
+{
+  "output_dir": "output",
+  "report_type": "digest",
+  "max_items_per_category": 6,
+  "max_items_per_feed": 10,
+  "summary_max_chars": 120,
+  "category_order": ["财经股票", "AI方向"],
+  "days_back": 3,
+  "lookback_hours": 24,
+  "filter_stale_by_url_date": true,
+  "stale_url_date_tolerance_days": 2,
+  "max_core_events": 5,
+  "max_market_signals": 5,
+  "max_market_signals_per_source": 3,
+  "max_watch_items": 3,
+  "output_title": "每日早间回顾",
+  "include_quick_scan": true,
+  "max_quick_scan_items": 10,
+  "max_quick_scan_items_per_source": 3,
+  "allow_tech_industry_in_market": false,
+  "core_event_roles": [
+    "breaking_news",
+    "general"
+  ],
+  "market_signal_roles": [
+    "market"
+  ],
+  "watch_item_roles": [
+    "market",
+    "breaking_news",
+    "general"
+  ],
+  "quick_scan_roles": [
+    "breaking_news",
+    "market",
+    "tech_industry",
+    "general"
+  ],
+  "quick_scan_exclude_roles": [
+    "ai_tools"
+  ],
+  "quick_scan_low_value_patterns": [
+    "体育",
+    "球员",
+    "赛季最佳",
+    "赛事",
+    "德甲",
+    "抢劫",
+    "受伤",
+    "游客",
+    "个案",
+    "开幕式",
+    "推介会",
+    "座谈会",
+    "宣传",
+    "畅谈",
+    "融合发展"
+  ],
+  "core_event_negative_patterns": [
+    "鹅腿",
+    "鸭腿",
+    "阿姨",
+    "摊贩",
+    "摊主",
+    "网红",
+    "地方通报",
+    "正核查",
+    "依法依规处置",
+    "个案",
+    "游客",
+    "男子",
+    "女子",
+    "老人",
+    "食品经营",
+    "消费纠纷"
+  ],
+  "low_value_patterns": [
+    "游戏风向标",
+    "IPO定价",
+    "持股比例",
+    "评级汇总",
+    "目标价",
+    "超豪华",
+    "香氛",
+    "彩电",
+    "大沙发"
+  ],
+  "digest_exclude_roles": [
+    "ai_tools"
+  ]
+}

@@ -1,0 +1,459 @@
+# Daily News Automation
+
+一个低成本的每日资讯自动化工具：从 `feeds.json` 配置的 RSS 源抓取文章，根据 `keywords.json` 中的关键词分类过滤，去重后生成 Markdown 简报。
+
+v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。当前版本仍不调用 AI。
+
+当前版本不接 DeepSeek，不接 Tavily，也不依赖任何付费搜索 API。
+
+## 功能
+
+- 从多个 RSS 源抓取文章
+- 按关键词分类过滤新闻
+- 支持 RSS 源按 `mode` 控制收录方式：`keyword` 需要命中关键词，`all` 在时间范围内直接收录
+- 支持 RSS 源按 `role` 控制 digest 分流：快讯、市场、科技产业、AI 工具和通用源分开处理
+- 同一链接只保留一次
+- 支持两种输出模式：`list` 分类新闻列表，`digest` 早间回顾简报
+- 支持每个分类、每个 RSS 源的输出数量控制
+- 支持摘要长度截断
+- 支持按配置控制分类输出顺序
+- 单个 RSS 抓取失败不会中断整体流程，会记录到日志，并在文末统一展示
+- 输出到 `output/daily-news-YYYY-MM-DD.md`
+
+`list` 模式每条新闻包含：
+
+- 标题
+- 来源
+- 发布时间
+- 链接
+- 命中的关键词
+- 原始摘要
+
+`digest` 模式输出结构：
+
+- 昨日最重要的事
+- 昨日市场信号
+- 今天值得关注的变量
+- 快速扫读
+- 一句话主线
+- 抓取失败
+
+前三个主栏目采用严格筛选，尽量避免普通社会新闻、活动新闻和泛产业动态误入。`快速扫读` 用于增加信息覆盖，收录没有进入前三个主栏目但仍可扫一眼的新闻；它不等于重要新闻，也不代表市场信号。快速扫读仍会用 `quick_scan_low_value_patterns` 过滤低优先级体育、个案社会新闻和宣传活动，并用 `max_quick_scan_items_per_source` 限制同一来源展示数量，避免 36氪或其他单一源刷屏。
+
+digest 使用栏目角色硬隔离：
+
+- `breaking_news` 和 `general` 才能进入“昨日最重要的事”，并且还必须命中重大事件信号
+- `market` 是“昨日市场信号”的默认主来源
+- `tech_industry` 默认只进入“快速扫读”，不会进入核心事件、市场信号或今日变量
+- `ai_tools` 默认排除 daily digest，也不会进入“快速扫读”
+
+`digest` 模式下每条文章最多进入一个 section。分流优先级是：
+
+0. 先执行 `low_value_patterns` 过滤，命中后不进入 digest 主体
+1. 同时命中时间指向和变量类型，进入“今天值得关注的变量”
+2. 否则命中市场信号规则，进入“昨日市场信号”
+3. 否则来自 `breaking_news` 源且命中重大事件信号，进入“昨日最重要的事”
+4. 其他文章不进入 digest 主体
+
+`breaking_news` 不等于自动进入核心事件。“昨日最重要的事”还需要命中国家级政策、中央部门、国际冲突、外交制裁、选举投票、重大灾害、重大事故、航天能源基础设施、宏观经济、资本市场监管等重大事件信号。个人案件、普通活动论坛、地方宣传稿、乡村振兴案例、文旅活动、普通社会新闻和娱乐体育内容默认不进入核心事件。
+
+核心事件会过滤地方民生个案、普通舆情处置和普通消费纠纷，例如地方通报、个案核查、食品摊贩/商户经营问题、网红个案等。`监管`、`通报`、`核查`、`处置` 不是进入核心事件的充分条件，必须同时看监管层级和影响范围；证监会立案、交易所处罚、上市公司财务造假、部委级监管政策、全国性食品安全事件和重大公共安全事件仍可进入核心事件或市场信号。
+
+“昨日市场信号”会避免被 `资金`、`资本`、`财政`、`金融` 这类泛词单独触发。它们需要和更明确的宏观或资本市场词同现，例如 `财政部`、`央行`、`货币政策`、`专项债`、`国债`、`降息`、`利率`、`汇率`、`A股`、`港股`、`美股`、`债市`、`上市公司`、`财报`、`监管`、`证监会`、`交易所`、`停牌`、`并购`、`重组`、`IPO`、`退市`、`ST` 等。地方政务、乡村振兴和案例宣传类文章即使命中泛词，也不会自动进入市场信号。
+
+AI 和科技产业词也不再单独触发“昨日市场信号”。标题或摘要只出现 `AI`、`人工智能`、`大模型`、`OpenAI`、`SpaceX`、`科技`、`创新`、`产业` 等词时，默认更适合进入“快速扫读”。只有同时出现股价、涨跌、A股/港股/美股、财报、业绩、营收、利润、订单、融资、IPO、估值、并购、回购、监管、处罚、出口管制、制裁、关税、汇率、利率、美元、黄金、原油、债市等明确市场词时，才可能进入市场信号。
+
+“昨日市场信号”支持 `max_market_signals_per_source` 控制同一来源展示上限，避免单个市场源一次占满整个栏目。这个限制只影响“昨日市场信号”，不影响“快速扫读”。
+
+`tech_industry` 默认不进入“昨日市场信号”。只有在 `config.json` 显式设置 `allow_tech_industry_in_market: true` 后，且标题或摘要明确出现股价、涨跌停、A股/港股/美股、上市公司、财报、业绩、融资、IPO、并购、重组、监管、处罚、退市、科创板、创业板、芯片出口管制、关税、制裁、订单、营收、利润等强市场词时，才可能进入市场信号。普通产品发布、展区、首飞、生态、场景、前沿动态更适合进入“快速扫读”。
+
+“今天值得关注的变量”需要同时满足明确后续观察节点和变量类型，不能只因为包含政策部门、商务部、关税、发展、助力等词进入：
+
+- 后续观察节点：如 `今日公布`、`今晚公布`、`明日公布`、`将公布`、`将召开`、`将举行`、`将生效`、`将落地`、`将披露`、`今日开盘`、`今晚`、`明天`、`本周公布`、`本周召开`、`截至`、`到期`、`投票`、`议息`、`财报发布`、`数据发布` 等
+- 变量类型：如 `政策`、`会议`、`议息`、`利率`、`汇率`、`CPI`、`PPI`、`PMI`、`非农`、`财报`、`业绩`、`监管`、`关税`、`数据`、`开盘`、`停牌`、`复牌`、`油价`、`黄金`、`美元`、`美股`、`A股`、`港股`、`债市`、`央行`、`美联储`、`证监会`、`交易所` 等
+
+单独出现“将”不再作为今日变量触发词；普通产品发布、业务调整、消费科技、游戏、导购、体验类文章没有明确市场/政策/宏观/财报/监管/资产价格变量时，不进入今日变量。
+
+“一句话主线”采用保守策略，只根据前三个主栏目实际展示的新闻判断，不读取“快速扫读”或未展示关键词。除非前三个主栏目中至少有多条新闻指向同一主题，否则使用克制兜底，避免硬凑“科技成长方向”“政策预期发酵”或“新能源、电力设备、风电”等行业主线。
+
+## 本地运行
+
+创建虚拟环境：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+安装依赖：
+
+```bash
+pip install -r requirements.txt
+```
+
+创建配置文件：
+
+```bash
+cp feeds.example.json feeds.json
+cp keywords.example.json keywords.json
+cp config.example.json config.json
+```
+
+编辑 `feeds.json`、`keywords.json` 和 `config.json` 后运行：
+
+```bash
+python main.py
+```
+
+生成结果会保存到：
+
+```text
+output/daily-news-YYYY-MM-DD.md
+```
+
+日志文件：
+
+```text
+daily-news.log
+```
+
+也可以指定配置、输出目录和日期：
+
+```bash
+python main.py --feeds feeds.json --keywords keywords.json --config config.json --output output --date 2026-06-11
+```
+
+## RSS 源健康检查
+
+可以用 `check_feeds.py` 检查 `feeds.json` 中每个 RSS 源是否可访问、是否能被 `feedparser` 解析，以及解析出的条目数量：
+
+```bash
+python3 check_feeds.py
+```
+
+输出字段包括：
+
+- `name`
+- `role`
+- `mode`
+- `status`
+- `entries_count`
+- `error_message`
+
+输出会按 `status` 排序：`ok` 在前，`ok_with_warning` 次之，`empty` 和 `failed` 在后。表格前会显示 `total`、`ok`、`ok_with_warning`、`empty`、`failed` 统计。
+
+`status` 规则：
+
+- `ok`：能解析，且 `entries_count > 0`
+- `ok_with_warning`：RSS 有格式、编码等警告，但 `entries_count > 0`，内容仍可用于日报
+- `empty`：没有严重异常，但 `entries_count = 0`
+- `failed`：请求异常、完全无法解析，或 `entries_count = 0` 且存在严重解析异常
+
+健康检查时不要只看 `failed` 文案，也要结合 `entries_count` 判断。比如部分 RSS 会有编码声明警告，但只要 `entries_count > 0`，程序会继续处理。若源返回 `text/html` 而不是 RSS/XML media type，通常说明不是可用 RSS 地址，应删除或替换。
+
+## 如何人工添加 RSS 源
+
+新增 RSS 源建议先人工确认来源质量，再编辑 `feeds.json`。不要一次性大量加入未经确认的源，先少量添加、运行健康检查，再观察 digest 输出质量。
+
+每个源建议包含：
+
+```json
+{
+  "name": "源名称",
+  "url": "https://example.com/feed.xml",
+  "category": "可选分类",
+  "mode": "keyword",
+  "role": "general"
+}
+```
+
+字段选择建议：
+
+- `mode: "keyword"`：默认选择。只有命中 `keywords.json` 才收录，适合泛资讯、科技产业、博客和工具类源。
+- `mode: "all"`：只要在时间范围内就收录，适合你已经确认质量较高的快讯、电报或市场源。
+- `role: "breaking_news"`：快讯/电报源，可进入 digest 的“昨日最重要的事”。
+- `role: "market"`：市场源，可进入“昨日市场信号”。
+- `role: "tech_industry"`：科技产业源，只有命中政策、产业、AI、半导体、机器人、新能源等信号时进入 digest。
+- `role: "ai_tools"`：AI 工具源，默认会被 `digest_exclude_roles` 排除在每日 digest 主体之外，后续用于周报。
+- `role: "general"`：通用源，不命中明确规则时不进入 digest 主体。
+
+添加后先运行：
+
+```bash
+python3 check_feeds.py
+```
+
+如果状态是 `ok`，再运行：
+
+```bash
+python main.py
+```
+
+## 配置格式
+
+`config.json` 是可选的。如果不存在，程序会使用默认配置：
+
+```json
+{
+  "output_dir": "output",
+  "report_type": "list",
+  "max_items_per_category": 8,
+  "max_items_per_feed": 3,
+  "summary_max_chars": 180,
+  "category_order": ["财经股票", "AI方向"],
+  "days_back": 2,
+  "lookback_hours": 24,
+  "filter_stale_by_url_date": true,
+  "stale_url_date_tolerance_days": 2,
+  "max_core_events": 8,
+  "max_market_signals": 6,
+  "max_market_signals_per_source": 3,
+  "max_watch_items": 5,
+  "output_title": "每日早间回顾",
+  "include_quick_scan": true,
+  "max_quick_scan_items": 10,
+  "max_quick_scan_items_per_source": 3,
+  "allow_tech_industry_in_market": false,
+  "core_event_roles": [
+    "breaking_news",
+    "general"
+  ],
+  "market_signal_roles": [
+    "market"
+  ],
+  "watch_item_roles": [
+    "market",
+    "breaking_news",
+    "general"
+  ],
+  "quick_scan_roles": [
+    "breaking_news",
+    "market",
+    "tech_industry",
+    "general"
+  ],
+  "quick_scan_exclude_roles": ["ai_tools"],
+  "quick_scan_low_value_patterns": [
+    "体育",
+    "球员",
+    "赛季最佳",
+    "赛事",
+    "德甲",
+    "抢劫",
+    "受伤",
+    "游客",
+    "个案",
+    "开幕式",
+    "推介会",
+    "座谈会",
+    "宣传",
+    "畅谈",
+    "融合发展"
+  ],
+  "core_event_negative_patterns": [
+    "鹅腿",
+    "鸭腿",
+    "阿姨",
+    "摊贩",
+    "摊主",
+    "网红",
+    "地方通报",
+    "正核查",
+    "依法依规处置",
+    "个案",
+    "游客",
+    "男子",
+    "女子",
+    "老人",
+    "食品经营",
+    "消费纠纷"
+  ],
+  "low_value_patterns": [
+    "游戏风向标",
+    "IPO定价",
+    "持股比例",
+    "评级汇总",
+    "目标价",
+    "超豪华",
+    "香氛",
+    "彩电",
+    "大沙发"
+  ],
+  "digest_exclude_roles": ["ai_tools"]
+}
+```
+
+字段说明：
+
+- `output_dir`：日报输出目录，默认 `"output"`
+- `report_type`：输出类型，默认 `"list"`；可选 `"list"` 或 `"digest"`
+- `max_items_per_category`：每个分类最多输出多少条，默认 `8`
+- `max_items_per_feed`：每个 RSS 源最多输出多少条，默认 `3`
+- `summary_max_chars`：每条新闻摘要最多保留多少字符，默认 `180`
+- `category_order`：分类输出顺序，未列出的分类会排在后面
+- `days_back`：`list` 模式只保留最近多少天的 RSS 内容，默认 `2`
+- `lookback_hours`：`digest` 模式回看最近多少小时的 RSS 内容，默认 `24`
+- `filter_stale_by_url_date`：是否根据文章 URL 中的日期过滤旧新闻，默认 `true`
+- `stale_url_date_tolerance_days`：URL 日期过滤的容忍天数，默认 `2`
+- `max_core_events`：`digest` 模式“昨日最重要的事”最多输出多少条，默认 `8`
+- `max_market_signals`：`digest` 模式“昨日市场信号”最多输出多少条，默认 `6`
+- `max_market_signals_per_source`：“昨日市场信号”中同一来源最多输出多少条，默认 `3`
+- `max_watch_items`：`digest` 模式“今天值得关注的变量”最多输出多少条，默认 `5`
+- `output_title`：`digest` 模式标题，默认 `"每日早间回顾"`
+- `include_quick_scan`：是否在 `digest` 中输出“快速扫读”，默认 `true`
+- `max_quick_scan_items`：“快速扫读”最多输出多少条，默认 `10`
+- `max_quick_scan_items_per_source`：“快速扫读”中同一来源最多输出多少条，默认 `3`
+- `allow_tech_industry_in_market`：是否允许 `tech_industry` 进入“昨日市场信号”，默认 `false`
+- `core_event_roles`：允许进入“昨日最重要的事”的 role，默认 `["breaking_news", "general"]`
+- `market_signal_roles`：允许进入“昨日市场信号”的 role，默认 `["market"]`
+- `watch_item_roles`：允许进入“今天值得关注的变量”的 role，默认 `["market", "breaking_news", "general"]`
+- `quick_scan_roles`：允许进入“快速扫读”的 feed role，默认 `["breaking_news", "market", "tech_industry", "general"]`
+- `quick_scan_exclude_roles`：“快速扫读”排除的 feed role，默认 `["ai_tools"]`
+- `quick_scan_low_value_patterns`：只作用于“快速扫读”的降噪词，默认过滤体育、个案社会新闻和宣传活动
+- `core_event_negative_patterns`：只作用于“昨日最重要的事”的降噪词，默认过滤地方民生个案、普通舆情处置、摊贩/商户经营问题和消费纠纷
+- `low_value_patterns`：低价值内容过滤词，在 digest 分流前先执行；标题、摘要、来源和 feed 名命中后不进入 digest 主体
+- `digest_exclude_roles`：`digest` 模式默认排除的 feed role，默认 `["ai_tools"]`
+
+部分 RSS 源可能返回旧文章，或给旧文章附上新的 `published` / `updated` 时间。开启 `filter_stale_by_url_date` 后，程序会尝试从文章 URL 中识别日期，例如 `/2022-12/14/`、`/2026/06-11/`、`/2026/06/11/`、`/2026-06-11/`。如果 URL 日期明显早于当前 `lookback_hours` 窗口，并超过 `stale_url_date_tolerance_days` 容忍范围，该文章会被过滤，避免旧新闻混入“过去 24 小时”的日报。被过滤的旧新闻只写入日志，不算抓取失败。
+
+`feeds.json`：
+
+```json
+[
+  {
+    "name": "财经快讯",
+    "url": "https://example.com/breaking-news.rss",
+    "mode": "all",
+    "role": "breaking_news"
+  },
+  {
+    "name": "市场源",
+    "url": "https://example.com/market.rss",
+    "mode": "all",
+    "role": "market"
+  },
+  {
+    "name": "科技产业",
+    "url": "https://example.com/tech-industry.rss",
+    "mode": "keyword",
+    "role": "tech_industry"
+  },
+  {
+    "name": "GitHub Trending Python Daily",
+    "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml",
+    "mode": "keyword",
+    "role": "ai_tools"
+  }
+]
+```
+
+`mode` 是可选字段：
+
+- `keyword`：默认值，必须命中 `keywords.json` 才收录
+- `all`：只要在时间范围内就收录，不要求命中关键词，适合财经快讯类 RSS 源
+
+`role` 是可选字段，默认 `"general"`：
+
+- `breaking_news`：快讯/电报源，可进入“昨日最重要的事”
+- `market`：市场信号源，可进入“昨日市场信号”
+- `tech_industry`：科技产业源，只在命中政策、产业、AI、半导体、机器人、新能源等信号时进入
+- `ai_tools`：AI 工具源，默认不进入每日早间回顾主体，后续用于“每周 AI 工具雷达”
+- `general`：通用源，不命中明确规则时不进入 digest 主体
+
+`mode` 和 `role` 是两件事：`mode` 决定 RSS 抓取后是否需要关键词命中才收录，`role` 决定文章适合进入 digest 的哪个 section。
+
+`keywords.json`：
+
+```json
+{
+  "财经股票": ["market", "stock", "economy", "财经", "股票"],
+  "AI方向": ["AI", "OpenAI", "LLM", "模型"]
+}
+```
+
+`feeds.json` 只配置 RSS 源，`keywords.json` 只配置分类和关键词。版面、数量、摘要长度等输出控制都放在 `config.json`。
+
+## 使用 launchd 每天定时运行
+
+假设项目路径是：
+
+```text
+/Users/wp/Projects/自动化简报
+```
+
+先确认脚本可以手动运行：
+
+```bash
+cd /Users/wp/Projects/自动化简报
+source .venv/bin/activate
+python main.py
+```
+
+创建 plist 文件：
+
+```bash
+mkdir -p ~/Library/LaunchAgents
+nano ~/Library/LaunchAgents/com.wp.daily-news.plist
+```
+
+写入以下内容。示例为每天早上 8:00 运行：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.wp.daily-news</string>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/wp/Projects/自动化简报</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/wp/Projects/自动化简报/.venv/bin/python</string>
+    <string>/Users/wp/Projects/自动化简报/main.py</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>8</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/wp/Projects/自动化简报/launchd.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/wp/Projects/自动化简报/launchd.err.log</string>
+</dict>
+</plist>
+```
+
+加载定时任务：
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.wp.daily-news.plist
+```
+
+立即测试运行一次：
+
+```bash
+launchctl start com.wp.daily-news
+```
+
+查看是否生成：
+
+```bash
+ls output
+tail -n 50 daily-news.log
+```
+
+如果修改了 plist，先卸载再重新加载：
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.wp.daily-news.plist
+launchctl load ~/Library/LaunchAgents/com.wp.daily-news.plist
+```

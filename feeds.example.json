@@ -1,0 +1,26 @@
+[
+  {
+    "name": "财经快讯",
+    "url": "https://example.com/breaking-news.rss",
+    "mode": "all",
+    "role": "breaking_news"
+  },
+  {
+    "name": "市场源",
+    "url": "https://example.com/market.rss",
+    "mode": "all",
+    "role": "market"
+  },
+  {
+    "name": "科技产业",
+    "url": "https://example.com/tech-industry.rss",
+    "mode": "keyword",
+    "role": "tech_industry"
+  },
+  {
+    "name": "GitHub Trending Python Daily",
+    "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml",
+    "mode": "keyword",
+    "role": "ai_tools"
+  }
+]

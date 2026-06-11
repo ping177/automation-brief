@@ -1,0 +1,5 @@
+.venv/
+output/
+*.log
+.env
+.DS_Store

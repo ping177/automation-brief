@@ -373,7 +373,9 @@ python main.py
 
 `feeds.json` 只配置 RSS 源，`keywords.json` 只配置分类和关键词。版面、数量、摘要长度等输出控制都放在 `config.json`。
 
-## 使用 launchd 每天定时运行
+## v0.3.1 本地定时运行
+
+v0.3.1 只做本地定时自动运行：每天早上调用 `main.py` 生成 `output/daily-news-YYYY-MM-DD.md`。这一版不接推送、不接 AI，也不改变日报筛选规则。
 
 假设项目路径是：
 
@@ -381,22 +383,46 @@ python main.py
 /Users/wp/Projects/自动化简报
 ```
 
-先确认脚本可以手动运行：
+### 手动测试脚本
+
+先确认虚拟环境和配置文件已经准备好，然后直接运行脚本：
 
 ```bash
 cd /Users/wp/Projects/自动化简报
-source .venv/bin/activate
-python main.py
+chmod +x scripts/run_daily_digest.sh
+scripts/run_daily_digest.sh
 ```
 
-创建 plist 文件：
+生成结果会写入：
+
+```text
+output/daily-news-YYYY-MM-DD.md
+```
+
+程序日志仍写入：
+
+```text
+daily-news.log
+```
+
+### 安装 launchd 定时任务
+
+项目提供了示例 plist：
+
+```text
+scripts/com.ping.automation-brief.daily.plist.example
+```
+
+复制到 `~/Library/LaunchAgents/`：
 
 ```bash
 mkdir -p ~/Library/LaunchAgents
-nano ~/Library/LaunchAgents/com.wp.daily-news.plist
+cp scripts/com.ping.automation-brief.daily.plist.example ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
 ```
 
-写入以下内容。示例为每天早上 8:00 运行：
+如果你的项目路径不是 `/Users/wp/Projects/自动化简报`，需要编辑 plist 中的 `ProgramArguments`、`WorkingDirectory`、`StandardOutPath` 和 `StandardErrorPath`。
+
+示例配置为每天早上 08:00 运行：
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -404,16 +430,15 @@ nano ~/Library/LaunchAgents/com.wp.daily-news.plist
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.wp.daily-news</string>
-
-  <key>WorkingDirectory</key>
-  <string>/Users/wp/Projects/自动化简报</string>
+  <string>com.ping.automation-brief.daily</string>
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/wp/Projects/自动化简报/.venv/bin/python</string>
-    <string>/Users/wp/Projects/自动化简报/main.py</string>
+    <string>/Users/wp/Projects/自动化简报/scripts/run_daily_digest.sh</string>
   </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/wp/Projects/自动化简报</string>
 
   <key>StartCalendarInterval</key>
   <dict>
@@ -424,36 +449,44 @@ nano ~/Library/LaunchAgents/com.wp.daily-news.plist
   </dict>
 
   <key>StandardOutPath</key>
-  <string>/Users/wp/Projects/自动化简报/launchd.out.log</string>
+  <string>/Users/wp/Projects/自动化简报/daily-digest.launchd.out.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/Users/wp/Projects/自动化简报/launchd.err.log</string>
+  <string>/Users/wp/Projects/自动化简报/daily-digest.launchd.err.log</string>
 </dict>
 </plist>
 ```
 
-加载定时任务：
+加载任务：
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.wp.daily-news.plist
+launchctl load ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
 ```
 
 立即测试运行一次：
 
 ```bash
-launchctl start com.wp.daily-news
+launchctl start com.ping.automation-brief.daily
 ```
 
-查看是否生成：
+### 查看日志
+
+查看程序日志和 launchd 的 stdout/stderr：
 
 ```bash
 ls output
 tail -n 50 daily-news.log
+tail -n 50 daily-digest.launchd.out.log
+tail -n 50 daily-digest.launchd.err.log
 ```
 
-如果修改了 plist，先卸载再重新加载：
+### 停用定时任务
+
+停用并移除 plist：
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.wp.daily-news.plist
-launchctl load ~/Library/LaunchAgents/com.wp.daily-news.plist
+launchctl unload ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
+rm ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
 ```
+
+如果只是修改 plist，需要先卸载再重新加载。

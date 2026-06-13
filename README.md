@@ -379,6 +379,8 @@ v0.3.1 只做本地定时自动运行：每天早上调用 `main.py` 生成 `out
 
 当前验证状态：LaunchAgent 已验证可在 08:00 自动触发，并成功生成当日 Markdown 简报。
 
+v0.3.2 在日报生成成功后增加 Bark 简短通知。推送只包含“日报已生成”和输出文件路径，不发送完整 Markdown 正文。
+
 假设项目路径是：
 
 ```text
@@ -406,6 +408,30 @@ output/daily-news-YYYY-MM-DD.md
 ```text
 daily-news.log
 ```
+
+### 配置 Bark 推送
+
+在 iPhone 安装 Bark，允许通知，然后复制 Bark 提供的推送地址。可以先用 curl 测试手机是否能收到通知：
+
+```bash
+curl "https://api.day.app/你的key/test"
+```
+
+复制示例环境文件：
+
+```bash
+cp .env.example .env
+```
+
+把 Bark 地址写入本地 `.env`：
+
+```text
+BARK_URL=https://api.day.app/你的key
+```
+
+`.env` 已在 `.gitignore` 中，不要提交，也不要把真实 Bark key 写入 README、示例配置或其他会提交的文件。
+
+如果 `.env` 不存在或 `BARK_URL` 为空，程序会跳过推送，不影响日报生成。Bark 推送失败时也不会让已生成的日报失效，错误会写到 stderr，方便在 launchd err log 中查看。
 
 ### 安装 launchd 定时任务
 

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import re
 import sys
 from datetime import date
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
+from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 
 
@@ -45,12 +46,26 @@ def find_displayed_items(markdown_path: Path) -> str:
     return ""
 
 
-def build_bark_url(base_url: str, title: str, body: str) -> str:
-    return f"{base_url.rstrip('/')}/{quote(title, safe='')}/{quote(body, safe='')}"
+def build_obsidian_uri(vault_name: str, relative_dir: str, report_name: str) -> str:
+    relative_path = f"{relative_dir.strip('/')}/{report_name}"
+    query = urlencode({"vault": vault_name, "file": relative_path}, quote_via=quote)
+    return f"obsidian://open?{query}"
 
 
-def send_notification(bark_url: str, title: str, body: str) -> None:
-    request = Request(build_bark_url(bark_url, title, body), headers={"User-Agent": "daily-news-automation"})
+def send_notification(bark_url: str, title: str, body: str, url: str = "") -> None:
+    payload = {"title": title, "body": body}
+    if url:
+        payload["url"] = url
+
+    request = Request(
+        bark_url.rstrip("/"),
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "User-Agent": "daily-news-automation",
+        },
+        method="POST",
+    )
     with urlopen(request, timeout=15) as response:
         response.read()
 
@@ -72,8 +87,14 @@ def main() -> int:
     if displayed_items:
         body_parts.append(f"Displayed items: {displayed_items}")
 
+    obsidian_uri = ""
+    vault_name = load_env_value(ENV_FILE, "OBSIDIAN_VAULT_NAME")
+    mobile_digest_relative_path = load_env_value(ENV_FILE, "MOBILE_DIGEST_RELATIVE_PATH")
+    if vault_name and mobile_digest_relative_path:
+        obsidian_uri = build_obsidian_uri(vault_name, mobile_digest_relative_path, report_path.name)
+
     try:
-        send_notification(bark_url, TITLE, "\n".join(body_parts))
+        send_notification(bark_url, TITLE, "\n".join(body_parts), obsidian_uri)
     except HTTPError as exc:
         print(f"Bark notification failed: HTTP {exc.code} {exc.reason}", file=sys.stderr)
         return 1
@@ -84,7 +105,10 @@ def main() -> int:
         print("Bark notification failed: request timed out", file=sys.stderr)
         return 1
 
-    print("Bark notification sent.")
+    if obsidian_uri:
+        print("Bark notification sent with Obsidian URL.")
+    else:
+        print("Bark notification sent.")
     return 0
 
 

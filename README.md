@@ -377,6 +377,8 @@ python main.py
 
 v0.3.1 只做本地定时自动运行：每天早上调用 `main.py` 生成 `output/daily-news-YYYY-MM-DD.md`。这一版不接推送、不接 AI，也不改变日报筛选规则。
 
+当前验证状态：LaunchAgent 已验证可在 08:00 自动触发，并成功生成当日 Markdown 简报。
+
 假设项目路径是：
 
 ```text
@@ -460,13 +462,21 @@ cp scripts/com.ping.automation-brief.daily.plist.example ~/Library/LaunchAgents/
 加载任务：
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
 ```
 
-立即测试运行一次：
+验证是否加载成功：
 
 ```bash
-launchctl start com.ping.automation-brief.daily
+launchctl print gui/$(id -u)/com.ping.automation-brief.daily
+launchctl list | grep automation-brief
+launchctl print gui/$(id -u)/com.ping.automation-brief.daily | grep -E "runs|last exit code|state"
+```
+
+立即手动触发 launchd 运行一次：
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.ping.automation-brief.daily
 ```
 
 ### 查看日志
@@ -480,13 +490,47 @@ tail -n 50 daily-digest.launchd.out.log
 tail -n 50 daily-digest.launchd.err.log
 ```
 
+查看 launchd 运行状态：
+
+```bash
+launchctl print gui/$(id -u)/com.ping.automation-brief.daily | grep -E "runs|last exit code|state"
+```
+
+### 睡眠和自动唤醒
+
+Mac 睡眠时不保证 08:00 准点运行。唤醒后 launchd 可能补跑，但不能保证在你打开电脑前已经生成日报。
+
+测试定时任务时，建议在计划时间前唤醒电脑并保持联网。也可以临时保持唤醒 1 小时：
+
+```bash
+caffeinate -dimsu -t 3600
+```
+
+如果想长期稳定地在早上生成，可以考虑配合 `pmset` 设置自动唤醒。查看现有计划：
+
+```bash
+pmset -g sched
+```
+
+每天 07:55 唤醒：
+
+```bash
+sudo pmset repeat wake MTWRFSU 7:55:00
+```
+
+取消自动唤醒：
+
+```bash
+sudo pmset repeat cancel
+```
+
 ### 停用定时任务
 
 停用并移除 plist：
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
 rm ~/Library/LaunchAgents/com.ping.automation-brief.daily.plist
 ```
 
-如果只是修改 plist，需要先卸载再重新加载。
+如果只是修改 plist，需要先 `bootout` 再重新 `bootstrap`。

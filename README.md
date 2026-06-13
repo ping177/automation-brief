@@ -381,6 +381,8 @@ v0.3.1 只做本地定时自动运行：每天早上调用 `main.py` 生成 `out
 
 v0.3.2 在日报生成成功后增加 Bark 简短通知。推送只包含“日报已生成”和输出文件路径，不发送完整 Markdown 正文。
 
+v0.3.3-alpha 在日报生成成功后额外复制一份 Markdown 到本地 Obsidian iCloud vault，方便 iPhone 上打开 Obsidian 阅读完整日报。这一版还不保证 Bark 点击直达，点击打开留到 v0.3.3-beta。
+
 假设项目路径是：
 
 ```text
@@ -432,6 +434,26 @@ BARK_URL=https://api.day.app/你的key
 `.env` 已在 `.gitignore` 中，不要提交，也不要把真实 Bark key 写入 README、示例配置或其他会提交的文件。
 
 如果 `.env` 不存在或 `BARK_URL` 为空，程序会跳过推送，不影响日报生成。Bark 推送失败时也不会让已生成的日报失效，错误会写到 stderr，方便在 launchd err log 中查看。
+
+### 配置 Obsidian iCloud 同步
+
+在 `.env` 中配置手机可同步的 Obsidian iCloud 目录：
+
+```text
+MOBILE_DIGEST_DIR="~/Library/Mobile Documents/iCloud~md~obsidian/Documents/MindPalace/10 Atlas/Sources/每日早间回顾"
+```
+
+路径包含空格或中文时，建议用双引号包裹。真实路径只写在本地 `.env`，不要提交。
+
+同步脚本会在 `main.py` 成功生成日报后，把当天文件复制到该目录，文件名保持：
+
+```text
+daily-news-YYYY-MM-DD.md
+```
+
+如果 `MOBILE_DIGEST_DIR` 为空，程序会跳过同步，不影响日报生成，也不影响 Bark 推送。同步失败会写到 stderr，方便在 launchd err log 中查看。
+
+手机端需要打开 Obsidian，并等待 iCloud 同步完成后，才能看到完整日报。v0.3.3-alpha 只保证文件会复制到 iCloud 目录，不保证 Bark 通知点击后直接打开 Obsidian 文件。
 
 ### 安装 launchd 定时任务
 

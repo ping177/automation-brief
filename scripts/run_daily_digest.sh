@@ -14,6 +14,10 @@ fi
 cd "$PROJECT_DIR"
 "$PYTHON_BIN" "$PROJECT_DIR/main.py"
 
+if ! "$PYTHON_BIN" "$PROJECT_DIR/scripts/publish_mobile_digest.py"; then
+  echo "Mobile digest sync failed; daily report was already generated." >&2
+fi
+
 if ! "$PYTHON_BIN" "$PROJECT_DIR/scripts/send_bark_notification.py"; then
   echo "Bark notification failed; daily report was already generated." >&2
 fi

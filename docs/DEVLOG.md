@@ -1,0 +1,176 @@
+# automation-brief 开发日志
+
+本文记录 automation-brief 从 v0.2 到 v0.3.3-beta 的主要开发节点、验证结果和阶段结论。
+
+## 当前最终链路
+
+```text
+08:00 自动生成日报
+→ 同步到 Obsidian iCloud
+→ Bark 推送提醒
+→ 点击通知直达 Obsidian 当天日报
+```
+
+## 当前结论
+
+v0.3.3-beta 已经形成可用闭环。下一步不急着继续加功能，建议观察 2-3 天真实早间运行稳定性，重点看 launchd 触发、RSS 抓取、iCloud 同步和 Bark 跳转是否都稳定。
+
+## v0.2 规则版日报收口
+
+### 目标
+
+完成不依赖 AI 的规则版日报：RSS → 规则过滤 → Markdown 输出，让每日早间回顾具备稳定、可解释、可本地运行的基本能力。
+
+### 实际改动
+
+- 从 `feeds.json` 配置 RSS 源抓取文章。
+- 根据 `keywords.json` 和 `config.json` 执行规则过滤、分类和数量控制。
+- 输出 `output/daily-news-YYYY-MM-DD.md`。
+- 收口 digest 模式的栏目结构：昨日最重要的事、昨日市场信号、今天值得关注的变量、快速扫读、一句话主线、抓取失败。
+- 解决旧新闻过滤问题，避免旧链接或旧内容混入“过去 24 小时”的日报。
+- 增加快速扫读，用于承接未进入核心栏目的可扫读内容。
+- 增加栏目隔离，避免快讯、市场、科技产业和 AI 工具源互相污染。
+- 增加低价值内容过滤，减少普通活动、泛宣传、普通社会个案、体育娱乐等内容进入 digest。
+
+### 验证结果
+
+- 规则版 Markdown 输出可稳定生成。
+- 离线 smoke 覆盖了旧新闻过滤、栏目隔离、市场信号、今日变量、快速扫读和低价值内容过滤等关键行为。
+- 多轮规则收紧后，误入核心栏目的泛科技、AI 工具、普通活动和低价值内容明显减少。
+
+### 结论
+
+规则版可用，不继续无限调规则。v0.2 的重点从“继续微调规则”转为“让日报稳定自动运行和可阅读”。
+
+### 后续备注
+
+- 后续不再轻易扩大筛选规则范围。
+- 如需调整规则，应基于连续多天真实样本，而不是单条偶发误判。
+- 暂不接 AI，保留规则版的可解释性和低成本优势。
+
+## v0.3.1 本地定时运行
+
+### 目标
+
+让日报每天早上自动运行，不依赖手动执行命令。
+
+### 实际改动
+
+- 新增 `scripts/run_daily_digest.sh`，进入项目目录后使用项目 `.venv` 执行 `main.py`。
+- 新增 launchd plist 示例，配置每天 08:00 调用脚本。
+- README 增加本地定时运行说明。
+- README 补充现代 macOS 更稳的 launchd 命令：`bootstrap`、`print`、`kickstart`、`bootout`。
+- README 增加睡眠说明、`caffeinate` 临时保持唤醒和 `pmset` 自动唤醒说明。
+
+### 验证结果
+
+- 已验证 LaunchAgent 加载成功。
+- 已验证早上 08:00 自动触发。
+- 已验证自动生成当日 Markdown 简报。
+
+### 结论
+
+v0.3.1 完成了“本地自动生成”的基础能力，日报从手动工具变成可定时运行的本地自动化。
+
+### 后续备注
+
+- Mac 睡眠时不保证 08:00 准点运行。
+- 若需要确保早上打开手机前已经生成，可配合 `pmset` 自动唤醒。
+- launchd 日志和 `daily-news.log` 是排查定时问题的主要入口。
+
+## v0.3.2 Bark 推送接入
+
+### 目标
+
+日报生成成功后向手机发送简短提醒，让用户知道今天的日报已经完成。
+
+### 实际改动
+
+- 新增 `scripts/send_bark_notification.py`。
+- 从本地 `.env` 读取 `BARK_URL`。
+- 新增 `.env.example` 中的 `BARK_URL=` 示例字段。
+- `scripts/run_daily_digest.sh` 在 `main.py` 成功后调用 Bark 通知脚本。
+- Bark 推送失败不阻断日报生成结果。
+- README 增加 Bark 配置、curl 测试和 `.env` 不提交说明。
+
+### 验证结果
+
+- 已验证 iPhone 收到“每日早间回顾已生成”通知。
+- 已验证 `.env` 中的 Bark key 不进入 README、示例配置或提交文件。
+- 已验证通知失败不会改变日报已经生成的事实。
+
+### 结论
+
+v0.3.2 完成了“生成后提醒”的能力，解决了用户需要主动检查 output 的问题。
+
+### 后续备注
+
+- 限制：通知本身不包含完整正文。
+- 限制：这一版不能直接打开 Mac 本地 Markdown。
+- 不推送完整 Markdown，避免通知过长，也避免把日报正文塞进推送渠道。
+
+## v0.3.3-alpha 同步到 Obsidian iCloud
+
+### 目标
+
+让 iPhone 能阅读完整日报，而不是只收到一条提醒。
+
+### 实际改动
+
+- 新增 `scripts/publish_mobile_digest.py`。
+- 从本地 `.env` 读取 `MOBILE_DIGEST_DIR`。
+- `main.py` 成功生成日报后，额外复制一份 Markdown 到 Obsidian iCloud 目录。
+- 目标目录为 MindPalace vault 内的 `10 Atlas/Sources/每日早间回顾/`。
+- 文件名保持 `daily-news-YYYY-MM-DD.md`，和 `output/` 中的文件一一对应。
+- 同步失败不阻断 Bark 推送，也不影响日报已经生成的事实。
+- README 增加 Obsidian iCloud 同步配置说明。
+
+### 验证结果
+
+- 已验证 `output/` 中生成当日日报。
+- 已验证 Obsidian iCloud 目标目录出现同名日报。
+- 已验证同步文件与 `output/` 文件内容一致。
+- 已验证 iPhone Obsidian 可以打开并看到完整 Markdown。
+
+### 结论
+
+v0.3.3-alpha 完成了“手机可阅读完整日报”的能力。日报已经从 Mac 本地文件扩展为可在 iPhone Obsidian 中阅读的内容。
+
+### 后续备注
+
+- iCloud 同步需要时间，手机端打开 Obsidian 后可能需要等待。
+- 这一版不保证 Bark 点击直达，只保证 Obsidian 中能看到完整日报。
+- Obsidian 目录由 `.env` 配置，不把本机绝对路径写进代码。
+
+## v0.3.3-beta Bark 点击直达 Obsidian
+
+### 目标
+
+让 Bark 通知不仅提醒日报已生成，还能点击后直接打开 iPhone Obsidian 中的当天日报。
+
+### 实际改动
+
+- `scripts/send_bark_notification.py` 改用 Bark JSON POST。
+- Bark payload 增加 `url` 字段。
+- 从 `.env` 读取 `OBSIDIAN_VAULT_NAME` 和 `MOBILE_DIGEST_RELATIVE_PATH`。
+- 根据当天日期拼出 vault 内相对路径：`10 Atlas/Sources/每日早间回顾/daily-news-YYYY-MM-DD.md`。
+- 使用标准库 URL 编码生成 Obsidian URI。
+- 若 Obsidian 配置缺失，仍发送普通 Bark 通知，不带点击跳转。
+- README 增加 Obsidian URI、iPhone 前置条件和跳转排查说明。
+
+### 验证结果
+
+- 已验证日报生成成功。
+- 已验证日报同步到 Obsidian iCloud 目标目录。
+- 已验证 Bark 手机收到通知。
+- 已验证点击 Bark 通知可以直接打开 iPhone Obsidian 中的当天日报。
+
+### 结论
+
+v0.3.3-beta 完成了当前闭环：自动生成、手机同步、手机提醒、点击直达阅读。
+
+### 后续备注
+
+- 该能力依赖 iPhone 已安装 Obsidian，并已打开或登录过 `MindPalace` vault。
+- 若点击不跳转，优先确认 vault 名称、相对路径和 iCloud 同步状态。
+- 下一步建议先观察 2-3 天真实早间运行稳定性，再决定是否继续扩展功能。

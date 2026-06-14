@@ -437,6 +437,12 @@ BARK_URL=https://api.day.app/你的key
 
 如果 `.env` 不存在或 `BARK_URL` 为空，程序会跳过推送，不影响日报生成。Bark 推送失败时也不会让已生成的日报失效，错误会写到 stderr，方便在 launchd err log 中查看。
 
+Bark 推送依赖网络。如果 Mac 早上刚唤醒时网络或 SSL 连接短暂不稳定，脚本会自动重试最多 3 次。若重试后仍失败，可以在网络恢复后手动补发：
+
+```bash
+.venv/bin/python scripts/send_bark_notification.py
+```
+
 ### 配置 Obsidian iCloud 同步
 
 在 `.env` 中配置手机可同步的 Obsidian iCloud 目录：

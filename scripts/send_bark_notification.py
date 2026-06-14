@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import time
 from datetime import date
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -14,6 +15,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = PROJECT_DIR / ".env"
 OUTPUT_DIR = PROJECT_DIR / "output"
 TITLE = "每日早间回顾已生成"
+MAX_ATTEMPTS = 3
+RETRY_DELAYS_SECONDS = (10, 20)
 
 
 def load_env_value(path: Path, key: str) -> str:
@@ -70,6 +73,16 @@ def send_notification(bark_url: str, title: str, body: str, url: str = "") -> No
         response.read()
 
 
+def format_notification_error(exc: BaseException) -> str:
+    if isinstance(exc, HTTPError):
+        return f"HTTP {exc.code} {exc.reason}"
+    if isinstance(exc, URLError):
+        return str(exc.reason)
+    if isinstance(exc, TimeoutError):
+        return "request timed out"
+    return str(exc)
+
+
 def main() -> int:
     bark_url = load_env_value(ENV_FILE, "BARK_URL")
     if not bark_url:
@@ -93,17 +106,27 @@ def main() -> int:
     if vault_name and mobile_digest_relative_path:
         obsidian_uri = build_obsidian_uri(vault_name, mobile_digest_relative_path, report_path.name)
 
-    try:
-        send_notification(bark_url, TITLE, "\n".join(body_parts), obsidian_uri)
-    except HTTPError as exc:
-        print(f"Bark notification failed: HTTP {exc.code} {exc.reason}", file=sys.stderr)
-        return 1
-    except URLError as exc:
-        print(f"Bark notification failed: {exc.reason}", file=sys.stderr)
-        return 1
-    except TimeoutError:
-        print("Bark notification failed: request timed out", file=sys.stderr)
-        return 1
+    body = "\n".join(body_parts)
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            send_notification(bark_url, TITLE, body, obsidian_uri)
+            break
+        except (HTTPError, URLError, TimeoutError, OSError) as exc:
+            error_message = format_notification_error(exc)
+            if attempt >= MAX_ATTEMPTS:
+                print(
+                    f"Bark notification failed after {MAX_ATTEMPTS} attempts: {error_message}",
+                    file=sys.stderr,
+                )
+                return 1
+
+            delay = RETRY_DELAYS_SECONDS[attempt - 1]
+            print(
+                f"Bark notification attempt {attempt}/{MAX_ATTEMPTS} failed: "
+                f"{error_message}; retrying in {delay}s",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
 
     if obsidian_uri:
         print("Bark notification sent with Obsidian URL.")

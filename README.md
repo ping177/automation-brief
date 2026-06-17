@@ -575,7 +575,37 @@ launchctl print gui/$(id -u)/com.ping.automation-brief.daily | grep -E "runs|las
 
 ### 睡眠和自动唤醒
 
-Mac 睡眠时不保证 08:00 准点运行。唤醒后 launchd 可能补跑，但不能保证在你打开电脑前已经生成日报。
+v0.3.5 已验证 `pmset` 自动唤醒配合 launchd 可以完成无人值守运行：
+
+```text
+Mac 睡眠
+→ 07:58 pmset 自动唤醒
+→ 08:00 launchd 自动运行
+→ scripts/run_daily_digest.sh
+→ main.py 生成每日早间回顾 Markdown
+→ publish_mobile_digest.py 同步到 Obsidian iCloud
+→ send_bark_notification.py 发送 Bark 推送
+→ 点击 Bark 通知直达 iPhone Obsidian 当天日报
+```
+
+已验证在不合盖、睡眠状态下，Mac 可以自动唤醒并在 08:00 由 launchd 成功运行。该链路不需要 Codex、浏览器或终端保持打开。
+
+需要保持：
+
+- Mac 不关机
+- 用户账号已登录过
+- launchd 任务仍加载
+- `pmset` 自动唤醒计划仍存在
+- 网络可用
+- 项目目录和 `.env` 未移动或删除
+
+可以关闭：
+
+- Codex
+- 浏览器
+- 终端
+
+Mac 睡眠时若没有配置自动唤醒，不保证 08:00 准点运行。唤醒后 launchd 可能补跑，但不能保证在你打开电脑前已经生成日报。
 
 测试定时任务时，建议在计划时间前唤醒电脑并保持联网。也可以临时保持唤醒 1 小时：
 
@@ -583,16 +613,23 @@ Mac 睡眠时不保证 08:00 准点运行。唤醒后 launchd 可能补跑，但
 caffeinate -dimsu -t 3600
 ```
 
-如果想长期稳定地在早上生成，可以考虑配合 `pmset` 设置自动唤醒。查看现有计划：
+如果想长期稳定地在早上生成，可以配合 `pmset` 设置自动唤醒。查看现有计划：
 
 ```bash
 pmset -g sched
 ```
 
-每天 07:55 唤醒：
+每天 07:58 唤醒：
 
 ```bash
-sudo pmset repeat wake MTWRFSU 7:55:00
+sudo pmset repeat wakeorpoweron MTWRFSU 07:58:00
+```
+
+`pmset -g sched` 中看到类似下面的输出，表示每天 07:58 会自动唤醒或开机：
+
+```text
+Repeating power events:
+  wakepoweron at 7:58AM every day
 ```
 
 取消自动唤醒：

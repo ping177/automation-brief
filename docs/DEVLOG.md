@@ -217,3 +217,63 @@ v0.3.3-beta 已形成可用闭环，并已补充 DEVLOG。
 ### 结论
 
 v0.3.4 提升了早上网络刚恢复时 Bark 推送的稳定性。若 3 次重试后仍失败，说明网络或 Bark 服务仍不可用，可在网络稳定后手动执行通知脚本补发。
+
+## v0.3.5 自动唤醒运行条件记录
+
+### 背景
+
+当前链路已经真实验证通过：
+
+```text
+Mac 睡眠
+→ 07:58 pmset 自动唤醒
+→ 08:00 launchd 自动运行
+→ scripts/run_daily_digest.sh
+→ main.py 生成每日早间回顾 Markdown
+→ publish_mobile_digest.py 同步到 Obsidian iCloud
+→ send_bark_notification.py 发送 Bark 推送
+→ 点击 Bark 通知直达 iPhone Obsidian 当天日报
+```
+
+已执行：
+
+```bash
+sudo pmset repeat wakeorpoweron MTWRFSU 07:58:00
+```
+
+`pmset -g sched` 显示：
+
+```text
+Repeating power events:
+  wakepoweron at 7:58AM every day
+```
+
+### 验证结果
+
+- 不合盖、睡眠状态下，Mac 可以自动唤醒。
+- 08:00 launchd 成功运行。
+- Bark 成功推送。
+- Obsidian iCloud 中出现当天日报。
+- Codex 不需要打开。
+- 浏览器、终端也不需要打开。
+
+### 运行条件
+
+需要保持：
+
+- Mac 不关机。
+- 用户账号已登录过。
+- launchd 任务仍加载。
+- `pmset` 自动唤醒计划仍存在。
+- 网络可用。
+- 项目目录和 `.env` 未移动或删除。
+
+可以关闭：
+
+- Codex。
+- 浏览器。
+- 终端。
+
+### 结论
+
+v0.3.5 不修改 Python 或 shell 运行逻辑，只补充自动唤醒运行条件和验证记录。当前自动化闭环已经可以在 Mac 睡眠后自动唤醒、生成日报、同步到 Obsidian iCloud，并通过 Bark 点击直达 iPhone Obsidian 当天日报。

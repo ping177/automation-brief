@@ -3,16 +3,19 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import main as main_module  # noqa: E402
 from main import (  # noqa: E402
     NewsItem,
     ReportConfig,
     build_digest_sections,
     extract_url_date,
+    fetch_feed,
     market_impact,
     one_line_theme,
     quick_scan_type,
@@ -27,6 +30,7 @@ def make_item(
     link: str = "https://example.com",
     source: str | None = None,
     feed_name: str | None = None,
+    matched_keywords: dict[str, list[str]] | None = None,
 ) -> NewsItem:
     source_name = source or f"测试源-{link.rsplit('/', 1)[-1]}"
     return NewsItem(
@@ -38,7 +42,7 @@ def make_item(
         published_at=datetime.now(timezone.utc),
         link=link,
         summary=summary,
-        matched_keywords={},
+        matched_keywords=matched_keywords or {},
     )
 
 
@@ -46,15 +50,31 @@ def all_links(sections) -> list[str]:
     return [item.link for item in sections.core + sections.market + sections.watch + sections.quick_scan]
 
 
+def section_for_link(sections, link: str) -> str:
+    if link in [item.link for item in sections.core]:
+        return "core_event"
+    if link in [item.link for item in sections.market]:
+        return "market_signal"
+    if link in [item.link for item in sections.watch]:
+        return "watch_item"
+    if link in [item.link for item in sections.quick_scan]:
+        return "quick_scan"
+    return "drop"
+
+
 def main() -> None:
     config = ReportConfig(report_type="digest", max_quick_scan_items=20)
+    today = datetime.now(timezone.utc).date()
+    fresh_chinanews_world_url = f"https://www.chinanews.com.cn/gj/{today:%Y/%m-%d}/10638363.shtml"
+    fresh_chinanews_china_url = f"https://www.chinanews.com.cn/gn/{today:%Y/%m-%d}/10638357.shtml"
+
     assert extract_url_date("http://www.news.cn/fortune/2022-12/14/c_1129206426.htm").isoformat() == "2022-12-14"
-    assert extract_url_date("https://www.chinanews.com.cn/gj/2026/06-11/10638363.shtml").isoformat() == "2026-06-11"
+    assert extract_url_date(fresh_chinanews_world_url) == today
     assert stale_by_url_date("http://www.news.cn/fortune/2022-12/14/c_1129206426.htm", config)
     assert stale_by_url_date("http://www.xinhuanet.com/finance/2022-12/10/c_1129197454.htm", config)
     assert stale_by_url_date("http://www.news.cn/tech/2020-10/26/c_1126656082.htm", config)
-    assert not stale_by_url_date("https://www.chinanews.com.cn/gj/2026/06-11/10638363.shtml", config)
-    assert not stale_by_url_date("https://www.chinanews.com.cn/gn/2026/06-11/10638357.shtml", config)
+    assert not stale_by_url_date(fresh_chinanews_world_url, config)
+    assert not stale_by_url_date(fresh_chinanews_china_url, config)
 
     items = [
         make_item(
@@ -154,6 +174,57 @@ def main() -> None:
             role="market",
             link="https://example.com/spacex-valuation",
         ),
+        make_item(
+            "Visa to secure payments for shoppers on ChatGPT in OpenAI partnership",
+            summary=(
+                "Visa and OpenAI are working on ChatGPT payments for AI agents, "
+                "merchant checkout and agentic commerce."
+            ),
+            role="ai_industry",
+            link="https://example.com/visa-openai-chatgpt-payments",
+            source="AP News",
+            feed_name="TechCrunch AI",
+        ),
+        make_item(
+            "首届中国（宁夏）—中亚经贸对接交流会促农贸、新能源合作",
+            summary="多方参加交流会，推动农贸与新能源领域合作。",
+            role="global_tech_business",
+            link="https://example.com/ningxia-trade-meeting",
+            source="CNBC Technology",
+            feed_name="CNBC Technology",
+        ),
+        make_item(
+            "AI benchmark controversy raises questions about small model performance",
+            summary="Researchers debate whether a small model benchmark reflects real product performance.",
+            role="ai_industry",
+            link="https://example.com/ai-benchmark-small-model",
+            source="TechCrunch AI",
+            feed_name="TechCrunch AI",
+        ),
+        make_item(
+            "Why Weibo’s tiny VibeThinker-3B has the AI world arguing over benchmarks again",
+            summary="The small model performance debate focuses on benchmarks and technical comparisons.",
+            role="ai_industry",
+            link="https://example.com/weibo-vibethinker-benchmark",
+            source="VentureBeat AI",
+            feed_name="VentureBeat AI",
+        ),
+        make_item(
+            "Anthropic's Fable shutdown is a big moment for open-source AI",
+            summary="The discussion focuses on open-source AI, model access and product direction.",
+            role="ai_industry",
+            link="https://example.com/anthropic-fable-shutdown",
+            source="TechCrunch AI",
+            feed_name="TechCrunch AI",
+        ),
+        make_item(
+            "近千人参加人工智能产业论坛",
+            summary="论坛已经举行，多位嘉宾参加并讨论行业趋势。",
+            role="ai_industry",
+            link="https://example.com/ai-forum-attendance",
+            source="OpenAI News",
+            feed_name="OpenAI News",
+        ),
     ]
 
     sections = build_digest_sections(items, config)
@@ -193,13 +264,31 @@ def main() -> None:
     assert "https://example.com/dingtalk-ai" not in market_links
     assert "https://example.com/dingtalk-ai" in quick_links
     assert "https://example.com/spacex-valuation" in market_links
+    assert "https://example.com/visa-openai-chatgpt-payments" in links
+    assert "https://example.com/visa-openai-chatgpt-payments" in market_links
+    assert "https://example.com/ningxia-trade-meeting" not in market_links
+    assert "https://example.com/ningxia-trade-meeting" in quick_links
+    ningxia_trade_item = next(item for item in sections.quick_scan if item.link == "https://example.com/ningxia-trade-meeting")
+    assert "支付基础设施" not in market_impact(ningxia_trade_item)
+    assert "AI 商业化" not in market_impact(ningxia_trade_item)
+    assert "https://example.com/ai-benchmark-small-model" not in market_links
+    assert "https://example.com/ai-benchmark-small-model" in quick_links
+    assert "https://example.com/weibo-vibethinker-benchmark" not in market_links
+    assert "https://example.com/weibo-vibethinker-benchmark" in quick_links
+    assert "https://example.com/anthropic-fable-shutdown" not in market_links
+    assert "https://example.com/anthropic-fable-shutdown" in quick_links
+    assert "https://example.com/ai-forum-attendance" not in watch_links
     spacex_item = next(item for item in sections.market if item.link == "https://example.com/spacex-valuation")
+    visa_openai_item = next(
+        item for item in sections.market if item.link == "https://example.com/visa-openai-chatgpt-payments"
+    )
     assert "资本市场" in market_impact(spacex_item) or "估值" in market_impact(spacex_item)
+    assert "支付基础设施" in market_impact(visa_openai_item) or "AI 商业化" in market_impact(visa_openai_item)
     assert "AI 产业关注度" not in market_impact(spacex_item)
     assert "政策预期和相关板块发酵" not in one_line_theme(sections)
     assert "新能源、电力设备、风电" not in one_line_theme(sections)
     assert "科技成长方向是否延续" not in one_line_theme(sections)
-    assert one_line_theme(sections) == "主线信号仍不够集中，建议重点扫读政策、市场与科技产业动态的后续变化。"
+    assert one_line_theme(sections) == "市场信号较多但主线分散，建议重点观察股价、估值、业绩与政策相关线索。"
     assert len(links) == len(set(links))
 
     same_source_items = [
@@ -251,6 +340,164 @@ def main() -> None:
     )
     assert sum(1 for item in same_market_source_sections.market if item.source == "股票股市资讯") == 3
 
+    real_title_sections = build_digest_sections(
+        [
+            make_item(
+                "Why Weibo’s tiny VibeThinker-3B has the AI world arguing over benchmarks again",
+                summary=(
+                    "VibeThinker-3B created debate over small model performance, "
+                    "benchmarks and technical comparisons. A prior paragraph mentions "
+                    "that another AI company raised funding."
+                ),
+                role="ai_industry",
+                link="https://example.com/real-weibo-vibethinker",
+                source="VentureBeat AI",
+                feed_name="VentureBeat AI",
+                matched_keywords={"AI方向": ["AI", "OpenAI", "agent"]},
+            ),
+            make_item(
+                "Z.ai’s open-weights GLM-5.2 beats GPT-5.5 on multiple long-horizon coding benchmarks for 1/6th the cost",
+                summary=(
+                    "The article compares open-weights model performance on long-horizon coding benchmarks. "
+                    "Background context mentions valuation and revenue in the AI sector."
+                ),
+                role="ai_industry",
+                link="https://example.com/real-zai-glm-benchmark",
+                source="VentureBeat AI",
+                feed_name="VentureBeat AI",
+                matched_keywords={"AI方向": ["AI", "OpenAI", "agent"]},
+            ),
+            make_item(
+                "Databricks sales growth tops 80%, but margin are shrinking from swarm of AI agents",
+                summary="Databricks sales growth, revenue and margin pressure are tied to AI agent usage.",
+                role="ai_industry",
+                link="https://example.com/real-databricks-sales-margin",
+                source="CNBC Technology",
+                feed_name="CNBC Technology",
+                matched_keywords={"AI方向": ["AI", "agent"]},
+            ),
+            make_item(
+                "SpaceX rises 4% to leapfrog Amazon in market cap, closes short of Microsoft",
+                summary="SpaceX stock movement and market cap put its valuation close to Microsoft.",
+                role="global_tech_business",
+                link="https://example.com/real-spacex-market-cap",
+                source="CNBC Technology",
+                feed_name="CNBC Technology",
+                matched_keywords={"财经股票": ["stock", "market"]},
+            ),
+            make_item(
+                "SpaceX to acquire Cursor for $60B in stock, days after blockbuster IPO",
+                summary="The proposed stock deal would value Cursor at a billion-scale amount after its IPO.",
+                role="ai_industry",
+                link="https://example.com/real-spacex-cursor-acquisition",
+                source="TechCrunch AI",
+                feed_name="TechCrunch AI",
+                matched_keywords={"AI方向": ["AI", "agent"]},
+            ),
+            make_item(
+                "Visa to secure payments for shoppers on ChatGPT in OpenAI partnership",
+                summary="Visa and OpenAI are working on ChatGPT payments, merchant checkout and agentic commerce.",
+                role="ai_industry",
+                link="https://example.com/real-visa-openai-payments",
+                source="AP News",
+                feed_name="TechCrunch AI",
+                matched_keywords={"AI方向": ["OpenAI", "ChatGPT", "payment"]},
+            ),
+        ],
+        ReportConfig(report_type="digest", max_market_signals=10, max_quick_scan_items=10),
+    )
+    assert section_for_link(real_title_sections, "https://example.com/real-weibo-vibethinker") == "quick_scan"
+    assert section_for_link(real_title_sections, "https://example.com/real-zai-glm-benchmark") == "quick_scan"
+    assert section_for_link(real_title_sections, "https://example.com/real-databricks-sales-margin") == "market_signal"
+    assert section_for_link(real_title_sections, "https://example.com/real-spacex-market-cap") == "market_signal"
+    assert section_for_link(real_title_sections, "https://example.com/real-spacex-cursor-acquisition") == "market_signal"
+    assert section_for_link(real_title_sections, "https://example.com/real-visa-openai-payments") == "market_signal"
+    real_market_items = {item.link: item for item in real_title_sections.market}
+    databricks_reason = market_impact(real_market_items["https://example.com/real-databricks-sales-margin"])
+    spacex_reason = market_impact(real_market_items["https://example.com/real-spacex-market-cap"])
+    spacex_cursor_reason = market_impact(real_market_items["https://example.com/real-spacex-cursor-acquisition"])
+    assert "营收" in databricks_reason or "利润率" in databricks_reason or "sales" in databricks_reason
+    assert "估值" in spacex_reason or "market cap" in spacex_reason or "资本市场" in spacex_reason
+    assert "并购" in spacex_cursor_reason or "交易规模" in spacex_cursor_reason or "IPO" in spacex_cursor_reason
+    assert "支付基础设施" not in databricks_reason
+    assert "支付基础设施" not in spacex_reason
+    assert "支付基础设施" not in spacex_cursor_reason
+
+    dedup_sections = build_digest_sections(
+        [
+            make_item(
+                "SpaceX to acquire Cursor for $60B in stock, days after blockbuster IPO",
+                summary="The proposed stock deal would value Cursor at a billion-scale amount after its IPO.",
+                role="ai_industry",
+                link="https://example.com/dedup-spacex-cursor-techcrunch",
+                source="TechCrunch AI",
+                feed_name="TechCrunch AI",
+                matched_keywords={"AI方向": ["AI", "agent"]},
+            ),
+            make_item(
+                "SpaceX to acquire the AI coding startup Cursor for $60 billion",
+                summary="The acquisition would be structured as a stock deal.",
+                role="global_tech_business",
+                link="https://example.com/dedup-spacex-cursor-cnbc",
+                source="CNBC Technology",
+                feed_name="CNBC Technology",
+                matched_keywords={"AI方向": ["AI", "Cursor"]},
+            ),
+            make_item(
+                "中国人民银行宣布将出台六项政策措施",
+                summary="人民银行将出台政策措施，涉及货币政策、融资支持和市场预期。",
+                role="market",
+                link="https://example.com/dedup-pboc-policy-measures",
+                source="中国新闻网-财经新闻",
+                feed_name="中国新闻网-财经新闻",
+                matched_keywords={"财经股票": ["人民银行", "政策"]},
+            ),
+        ],
+        ReportConfig(report_type="digest", max_market_signals=2, max_quick_scan_items=10),
+    )
+    dedup_market_links = [item.link for item in dedup_sections.market]
+    dedup_quick_links = [item.link for item in dedup_sections.quick_scan]
+    assert sum(1 for link in dedup_market_links if "dedup-spacex-cursor" in link) == 1
+    assert sum(1 for link in dedup_market_links + dedup_quick_links if "dedup-spacex-cursor" in link) == 1
+    assert "https://example.com/dedup-pboc-policy-measures" in dedup_market_links
+
+    final_dedup_sections = build_digest_sections(
+        [
+            make_item(
+                "SpaceX to acquire Cursor for $60B in stock, days after blockbuster IPO",
+                summary="The proposed stock deal would value Cursor at a billion-scale amount after its IPO.",
+                role="ai_industry",
+                link="https://example.com/final-spacex-cursor-techcrunch",
+                source="TechCrunch AI",
+                feed_name="TechCrunch AI",
+                matched_keywords={"AI方向": ["AI", "agent"]},
+            ),
+            make_item(
+                "SpaceX to acquire the AI coding startup Cursor for $60 billion",
+                summary="The acquisition would be structured as a stock deal.",
+                role="global_tech_business",
+                link="https://example.com/final-spacex-cursor-cnbc",
+                source="CNBC Technology",
+                feed_name="CNBC Technology",
+                matched_keywords={"AI方向": ["AI", "Cursor"]},
+            ),
+            make_item(
+                "SpaceX rises 4% to leapfrog Amazon in market cap, closes short of Microsoft",
+                summary="SpaceX stock movement and market cap put its valuation close to Microsoft.",
+                role="global_tech_business",
+                link="https://example.com/final-spacex-market-cap",
+                source="CNBC Technology",
+                feed_name="CNBC Technology",
+                matched_keywords={"财经股票": ["stock", "market"]},
+            ),
+        ],
+        ReportConfig(report_type="digest", max_market_signals=2, max_quick_scan_items=10),
+    )
+    final_displayed_links = all_links(final_dedup_sections)
+    assert section_for_link(final_dedup_sections, "https://example.com/final-spacex-cursor-techcrunch") == "market_signal"
+    assert sum(1 for link in final_displayed_links if "final-spacex-cursor" in link) == 1
+    assert section_for_link(final_dedup_sections, "https://example.com/final-spacex-market-cap") == "market_signal"
+
     core_noise_sections = build_digest_sections(
         [
             make_item(
@@ -284,6 +531,47 @@ def main() -> None:
     assert "https://example.com/food-safety-policy" in core_noise_core_links
     assert "鹅腿阿姨" not in one_line_theme(core_noise_sections)
 
+    original_parse = main_module.feedparser.parse
+    try:
+        main_module.feedparser.parse = lambda url: SimpleNamespace(
+            bozo=False,
+            feed={"title": "Tech"},
+            entries=[
+                SimpleNamespace(
+                    title="OpenAI launches enterprise payments integration",
+                    link="https://example.com/cnbc-source-name",
+                    summary="OpenAI and Visa launch enterprise payments integration for merchants.",
+                    published="Wed, 17 Jun 2026 00:00:00 GMT",
+                    published_parsed=(2026, 6, 17, 0, 0, 0, 0, 0, 0),
+                )
+            ],
+        )
+        fetched = fetch_feed(
+            {
+                "name": "CNBC Technology",
+                "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html",
+                "mode": "all",
+                "role": "global_tech_business",
+            },
+            {},
+            datetime.now(timezone.utc).date(),
+            ReportConfig(report_type="digest"),
+        )
+        assert fetched[0].source == "CNBC Technology"
+    finally:
+        main_module.feedparser.parse = original_parse
+
+    print("Visa/OpenAI sample section: market_signal")
+    print(
+        "Real title samples: weibo=quick_scan, zai=quick_scan, "
+        "databricks=market_signal, spacex_market_cap=market_signal, spacex_cursor=market_signal"
+    )
+    print("Market dedup sample: spacex_cursor=1, pboc_policy=market_signal")
+    print(
+        "False-positive samples: trade_meeting=quick_scan, "
+        "weibo_benchmark=quick_scan, anthropic_fable=quick_scan, forum_attendance=not_watch"
+    )
+    print("Source name sample: CNBC Technology")
     print("offline digest smoke passed")
 
 

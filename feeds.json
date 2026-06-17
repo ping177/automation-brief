@@ -77,6 +77,34 @@
     "role": "tech_industry"
   },
   {
+    "name": "OpenAI News",
+    "url": "https://openai.com/news/rss.xml",
+    "category": "AI产业",
+    "mode": "all",
+    "role": "ai_industry"
+  },
+  {
+    "name": "TechCrunch AI",
+    "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "category": "AI产业",
+    "mode": "keyword",
+    "role": "ai_industry"
+  },
+  {
+    "name": "VentureBeat AI",
+    "url": "https://feeds.feedburner.com/venturebeat/SZYF",
+    "category": "AI产业",
+    "mode": "keyword",
+    "role": "ai_industry"
+  },
+  {
+    "name": "CNBC Technology",
+    "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html",
+    "category": "全球科技商业",
+    "mode": "keyword",
+    "role": "global_tech_business"
+  },
+  {
     "name": "GitHub Trending Python Daily",
     "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml",
     "category": "AI工具",

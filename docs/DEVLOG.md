@@ -277,3 +277,23 @@ Repeating power events:
 ### 结论
 
 v0.3.5 不修改 Python 或 shell 运行逻辑，只补充自动唤醒运行条件和验证记录。当前自动化闭环已经可以在 Mac 睡眠后自动唤醒、生成日报、同步到 Obsidian iCloud，并通过 Bark 点击直达 iPhone Obsidian 当天日报。
+
+## v0.4.1 RSS 覆盖和 source role 扩展
+
+### 背景
+
+v0.3.5 已收口自动唤醒、launchd、Obsidian iCloud 和 Bark 推送链路。后续问题转向信息覆盖和重要性判断。用户发现 Visa / OpenAI / ChatGPT 支付合作漏报，该事件属于 AI agent commerce、支付基础设施和 OpenAI 商业化的重要事件，当前中文 RSS + keyword 体系覆盖不足。
+
+### 实际改动
+
+- 新增 `global_tech_business` 和 `ai_industry` source role。
+- `global_tech_business` 和 `ai_industry` 可进入核心事件、市场信号、今日变量和快速扫读。
+- `ai_tools` 继续默认排除 daily digest，保留给未来 weekly AI tools radar。
+- 第一批新增 4 个 RSS 源：OpenAI News、TechCrunch AI、VentureBeat AI、CNBC Technology。
+- 补充 Visa、Mastercard、Stripe、PayPal、payments、checkout、commerce、agentic commerce、merchant、partnership、commercialization、Anthropic、Microsoft、Google、Nvidia、agent 等关键词和规则信号。
+- 新增 `docs/MISSED_CASES.md`，记录 Visa / OpenAI / ChatGPT 支付合作漏报案例。
+- 离线 smoke 增加 Visa / OpenAI / ChatGPT payments / agentic commerce 样本，验证不会被 drop。
+
+### 结论
+
+v0.4.1 只扩展 RSS 候选池、source role、关键词和漏报样本闭环，不引入 AI rerank，不修改 Bark、Obsidian、launchd 或 pmset 链路。

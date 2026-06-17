@@ -18,6 +18,18 @@
     "role": "tech_industry"
   },
   {
+    "name": "全球科技商业",
+    "url": "https://example.com/global-tech-business.rss",
+    "mode": "keyword",
+    "role": "global_tech_business"
+  },
+  {
+    "name": "AI产业",
+    "url": "https://example.com/ai-industry.rss",
+    "mode": "keyword",
+    "role": "ai_industry"
+  },
+  {
     "name": "GitHub Trending Python Daily",
     "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml",
     "mode": "keyword",

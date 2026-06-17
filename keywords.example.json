@@ -3,12 +3,18 @@
     "AI",
     "artificial intelligence",
     "OpenAI",
+    "ChatGPT",
+    "Anthropic",
+    "agent",
     "LLM",
     "模型"
   ],
   "科技": [
     "technology",
     "software",
+    "Microsoft",
+    "Google",
+    "Nvidia",
     "芯片",
     "科技"
   ],
@@ -16,6 +22,9 @@
     "market",
     "stock",
     "economy",
+    "Visa",
+    "payment",
+    "commerce",
     "财经"
   ]
 }

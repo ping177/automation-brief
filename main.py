@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import re
+import time as time_module
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -20,6 +21,8 @@ DEFAULT_KEYWORDS_FILE = BASE_DIR / "keywords.json"
 DEFAULT_CONFIG_FILE = BASE_DIR / "config.json"
 DEFAULT_OUTPUT_DIR = BASE_DIR / "output"
 LOG_FILE = BASE_DIR / "daily-news.log"
+FEED_FETCH_ATTEMPTS = 2
+FEED_FETCH_RETRY_DELAY_SECONDS = 3
 
 
 @dataclass(frozen=True)
@@ -43,10 +46,28 @@ class ReportConfig:
     max_quick_scan_items: int = 10
     max_quick_scan_items_per_source: int = 3
     allow_tech_industry_in_market: bool = False
-    core_event_roles: tuple[str, ...] = ("breaking_news", "general")
-    market_signal_roles: tuple[str, ...] = ("market",)
-    watch_item_roles: tuple[str, ...] = ("market", "breaking_news", "general")
-    quick_scan_roles: tuple[str, ...] = ("breaking_news", "market", "tech_industry", "general")
+    core_event_roles: tuple[str, ...] = (
+        "breaking_news",
+        "general",
+        "global_tech_business",
+        "ai_industry",
+    )
+    market_signal_roles: tuple[str, ...] = ("market", "global_tech_business", "ai_industry")
+    watch_item_roles: tuple[str, ...] = (
+        "market",
+        "breaking_news",
+        "general",
+        "global_tech_business",
+        "ai_industry",
+    )
+    quick_scan_roles: tuple[str, ...] = (
+        "breaking_news",
+        "market",
+        "tech_industry",
+        "global_tech_business",
+        "ai_industry",
+        "general",
+    )
     quick_scan_exclude_roles: tuple[str, ...] = ("ai_tools",)
     quick_scan_low_value_patterns: tuple[str, ...] = (
         "体育",
@@ -298,9 +319,18 @@ def normalize_feeds(raw_feeds: Any) -> list[dict[str, str]]:
             raise ValueError(f"Feed #{index} must include non-empty name and url")
         if mode not in {"keyword", "all"}:
             raise ValueError(f"Feed #{index} mode must be either 'keyword' or 'all'")
-        if role not in {"breaking_news", "market", "tech_industry", "ai_tools", "general"}:
+        valid_roles = {
+            "breaking_news",
+            "market",
+            "tech_industry",
+            "global_tech_business",
+            "ai_industry",
+            "ai_tools",
+            "general",
+        }
+        if role not in valid_roles:
             raise ValueError(
-                f"Feed #{index} role must be one of breaking_news, market, tech_industry, ai_tools, general"
+                f"Feed #{index} role must be one of {', '.join(sorted(valid_roles))}"
             )
 
         feeds.append({"name": name, "url": url, "mode": mode, "role": role})
@@ -443,7 +473,7 @@ def fetch_feed(
     report_date: date,
     config: ReportConfig,
 ) -> list[NewsItem]:
-    parsed_feed = feedparser.parse(feed["url"])
+    parsed_feed = parse_feed_with_retry(feed)
     if parsed_feed.bozo:
         reason = getattr(parsed_feed, "bozo_exception", "Unknown feed parse error")
         if len(parsed_feed.entries) == 0:
@@ -457,7 +487,7 @@ def fetch_feed(
 
     items: list[NewsItem] = []
     stale_count = 0
-    source = clean_text(parsed_feed.feed.get("title", "")) or feed["name"]
+    source = feed["name"]
     for entry in parsed_feed.entries:
         title = clean_text(getattr(entry, "title", "Untitled"))
         link = normalize_link(getattr(entry, "link", ""))
@@ -496,6 +526,35 @@ def fetch_feed(
     if stale_count:
         logging.info("Filtered stale RSS items by URL date: %s (%s): %s", feed["name"], feed["url"], stale_count)
     return items
+
+
+def parse_feed_with_retry(feed: dict[str, str]) -> Any:
+    last_error: Optional[BaseException] = None
+    for attempt in range(1, FEED_FETCH_ATTEMPTS + 1):
+        try:
+            parsed_feed = feedparser.parse(feed["url"])
+        except Exception as exc:
+            last_error = exc
+        else:
+            if not parsed_feed.bozo or len(parsed_feed.entries) > 0:
+                return parsed_feed
+            last_error = getattr(parsed_feed, "bozo_exception", RuntimeError("Unknown feed parse error"))
+
+        if attempt < FEED_FETCH_ATTEMPTS:
+            logging.warning(
+                "RSS fetch attempt %s/%s failed: %s (%s): %s; retrying in %ss",
+                attempt,
+                FEED_FETCH_ATTEMPTS,
+                feed["name"],
+                feed["url"],
+                last_error,
+                FEED_FETCH_RETRY_DELAY_SECONDS,
+            )
+            time_module.sleep(FEED_FETCH_RETRY_DELAY_SECONDS)
+
+    if last_error:
+        raise RuntimeError(str(last_error))
+    raise RuntimeError("Unknown feed parse error")
 
 
 def collect_news(
@@ -617,8 +676,10 @@ MARKET_GENERIC_TERMS = ("资金", "资本", "财政", "金融")
 MARKET_STRONG_TERMS = (
     "财政部",
     "央行",
+    "人民银行",
     "货币政策",
     "财政政策",
+    "政策措施",
     "专项债",
     "国债",
     "地方债",
@@ -680,12 +741,17 @@ AI_TECH_CONTEXT_TERMS = (
     "Claude",
     "Anthropic",
     "OpenAI",
+    "ChatGPT",
     "SpaceX",
+    "Microsoft",
+    "Google",
+    "Nvidia",
     "科技",
     "创新",
     "产业",
     "模型",
     "LLM",
+    "agent",
 )
 CAPITAL_MARKET_TERMS = (
     "估值",
@@ -703,6 +769,16 @@ CAPITAL_MARKET_TERMS = (
     "回购",
     "减持",
     "增持",
+    "revenue",
+    "sales",
+    "margin",
+    "valuation",
+    "market cap",
+    "stock",
+    "shares",
+    "rises",
+    "rise",
+    "funding",
 )
 LOCAL_PROMO_TERMS = (
     "地方",
@@ -754,6 +830,27 @@ CORE_EVENT_TERMS = (
     "就业",
     "通胀",
     "贸易",
+    "支付",
+    "商业化",
+    "支付网络",
+    "Visa",
+    "Mastercard",
+    "Stripe",
+    "PayPal",
+    "payment",
+    "payments",
+    "checkout",
+    "commerce",
+    "agentic commerce",
+    "merchant",
+    "partnership",
+    "commercialization",
+    "OpenAI",
+    "ChatGPT",
+    "Anthropic",
+    "Microsoft",
+    "Google",
+    "Nvidia",
     "进出口",
     "GDP",
     "CPI",
@@ -861,6 +958,9 @@ WATCH_TERMS = (
     "议息",
     "财报发布",
     "数据发布",
+    "利率决议",
+    "政策落地",
+    "监管决定",
 )
 WATCH_VARIABLE_TERMS = (
     "政策",
@@ -902,10 +1002,59 @@ WATCH_VARIABLE_TERMS = (
     "发改委",
     "证监会",
     "交易所",
+    "OpenAI",
+    "ChatGPT",
+    "Visa",
+    "Mastercard",
+    "Stripe",
+    "PayPal",
+    "payment",
+    "payments",
+    "checkout",
+    "commerce",
+    "agentic commerce",
+    "merchant",
+    "partnership",
+    "commercialization",
 )
 WATCH_TIME_PATTERNS = (
     r"\d{1,2}月\d{1,2}日(?:公布|召开|举行|生效|落地|披露|开盘|到期)",
     r"\d{4}年\d{1,2}月\d{1,2}日(?:公布|召开|举行|生效|落地|披露|开盘|到期)",
+)
+WATCH_PAST_ACTIVITY_TERMS = (
+    "参加",
+    "出席",
+    "举行活动",
+    "举办活动",
+    "召开论坛",
+    "参加论坛",
+    "交流会",
+    "对接会",
+    "开幕式",
+    "吸引",
+    "参会",
+    "与会",
+)
+WATCH_STRONG_FUTURE_TERMS = (
+    "今日公布",
+    "今晚公布",
+    "明日公布",
+    "将公布",
+    "将召开",
+    "将举行",
+    "将生效",
+    "将落地",
+    "将披露",
+    "本周公布",
+    "本周召开",
+    "到期",
+    "投票",
+    "议息",
+    "财报发布",
+    "数据发布",
+    "利率决议",
+    "政策落地",
+    "监管决定",
 )
 PRODUCT_OR_CONSUMER_TERMS = (
     "新品",
@@ -932,6 +1081,11 @@ AI_IMPACT_TERMS = (
     "Gemini",
     "DeepSeek",
     "Anthropic",
+    "Microsoft",
+    "Google",
+    "Nvidia",
+    "ChatGPT",
+    "agent",
     "模型",
     "推理",
     "训练",
@@ -957,6 +1111,269 @@ OVERSEAS_RATE_TERMS = (
     "原油",
 )
 POLICY_TERMS = ("政策", "财政", "央行", "监管", "关税", "贸易", "会议", "决议", "落地")
+GLOBAL_TECH_DOMAIN_TERMS = (
+    "Visa",
+    "Mastercard",
+    "Stripe",
+    "PayPal",
+    "payment",
+    "payments",
+    "checkout",
+    "commerce",
+    "agentic commerce",
+    "shopping",
+    "merchant",
+    "commercialization",
+    "OpenAI",
+    "ChatGPT",
+    "Anthropic",
+    "Microsoft",
+    "Google",
+    "Nvidia",
+    "AI agent",
+    "agent",
+    "支付",
+    "支付网络",
+    "商业化",
+    "商户",
+)
+GLOBAL_TECH_ACTION_TERMS = (
+    "partnership",
+    "launch",
+    "launched",
+    "integration",
+    "integrates",
+    "revenue",
+    "valuation",
+    "funding",
+    "IPO",
+    "regulation",
+    "regulatory",
+    "antitrust",
+    "enterprise",
+    "cloud",
+    "chip",
+    "payment network",
+    "commerce",
+    "merchant",
+    "customer",
+    "customers",
+    "deal",
+    "distribution",
+    "platform",
+    "payments",
+    "checkout",
+    "commercialization",
+    "合作伙伴",
+    "发布",
+    "集成",
+    "整合",
+    "营收",
+    "估值",
+    "融资",
+    "监管",
+    "反垄断",
+    "企业客户",
+    "云",
+    "芯片",
+    "支付网络",
+    "商户",
+    "交易",
+    "收购",
+    "关闭",
+    "平台",
+    "分发",
+    "算力采购",
+    "商业化",
+)
+GLOBAL_TECH_BUSINESS_TERMS = GLOBAL_TECH_DOMAIN_TERMS + GLOBAL_TECH_ACTION_TERMS
+GLOBAL_TECH_CAPITAL_TERMS = (
+    "funding",
+    "raises",
+    "raised",
+    "valuation",
+    "IPO",
+    "revenue",
+    "sales",
+    "margin",
+    "market cap",
+    "融资",
+    "估值",
+    "上市",
+    "营收",
+    "销售额",
+    "利润率",
+    "市值",
+)
+GLOBAL_TECH_PAYMENT_TERMS = (
+    "Visa",
+    "Mastercard",
+    "Stripe",
+    "PayPal",
+    "payment",
+    "payments",
+    "checkout",
+    "commerce",
+    "merchant",
+    "payment network",
+    "支付",
+    "支付网络",
+    "商户",
+)
+GLOBAL_TECH_REGULATORY_TERMS = (
+    "regulation",
+    "regulatory",
+    "antitrust",
+    "lawsuit",
+    "ban",
+    "compliance",
+    "监管",
+    "反垄断",
+    "诉讼",
+    "禁令",
+    "合规",
+)
+GLOBAL_TECH_ENTERPRISE_TERMS = (
+    "enterprise",
+    "enterprise customers",
+    "cloud deal",
+    "chip order",
+    "compute deal",
+    "customer",
+    "customers",
+    "order",
+    "deal",
+    "cloud",
+    "chip",
+    "企业客户",
+    "云",
+    "芯片订单",
+    "算力采购",
+    "订单",
+)
+GLOBAL_TECH_PLATFORM_TERMS = (
+    "major platform integration",
+    "distribution channel",
+    "official commercial launch",
+    "commercial launch",
+    "platform integration",
+    "integration",
+    "distribution",
+    "platform",
+    "launch",
+    "launched",
+    "集成",
+    "分发",
+    "平台",
+    "商业发布",
+    "正式商业化发布",
+)
+GLOBAL_TECH_BUSINESS_IMPACT_TERMS = (
+    "business impact",
+    "enterprise",
+    "customers",
+    "revenue",
+    "sales",
+    "paid",
+    "commercial",
+    "product discontinuation",
+    "service shutdown",
+    "platform",
+    "业务影响",
+    "企业客户",
+    "客户",
+    "营收",
+    "付费",
+    "商业产品",
+    "产品停运",
+    "服务关闭",
+)
+GLOBAL_TECH_DEAL_TERMS = (
+    "acquire",
+    "acquisition",
+    "buy",
+    "buyout",
+    "merger",
+    "deal",
+    "收购",
+    "并购",
+    "合并",
+    "交易",
+)
+GLOBAL_TECH_DEAL_MARKET_TERMS = (
+    "stock deal",
+    "stock",
+    "shares",
+    "IPO",
+    "post-IPO",
+    "days after IPO",
+    "market cap",
+    "valuation",
+    "市值",
+    "估值",
+    "股权交易",
+    "上市",
+)
+GLOBAL_TECH_SHUTDOWN_TERMS = ("shutdown", "closed", "acquisition", "acquire", "关闭", "收购")
+AI_TECH_DISCUSSION_TERMS = (
+    "benchmark",
+    "benchmarks",
+    "coding benchmark",
+    "performance",
+    "small model",
+    "tiny",
+    "open-weights",
+    "open-source",
+    "open source",
+    "beats GPT",
+    "long-horizon",
+    "paper",
+    "research",
+    "technical",
+    "arguing",
+    "controversy",
+    "leaderboard",
+    "model comparison",
+    "VibeThinker",
+    "GLM",
+    "模型性能",
+    "小模型",
+    "开源",
+    "论文",
+    "技术路线",
+    "基准",
+    "争议",
+    "对比",
+)
+MARKET_EVENT_NOISE_TERMS = (
+    "交流会",
+    "对接会",
+    "合作会",
+    "论坛",
+    "活动",
+    "开幕式",
+    "推介会",
+    "洽谈会",
+    "参加",
+    "出席",
+)
+MARKET_HARD_TERMS = (
+    "投资额",
+    "签约金额",
+    "政策落地",
+    "上市公司",
+    "价格",
+    "融资",
+    "产业链冲击",
+    "贸易限制",
+    "出口管制",
+    "关税",
+    "宏观",
+    "GDP",
+    "CPI",
+    "PPI",
+    "PMI",
+) + MARKET_STRONG_TERMS + CAPITAL_MARKET_TERMS + OVERSEAS_RATE_TERMS
 INDUSTRY_TERMS = (
     "新能源",
     "风电",
@@ -972,6 +1389,13 @@ INDUSTRY_TERMS = (
     "芯片",
     "金风科技",
     "中国西电",
+    "OpenAI",
+    "ChatGPT",
+    "Anthropic",
+    "Microsoft",
+    "Google",
+    "Nvidia",
+    "agent",
 )
 MARKET_PRICE_TERMS = (
     "A股",
@@ -1007,6 +1431,10 @@ def digest_match_text(item: NewsItem) -> str:
     return clean_text(f"{item.title} {item.summary}")
 
 
+def digest_title_text(item: NewsItem) -> str:
+    return clean_text(item.title)
+
+
 def digest_context_text(item: NewsItem) -> str:
     return clean_text(f"{item.title} {item.summary} {item.source} {item.feed_name}")
 
@@ -1021,6 +1449,50 @@ def matched_terms(text: str, terms: tuple[str, ...]) -> list[str]:
     return [term for term in terms if term.lower() in lowered]
 
 
+def has_billion_scale_amount(text: str) -> bool:
+    return bool(
+        re.search(r"\$\s?\d+(?:\.\d+)?\s?(?:b|bn|billion)\b", text, re.IGNORECASE)
+        or re.search(r"\b\d+(?:\.\d+)?\s?billion\b", text, re.IGNORECASE)
+    )
+
+
+def has_strong_global_tech_deal_signal(item: NewsItem) -> bool:
+    title = digest_title_text(item)
+    if count_terms(title, GLOBAL_TECH_DEAL_TERMS) == 0:
+        return False
+    return count_terms(title, GLOBAL_TECH_DEAL_MARKET_TERMS) > 0 or has_billion_scale_amount(title)
+
+
+def normalized_title_text(title: str) -> str:
+    text = title.lower()
+    text = re.sub(r"\$\s?(\d+(?:\.\d+)?)\s?(?:b|bn|billion)\b", r"\1b", text)
+    text = re.sub(r"\b(\d+(?:\.\d+)?)\s?billion\b", r"\1b", text)
+    text = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def market_event_key(item: NewsItem) -> str:
+    if not has_strong_global_tech_deal_signal(item):
+        return ""
+    title = digest_title_text(item)
+    normalized = normalized_title_text(title)
+    amount_match = re.search(r"\b\d+(?:\.\d+)?b\b", normalized)
+    amount = amount_match.group(0) if amount_match else ""
+    entity_stopwords = {"AI", "IPO", "GPT", "LLM"}
+    entities = [
+        match.group(0).lower()
+        for match in re.finditer(r"\b[A-Z][A-Za-z0-9.]{1,}\b", title)
+        if match.group(0) not in entity_stopwords
+    ]
+    seen_entities: list[str] = []
+    for entity in entities:
+        if entity not in seen_entities:
+            seen_entities.append(entity)
+    if amount and len(seen_entities) >= 2:
+        return "deal:" + ":".join([amount] + sorted(seen_entities[:3]))
+    return "deal:" + normalized
+
+
 def category_label(item: NewsItem) -> str:
     if item.matched_keywords:
         return next(iter(item.matched_keywords))
@@ -1029,9 +1501,25 @@ def category_label(item: NewsItem) -> str:
 
 def importance_score(item: NewsItem) -> tuple[int, datetime]:
     text = digest_match_text(item)
+    title = digest_title_text(item)
     score = len(item.matched_keywords) * 2
     score += count_terms(text, MARKET_SIGNAL_TERMS)
     score += count_terms(text, WATCH_TERMS)
+    score += count_terms(title, MARKET_STRONG_TERMS) * 4
+    score += count_terms(title, MARKET_PRICE_TERMS) * 3
+    score += count_terms(title, CAPITAL_MARKET_TERMS) * 4
+    if item.feed_role in {"global_tech_business", "ai_industry"}:
+        score += count_terms(title, GLOBAL_TECH_PAYMENT_TERMS) * 5
+        score += count_terms(title, GLOBAL_TECH_CAPITAL_TERMS) * 4
+        score += count_terms(title, GLOBAL_TECH_DEAL_TERMS) * 4
+        score += count_terms(title, GLOBAL_TECH_DEAL_MARKET_TERMS) * 4
+        if has_billion_scale_amount(title):
+            score += 4
+        score += count_terms(title, GLOBAL_TECH_REGULATORY_TERMS) * 4
+        score += count_terms(title, GLOBAL_TECH_ENTERPRISE_TERMS) * 3
+        score += count_terms(title, GLOBAL_TECH_PLATFORM_TERMS) * 3
+        if count_terms(title, AI_TECH_DISCUSSION_TERMS) > 0 and not has_global_tech_market_signal(item):
+            score -= 8
     published_at = item.published_at or datetime.min.replace(tzinfo=timezone.utc)
     return score, published_at
 
@@ -1043,6 +1531,8 @@ def sort_by_score(items: list[NewsItem]) -> list[NewsItem]:
 def has_watch_signal(item: NewsItem) -> bool:
     text = digest_match_text(item)
     if count_terms(text, POLICY_BACKGROUND_TERMS) > 0:
+        return False
+    if count_terms(text, WATCH_PAST_ACTIVITY_TERMS) > 0 and count_terms(text, WATCH_STRONG_FUTURE_TERMS) == 0:
         return False
     has_time_signal = count_terms(text, WATCH_TERMS) > 0 or any(
         re.search(pattern, text) for pattern in WATCH_TIME_PATTERNS
@@ -1056,6 +1546,51 @@ def has_watch_signal(item: NewsItem) -> bool:
     return True
 
 
+def has_global_tech_market_signal(item: NewsItem) -> bool:
+    text = digest_match_text(item)
+    title = digest_title_text(item)
+    if has_strong_global_tech_deal_signal(item):
+        return True
+    domain_hits = count_terms(text, GLOBAL_TECH_DOMAIN_TERMS)
+    if domain_hits == 0:
+        return False
+    title_hard_hits = (
+        count_terms(title, GLOBAL_TECH_CAPITAL_TERMS)
+        + count_terms(title, GLOBAL_TECH_PAYMENT_TERMS)
+        + count_terms(title, GLOBAL_TECH_REGULATORY_TERMS)
+        + count_terms(title, GLOBAL_TECH_ENTERPRISE_TERMS)
+        + count_terms(title, GLOBAL_TECH_PLATFORM_TERMS)
+        + count_terms(title, GLOBAL_TECH_BUSINESS_IMPACT_TERMS)
+        + count_terms(title, GLOBAL_TECH_DEAL_TERMS)
+        + count_terms(title, GLOBAL_TECH_DEAL_MARKET_TERMS)
+    )
+    if count_terms(title, AI_TECH_DISCUSSION_TERMS) > 0 and title_hard_hits == 0:
+        return False
+    hard_hits = (
+        count_terms(text, GLOBAL_TECH_CAPITAL_TERMS)
+        + count_terms(text, GLOBAL_TECH_PAYMENT_TERMS)
+        + count_terms(text, GLOBAL_TECH_REGULATORY_TERMS)
+        + count_terms(text, GLOBAL_TECH_ENTERPRISE_TERMS)
+        + count_terms(text, GLOBAL_TECH_PLATFORM_TERMS)
+        + count_terms(text, GLOBAL_TECH_BUSINESS_IMPACT_TERMS)
+    )
+    if count_terms(text, AI_TECH_DISCUSSION_TERMS) > 0 and hard_hits == 0:
+        return False
+    if count_terms(text, GLOBAL_TECH_PAYMENT_TERMS) > 0 and count_terms(text, GLOBAL_TECH_ACTION_TERMS) > 0:
+        return True
+    if count_terms(text, GLOBAL_TECH_CAPITAL_TERMS) > 0:
+        return True
+    if count_terms(text, GLOBAL_TECH_REGULATORY_TERMS) > 0:
+        return True
+    if count_terms(text, GLOBAL_TECH_ENTERPRISE_TERMS) >= 2:
+        return True
+    if count_terms(text, GLOBAL_TECH_PLATFORM_TERMS) > 0 and count_terms(text, ("commercial", "official", "enterprise", "商业化", "正式", "企业")) > 0:
+        return True
+    if count_terms(text, GLOBAL_TECH_SHUTDOWN_TERMS) > 0 and count_terms(text, GLOBAL_TECH_BUSINESS_IMPACT_TERMS) > 0:
+        return True
+    return False
+
+
 def has_market_signal(item: NewsItem) -> bool:
     text = digest_match_text(item)
     strong_hits = count_terms(text, MARKET_STRONG_TERMS)
@@ -1064,6 +1599,10 @@ def has_market_signal(item: NewsItem) -> bool:
         return False
     if count_terms(text, POLICY_BACKGROUND_TERMS) > 0 and count_terms(text, MARKET_STRONG_TERMS) == 0:
         return False
+    if count_terms(text, MARKET_EVENT_NOISE_TERMS) > 0 and count_terms(text, MARKET_HARD_TERMS) == 0:
+        return False
+    if item.feed_role in {"global_tech_business", "ai_industry"}:
+        return has_global_tech_market_signal(item)
     if item.feed_role == "tech_industry":
         return strong_hits > 0
     if strong_hits > 0:
@@ -1071,6 +1610,8 @@ def has_market_signal(item: NewsItem) -> bool:
     if ai_tech_hits > 0:
         return False
     if count_terms(text, MARKET_GENERIC_TERMS) > 0:
+        return False
+    if count_terms(text, INDUSTRY_TERMS) > 0 and count_terms(text, MARKET_HARD_TERMS) == 0:
         return False
     return count_terms(text, MARKET_SIGNAL_TERMS) > 0
 
@@ -1083,12 +1624,18 @@ def has_core_event_signal(item: NewsItem, config: ReportConfig) -> bool:
         return False
     if count_terms(text, CORE_LOW_IMPORTANCE_TERMS) > 0 and count_terms(text, CORE_LOW_IMPORTANCE_OVERRIDES) == 0:
         return False
+    if item.feed_role in {"global_tech_business", "ai_industry"} and not has_global_tech_market_signal(item):
+        return False
     return count_terms(text, CORE_EVENT_TERMS) > 0
 
 
 def has_industry_signal(item: NewsItem) -> bool:
     text = digest_match_text(item)
-    return count_terms(text, POLICY_TERMS) > 0 or count_terms(text, INDUSTRY_TERMS) > 0
+    return (
+        count_terms(text, POLICY_TERMS) > 0
+        or count_terms(text, INDUSTRY_TERMS) > 0
+        or count_terms(text, GLOBAL_TECH_BUSINESS_TERMS) > 0
+    )
 
 
 def is_low_value(item: NewsItem, config: ReportConfig) -> bool:
@@ -1104,7 +1651,7 @@ def can_enter_digest(item: NewsItem, config: ReportConfig) -> bool:
         return False
     if item.feed_role in config.digest_exclude_roles:
         return False
-    if item.feed_role == "tech_industry":
+    if item.feed_role in {"tech_industry", "global_tech_business", "ai_industry"}:
         return has_industry_signal(item) or has_market_signal(item)
     return True
 
@@ -1126,6 +1673,10 @@ def classify_digest_item(item: NewsItem, config: ReportConfig) -> Optional[str]:
 
 def quick_scan_type(item: NewsItem) -> str:
     text = digest_match_text(item)
+    if item.feed_role == "ai_industry":
+        return "AI 产业"
+    if item.feed_role == "global_tech_business":
+        return "全球科技商业"
     if item.feed_role == "tech_industry":
         return "科技产业"
     if item.feed_role == "market":
@@ -1141,8 +1692,16 @@ def quick_scan_type(item: NewsItem) -> str:
     return "其他观察"
 
 
-def can_enter_quick_scan(item: NewsItem, config: ReportConfig, used_links: set[str]) -> bool:
+def can_enter_quick_scan(
+    item: NewsItem,
+    config: ReportConfig,
+    used_links: set[str],
+    used_event_keys: set[str],
+) -> bool:
     if item.link in used_links:
+        return False
+    event_key = market_event_key(item)
+    if event_key and event_key in used_event_keys:
         return False
     if item.feed_role not in config.quick_scan_roles:
         return False
@@ -1151,18 +1710,26 @@ def can_enter_quick_scan(item: NewsItem, config: ReportConfig, used_links: set[s
     return not is_low_value(item, config) and not is_quick_scan_low_value(item, config)
 
 
-def quick_scan_items(items: list[NewsItem], config: ReportConfig, used_links: set[str]) -> list[NewsItem]:
+def quick_scan_items(
+    items: list[NewsItem],
+    config: ReportConfig,
+    used_links: set[str],
+    used_event_keys: set[str],
+) -> list[NewsItem]:
     if not config.include_quick_scan:
         return []
     selected: list[NewsItem] = []
     source_counts: dict[str, int] = {}
     for item in sort_by_score(items):
-        if not can_enter_quick_scan(item, config, used_links):
+        if not can_enter_quick_scan(item, config, used_links, used_event_keys):
             continue
         source_key = item.source or item.feed_name
         if source_counts.get(source_key, 0) >= config.max_quick_scan_items_per_source:
             continue
         selected.append(item)
+        event_key = market_event_key(item)
+        if event_key:
+            used_event_keys.add(event_key)
         source_counts[source_key] = source_counts.get(source_key, 0) + 1
         if len(selected) >= config.max_quick_scan_items:
             break
@@ -1178,31 +1745,45 @@ def build_digest_sections(items: list[NewsItem], config: ReportConfig) -> Digest
     market: list[NewsItem] = []
     watch: list[NewsItem] = []
     market_source_counts: dict[str, int] = {}
+    market_event_keys: set[str] = set()
 
     for item in sort_by_score(items):
         section = classify_digest_item(item, config)
         if section == "watch" and len(watch) < config.max_watch_items:
             watch.append(item)
         elif section == "market" and len(market) < config.max_market_signals:
+            event_key = market_event_key(item)
+            if event_key and event_key in market_event_keys:
+                continue
             key = source_key(item)
             if market_source_counts.get(key, 0) >= config.max_market_signals_per_source:
                 continue
             market.append(item)
+            if event_key:
+                market_event_keys.add(event_key)
             market_source_counts[key] = market_source_counts.get(key, 0) + 1
         elif section == "core" and len(core) < config.max_core_events:
             core.append(item)
 
-    used_links = {item.link for item in core + market + watch}
-    quick_scan = quick_scan_items(items, config, used_links)
+    selected_items = core + market + watch
+    used_links = {item.link for item in selected_items}
+    used_event_keys = {key for key in (market_event_key(item) for item in selected_items) if key}
+    quick_scan = quick_scan_items(items, config, used_links, used_event_keys)
     return DigestSections(core=core, market=market, watch=watch, quick_scan=quick_scan)
 
 
 def rule_reason(item: NewsItem) -> str:
     text = digest_match_text(item)
     policy_hits = matched_terms(text, POLICY_TERMS)
+    business_hits = matched_terms(text, GLOBAL_TECH_DOMAIN_TERMS)
+    core_hits = matched_terms(text, CORE_EVENT_TERMS)
     industry_hits = matched_terms(text, INDUSTRY_TERMS)
     if policy_hits:
         return f"涉及{policy_hits[0]}相关信息，适合作为今日宏观和产业背景观察。"
+    if business_hits and has_global_tech_market_signal(item):
+        return f"涉及{business_hits[0]}相关全球科技商业进展，可能影响 AI 商业化或基础设施生态。"
+    if core_hits:
+        return f"涉及{core_hits[0]}，属于需要优先关注的高影响事件。"
     if industry_hits:
         return f"涉及{industry_hits[0]}方向，可能影响相关产业关注度。"
     return "作为背景信息观察，暂不强行外推为市场影响。"
@@ -1210,19 +1791,66 @@ def rule_reason(item: NewsItem) -> str:
 
 def market_impact(item: NewsItem) -> str:
     text = digest_match_text(item)
+    title = digest_title_text(item)
     overseas_hits = matched_terms(text, OVERSEAS_RATE_TERMS)
     market_hits = matched_terms(text, MARKET_PRICE_TERMS)
     capital_hits = matched_terms(text, CAPITAL_MARKET_TERMS)
     policy_hits = matched_terms(text, POLICY_TERMS)
+    business_hits = matched_terms(text, GLOBAL_TECH_DOMAIN_TERMS)
     industry_hits = matched_terms(text, INDUSTRY_TERMS)
+    global_capital_hits = matched_terms(text, GLOBAL_TECH_CAPITAL_TERMS)
+    global_payment_hits = matched_terms(text, GLOBAL_TECH_PAYMENT_TERMS)
+    global_regulatory_hits = matched_terms(text, GLOBAL_TECH_REGULATORY_TERMS)
+    global_enterprise_hits = matched_terms(text, GLOBAL_TECH_ENTERPRISE_TERMS)
+    global_platform_hits = matched_terms(text, GLOBAL_TECH_PLATFORM_TERMS)
+    title_deal_hits = matched_terms(title, GLOBAL_TECH_DEAL_TERMS)
+    title_deal_market_hits = matched_terms(title, GLOBAL_TECH_DEAL_MARKET_TERMS)
+    title_market_hits = matched_terms(title, MARKET_PRICE_TERMS)
+    title_capital_hits = matched_terms(title, CAPITAL_MARKET_TERMS)
+    title_global_capital_hits = matched_terms(title, GLOBAL_TECH_CAPITAL_TERMS)
+    title_global_payment_hits = matched_terms(title, GLOBAL_TECH_PAYMENT_TERMS)
+    title_global_regulatory_hits = matched_terms(title, GLOBAL_TECH_REGULATORY_TERMS)
+    title_global_enterprise_hits = matched_terms(title, GLOBAL_TECH_ENTERPRISE_TERMS)
+    title_global_platform_hits = matched_terms(title, GLOBAL_TECH_PLATFORM_TERMS)
     if overseas_hits:
         return f"涉及{overseas_hits[0]}，可能影响风险偏好、汇率利率预期或 A 股情绪。"
+    if title_deal_hits and has_strong_global_tech_deal_signal(item):
+        deal_parts = title_deal_hits[:1] + title_deal_market_hits[:1]
+        if has_billion_scale_amount(title):
+            deal_parts.append("billion-scale amount")
+        return f"涉及{' / '.join(deal_parts)}，可作为并购、交易规模、IPO 或估值信号观察。"
+    if title_market_hits:
+        return f"涉及{title_market_hits[0]}，可观察其对市场交易情绪的影响。"
+    if title_global_capital_hits:
+        return f"涉及{title_global_capital_hits[0]}，可作为营收、利润率、估值或资本市场信号观察。"
+    if title_capital_hits:
+        return f"涉及{title_capital_hits[0]}，可作为资本市场或公司估值信号观察。"
+    if title_global_payment_hits and has_global_tech_market_signal(item):
+        return f"涉及{title_global_payment_hits[0]}，可作为 AI 支付、agent commerce 或支付基础设施信号观察。"
+    if title_global_regulatory_hits:
+        return f"涉及{title_global_regulatory_hits[0]}，可作为监管、合规或反垄断风险信号观察。"
+    if title_global_enterprise_hits:
+        return f"涉及{title_global_enterprise_hits[0]}，可作为企业客户、云、芯片或算力订单信号观察。"
+    if title_global_platform_hits:
+        return f"涉及{title_global_platform_hits[0]}，可作为平台集成、分发渠道或商业发布信号观察。"
     if market_hits:
         return f"涉及{market_hits[0]}，可观察其对市场交易情绪的影响。"
+    if global_capital_hits:
+        return f"涉及{global_capital_hits[0]}，可作为营收、利润率、估值或资本市场信号观察。"
     if capital_hits:
         return f"涉及{capital_hits[0]}，可作为资本市场或公司估值信号观察。"
+    if global_payment_hits and has_global_tech_market_signal(item):
+        return f"涉及{global_payment_hits[0]}，可作为支付基础设施或 commerce 生态信号观察。"
+    if global_regulatory_hits:
+        return f"涉及{global_regulatory_hits[0]}，可作为监管、合规或反垄断风险信号观察。"
+    if global_enterprise_hits:
+        return f"涉及{global_enterprise_hits[0]}，可作为企业客户、云、芯片或算力订单信号观察。"
+    if global_platform_hits:
+        return f"涉及{global_platform_hits[0]}，可作为平台集成、分发渠道或商业发布信号观察。"
     if policy_hits:
         return f"涉及{policy_hits[0]}，可能影响政策预期和相关板块关注度。"
+    if business_hits and has_global_tech_market_signal(item):
+        return f"涉及{business_hits[0]}，可作为 AI 商业化、支付基础设施或平台生态信号观察。"
     if industry_hits:
         return "作为产业动态观察，短期市场影响可能有限。"
     return "作为市场边缘信号观察。"

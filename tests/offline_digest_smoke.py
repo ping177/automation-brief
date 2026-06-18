@@ -498,6 +498,66 @@ def main() -> None:
     assert sum(1 for link in final_displayed_links if "final-spacex-cursor" in link) == 1
     assert section_for_link(final_dedup_sections, "https://example.com/final-spacex-market-cap") == "market_signal"
 
+    v0411_sections = build_digest_sections(
+        [
+            make_item(
+                "美官员：特朗普已亲自签署美伊谅解备忘录，协议现已生效",
+                summary="美伊冲突相关协议已经生效，影响战争与地区局势。",
+                role="breaking_news",
+                link="https://example.com/trump-iran-memo-effective",
+                source="中国新闻网-国际新闻",
+                feed_name="中国新闻网-国际新闻",
+            ),
+            make_item(
+                "美官员称特朗普亲自签署美伊谅解备忘录",
+                summary="美伊冲突相关协议由特朗普签署，涉及战争与地区局势。",
+                role="breaking_news",
+                link="https://example.com/trump-iran-memo-signed",
+                source="中国新闻网-国际新闻",
+                feed_name="中国新闻网-国际新闻",
+            ),
+            make_item(
+                "NEA’s Tiffany Luck on AI IPOs, personal agents, and the ROI reckoning",
+                summary="A podcast conversation about AI IPO trends, personal agents and enterprise ROI.",
+                role="ai_industry",
+                link="https://techcrunch.com/podcast/nea-tiffany-luck-ai-ipos-roi/",
+                source="TechCrunch AI",
+                feed_name="TechCrunch AI",
+                matched_keywords={"AI方向": ["AI", "agent"]},
+            ),
+            make_item(
+                "NEA’s Tiffany Luck says enterprises are still figuring out their AI ROI",
+                summary="A video interview discussing how enterprises think about AI ROI.",
+                role="ai_industry",
+                link="https://techcrunch.com/video/nea-tiffany-luck-enterprise-ai-roi/",
+                source="TechCrunch AI",
+                feed_name="TechCrunch AI",
+                matched_keywords={"AI方向": ["AI", "agent"]},
+            ),
+            make_item(
+                "World model maker Odyssey nabs $1.45B valuation backed by Amazon and other big names",
+                summary="Odyssey reached a new valuation with strategic backing from Amazon.",
+                role="ai_industry",
+                link="https://example.com/odyssey-valuation-amazon",
+                source="TechCrunch AI",
+                feed_name="TechCrunch AI",
+                matched_keywords={"AI方向": ["AI", "Amazon"]},
+            ),
+        ],
+        ReportConfig(report_type="digest", max_core_events=5, max_market_signals=5, max_quick_scan_items=10),
+    )
+    v0411_core_titles = [item.title for item in v0411_sections.core]
+    v0411_market_links = [item.link for item in v0411_sections.market]
+    v0411_displayed_links = all_links(v0411_sections)
+    assert len([title for title in v0411_core_titles if "特朗普" in title and "谅解备忘录" in title]) == 1
+    assert "美官员：特朗普已亲自签署美伊谅解备忘录，协议现已生效" in v0411_core_titles
+    assert not any("nea-tiffany-luck" in link for link in v0411_market_links)
+    assert sum(1 for link in v0411_displayed_links if "nea-tiffany-luck" in link) == 1
+    assert "https://example.com/odyssey-valuation-amazon" in v0411_market_links
+    odyssey_item = next(item for item in v0411_sections.market if item.link == "https://example.com/odyssey-valuation-amazon")
+    odyssey_reason = market_impact(odyssey_item)
+    assert "估值" in odyssey_reason or "融资" in odyssey_reason or "战略背书" in odyssey_reason
+
     core_noise_sections = build_digest_sections(
         [
             make_item(
@@ -541,8 +601,8 @@ def main() -> None:
                     title="OpenAI launches enterprise payments integration",
                     link="https://example.com/cnbc-source-name",
                     summary="OpenAI and Visa launch enterprise payments integration for merchants.",
-                    published="Wed, 17 Jun 2026 00:00:00 GMT",
-                    published_parsed=(2026, 6, 17, 0, 0, 0, 0, 0, 0),
+                    published=f"{today:%a, %d %b %Y} 00:00:00 GMT",
+                    published_parsed=(today.year, today.month, today.day, 0, 0, 0, 0, 0, 0),
                 )
             ],
         )
@@ -567,6 +627,7 @@ def main() -> None:
         "databricks=market_signal, spacex_market_cap=market_signal, spacex_cursor=market_signal"
     )
     print("Market dedup sample: spacex_cursor=1, pboc_policy=market_signal")
+    print("v0.4.1.1 samples: trump_iran=core_deduped, nea=quick_scan_deduped, odyssey=market_signal")
     print(
         "False-positive samples: trade_meeting=quick_scan, "
         "weibo_benchmark=quick_scan, anthropic_fable=quick_scan, forum_attendance=not_watch"

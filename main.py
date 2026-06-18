@@ -7,6 +7,7 @@ import re
 import time as time_module
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
+from difflib import SequenceMatcher
 from email.utils import parsedate_to_datetime
 from html import unescape
 from pathlib import Path
@@ -1314,6 +1315,47 @@ GLOBAL_TECH_DEAL_MARKET_TERMS = (
     "股权交易",
     "上市",
 )
+GLOBAL_TECH_BACKING_TERMS = (
+    "backed by Amazon",
+    "backed by Microsoft",
+    "backed by Nvidia",
+    "backed by Google",
+    "strategic backing",
+    "战略投资",
+    "战略支持",
+)
+DISCUSSION_FORMAT_TERMS = (
+    "podcast",
+    "video",
+    "interview",
+    "fireside chat",
+    "roundtable",
+    "观点",
+    "访谈",
+    "播客",
+    "视频",
+    "对话",
+)
+DISCUSSION_TITLE_TERMS = (
+    " says ",
+    " on ai ",
+    " on the ",
+    " discusses ",
+    " explains ",
+    " weighs in ",
+    "谈",
+)
+DISCUSSION_TOPIC_TERMS = (
+    "AI",
+    "ROI",
+    "IPO",
+    "agent",
+    "enterprise",
+    "cloud",
+    "chip",
+    "funding",
+    "valuation",
+)
 GLOBAL_TECH_SHUTDOWN_TERMS = ("shutdown", "closed", "acquisition", "acquire", "关闭", "收购")
 AI_TECH_DISCUSSION_TERMS = (
     "benchmark",
@@ -1456,6 +1498,13 @@ def has_billion_scale_amount(text: str) -> bool:
     )
 
 
+def has_explicit_money_amount(text: str) -> bool:
+    return bool(
+        re.search(r"\$\s?\d+(?:\.\d+)?\s?(?:k|m|mm|b|bn|million|billion)\b", text, re.IGNORECASE)
+        or re.search(r"\b\d+(?:\.\d+)?\s?(?:million|billion)\b", text, re.IGNORECASE)
+    )
+
+
 def has_strong_global_tech_deal_signal(item: NewsItem) -> bool:
     title = digest_title_text(item)
     if count_terms(title, GLOBAL_TECH_DEAL_TERMS) == 0:
@@ -1469,6 +1518,86 @@ def normalized_title_text(title: str) -> str:
     text = re.sub(r"\b(\d+(?:\.\d+)?)\s?billion\b", r"\1b", text)
     text = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def has_concrete_global_tech_market_event(item: NewsItem) -> bool:
+    title = digest_title_text(item)
+    if has_strong_global_tech_deal_signal(item):
+        return True
+    concrete_action = bool(
+        re.search(
+            r"\b(?:raises?|raised|files?|filed|withdraws?|withdrew|nabs?|nabbed|reaches?|reached|"
+            r"hits?|hit|valued|acquires?|acquired|acquisition|merger|launches?|launched)\b",
+            title,
+            re.IGNORECASE,
+        )
+    )
+    concrete_capital_hits = count_terms(
+        title,
+        (
+            "funding",
+            "valuation",
+            "IPO",
+            "revenue",
+            "sales",
+            "margin",
+            "market cap",
+            "融资",
+            "估值",
+            "上市",
+            "营收",
+            "销售额",
+            "利润率",
+            "市值",
+        ),
+    )
+    backing_hits = count_terms(title, GLOBAL_TECH_BACKING_TERMS)
+    if has_explicit_money_amount(title) and (concrete_capital_hits > 0 or backing_hits > 0 or concrete_action):
+        return True
+    if concrete_action and (concrete_capital_hits > 0 or backing_hits > 0):
+        return True
+    return count_terms(
+        title,
+        (
+            "market cap",
+            "stock rises",
+            "shares rise",
+            "shares fall",
+            "revenue growth",
+            "sales growth",
+            "margin",
+            "regulation",
+            "antitrust",
+            "lawsuit",
+            "ban",
+            "payment",
+            "payments",
+            "checkout",
+        ),
+    ) > 0
+
+
+def is_general_discussion_item(item: NewsItem) -> bool:
+    title = f" {digest_title_text(item).lower()} "
+    context = f"{title} {item.link.lower()} {item.source.lower()} {item.feed_name.lower()}"
+    return count_terms(context, DISCUSSION_FORMAT_TERMS) > 0 or count_terms(title, DISCUSSION_TITLE_TERMS) > 0
+
+
+def discussion_event_key(item: NewsItem) -> str:
+    if not is_general_discussion_item(item):
+        return ""
+    title = digest_title_text(item)
+    entity_stopwords = {"AI", "ROI", "IPO", "IPOS", "LLM", "CEO"}
+    entities = [
+        match.group(0).lower()
+        for match in re.finditer(r"\b[A-Z][A-Za-z0-9.]{1,}\b", title)
+        if match.group(0).upper() not in entity_stopwords
+    ]
+    unique_entities = list(dict.fromkeys(entities))
+    topics = [term.lower() for term in DISCUSSION_TOPIC_TERMS if count_terms(title, (term,)) > 0]
+    if len(unique_entities) >= 2 and topics:
+        return "discussion:" + ":".join(unique_entities[:3] + topics[:1])
+    return ""
 
 
 def market_event_key(item: NewsItem) -> str:
@@ -1493,13 +1622,41 @@ def market_event_key(item: NewsItem) -> str:
     return "deal:" + normalized
 
 
+def is_same_digest_event(first: NewsItem, second: NewsItem) -> bool:
+    first_market_key = market_event_key(first)
+    second_market_key = market_event_key(second)
+    if first_market_key and first_market_key == second_market_key:
+        return True
+
+    first_discussion_key = discussion_event_key(first)
+    second_discussion_key = discussion_event_key(second)
+    if first_discussion_key and first_discussion_key == second_discussion_key:
+        return True
+
+    first_title = normalized_title_text(first.title).replace(" ", "")
+    second_title = normalized_title_text(second.title).replace(" ", "")
+    if min(len(first_title), len(second_title)) < 12:
+        return False
+    has_chinese = bool(re.search(r"[\u4e00-\u9fff]", first_title + second_title))
+    has_different_numbers = (
+        re.findall(r"\d+(?:\.\d+)?", first_title) != re.findall(r"\d+(?:\.\d+)?", second_title)
+    )
+    if has_chinese and not has_different_numbers and SequenceMatcher(None, first_title, second_title).ratio() >= 0.78:
+        return True
+    return False
+
+
+def has_duplicate_digest_event(item: NewsItem, selected: list[NewsItem]) -> bool:
+    return any(is_same_digest_event(item, existing) for existing in selected)
+
+
 def category_label(item: NewsItem) -> str:
     if item.matched_keywords:
         return next(iter(item.matched_keywords))
     return item.feed_name or item.source
 
 
-def importance_score(item: NewsItem) -> tuple[int, datetime]:
+def importance_score(item: NewsItem) -> tuple[int, int, datetime]:
     text = digest_match_text(item)
     title = digest_title_text(item)
     score = len(item.matched_keywords) * 2
@@ -1511,6 +1668,7 @@ def importance_score(item: NewsItem) -> tuple[int, datetime]:
     if item.feed_role in {"global_tech_business", "ai_industry"}:
         score += count_terms(title, GLOBAL_TECH_PAYMENT_TERMS) * 5
         score += count_terms(title, GLOBAL_TECH_CAPITAL_TERMS) * 4
+        score += count_terms(title, GLOBAL_TECH_BACKING_TERMS) * 4
         score += count_terms(title, GLOBAL_TECH_DEAL_TERMS) * 4
         score += count_terms(title, GLOBAL_TECH_DEAL_MARKET_TERMS) * 4
         if has_billion_scale_amount(title):
@@ -1521,7 +1679,7 @@ def importance_score(item: NewsItem) -> tuple[int, datetime]:
         if count_terms(title, AI_TECH_DISCUSSION_TERMS) > 0 and not has_global_tech_market_signal(item):
             score -= 8
     published_at = item.published_at or datetime.min.replace(tzinfo=timezone.utc)
-    return score, published_at
+    return score, len(normalized_title_text(item.title)), published_at
 
 
 def sort_by_score(items: list[NewsItem]) -> list[NewsItem]:
@@ -1549,7 +1707,10 @@ def has_watch_signal(item: NewsItem) -> bool:
 def has_global_tech_market_signal(item: NewsItem) -> bool:
     text = digest_match_text(item)
     title = digest_title_text(item)
-    if has_strong_global_tech_deal_signal(item):
+    concrete_market_event = has_concrete_global_tech_market_event(item)
+    if is_general_discussion_item(item) and not concrete_market_event:
+        return False
+    if concrete_market_event:
         return True
     domain_hits = count_terms(text, GLOBAL_TECH_DOMAIN_TERMS)
     if domain_hits == 0:
@@ -1696,12 +1857,11 @@ def can_enter_quick_scan(
     item: NewsItem,
     config: ReportConfig,
     used_links: set[str],
-    used_event_keys: set[str],
+    selected_items: list[NewsItem],
 ) -> bool:
     if item.link in used_links:
         return False
-    event_key = market_event_key(item)
-    if event_key and event_key in used_event_keys:
+    if has_duplicate_digest_event(item, selected_items):
         return False
     if item.feed_role not in config.quick_scan_roles:
         return False
@@ -1714,22 +1874,19 @@ def quick_scan_items(
     items: list[NewsItem],
     config: ReportConfig,
     used_links: set[str],
-    used_event_keys: set[str],
+    selected_items: list[NewsItem],
 ) -> list[NewsItem]:
     if not config.include_quick_scan:
         return []
     selected: list[NewsItem] = []
     source_counts: dict[str, int] = {}
     for item in sort_by_score(items):
-        if not can_enter_quick_scan(item, config, used_links, used_event_keys):
+        if not can_enter_quick_scan(item, config, used_links, selected_items + selected):
             continue
         source_key = item.source or item.feed_name
         if source_counts.get(source_key, 0) >= config.max_quick_scan_items_per_source:
             continue
         selected.append(item)
-        event_key = market_event_key(item)
-        if event_key:
-            used_event_keys.add(event_key)
         source_counts[source_key] = source_counts.get(source_key, 0) + 1
         if len(selected) >= config.max_quick_scan_items:
             break
@@ -1745,30 +1902,34 @@ def build_digest_sections(items: list[NewsItem], config: ReportConfig) -> Digest
     market: list[NewsItem] = []
     watch: list[NewsItem] = []
     market_source_counts: dict[str, int] = {}
-    market_event_keys: set[str] = set()
+    classified = [(item, classify_digest_item(item, config)) for item in sort_by_score(items)]
 
-    for item in sort_by_score(items):
-        section = classify_digest_item(item, config)
-        if section == "watch" and len(watch) < config.max_watch_items:
-            watch.append(item)
-        elif section == "market" and len(market) < config.max_market_signals:
-            event_key = market_event_key(item)
-            if event_key and event_key in market_event_keys:
-                continue
-            key = source_key(item)
-            if market_source_counts.get(key, 0) >= config.max_market_signals_per_source:
-                continue
-            market.append(item)
-            if event_key:
-                market_event_keys.add(event_key)
-            market_source_counts[key] = market_source_counts.get(key, 0) + 1
-        elif section == "core" and len(core) < config.max_core_events:
+    for item, section in classified:
+        if section != "core" or len(core) >= config.max_core_events:
+            continue
+        if not has_duplicate_digest_event(item, core):
             core.append(item)
+
+    for item, section in classified:
+        if section != "market" or len(market) >= config.max_market_signals:
+            continue
+        if has_duplicate_digest_event(item, core + market):
+            continue
+        key = source_key(item)
+        if market_source_counts.get(key, 0) >= config.max_market_signals_per_source:
+            continue
+        market.append(item)
+        market_source_counts[key] = market_source_counts.get(key, 0) + 1
+
+    for item, section in classified:
+        if section != "watch" or len(watch) >= config.max_watch_items:
+            continue
+        if not has_duplicate_digest_event(item, core + market + watch):
+            watch.append(item)
 
     selected_items = core + market + watch
     used_links = {item.link for item in selected_items}
-    used_event_keys = {key for key in (market_event_key(item) for item in selected_items) if key}
-    quick_scan = quick_scan_items(items, config, used_links, used_event_keys)
+    quick_scan = quick_scan_items(items, config, used_links, selected_items)
     return DigestSections(core=core, market=market, watch=watch, quick_scan=quick_scan)
 
 
@@ -1803,6 +1964,7 @@ def market_impact(item: NewsItem) -> str:
     global_regulatory_hits = matched_terms(text, GLOBAL_TECH_REGULATORY_TERMS)
     global_enterprise_hits = matched_terms(text, GLOBAL_TECH_ENTERPRISE_TERMS)
     global_platform_hits = matched_terms(text, GLOBAL_TECH_PLATFORM_TERMS)
+    title_backing_hits = matched_terms(title, GLOBAL_TECH_BACKING_TERMS)
     title_deal_hits = matched_terms(title, GLOBAL_TECH_DEAL_TERMS)
     title_deal_market_hits = matched_terms(title, GLOBAL_TECH_DEAL_MARKET_TERMS)
     title_market_hits = matched_terms(title, MARKET_PRICE_TERMS)
@@ -1819,6 +1981,8 @@ def market_impact(item: NewsItem) -> str:
         if has_billion_scale_amount(title):
             deal_parts.append("billion-scale amount")
         return f"涉及{' / '.join(deal_parts)}，可作为并购、交易规模、IPO 或估值信号观察。"
+    if title_backing_hits:
+        return f"涉及{title_backing_hits[0]}，可作为估值、融资或战略背书信号观察。"
     if title_market_hits:
         return f"涉及{title_market_hits[0]}，可观察其对市场交易情绪的影响。"
     if title_global_capital_hits:

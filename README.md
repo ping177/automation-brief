@@ -615,6 +615,12 @@ Mac 睡眠
 
 已验证在不合盖、睡眠状态下，Mac 可以自动唤醒并在 08:00 由 launchd 成功运行。该链路不需要 Codex、浏览器或终端保持打开。
 
+v0.4.1.2 增加运行时稳定性保护：`scripts/run_daily_digest.sh` 会在任务启动后自动使用 `caffeinate -dimsu` 持有防睡眠 assertion，直到 `main.py`、Obsidian iCloud 同步和 Bark 推送全部执行完毕。任务结束后 `caffeinate` 会随脚本自动退出，不会常驻。
+
+该修复针对“07:58 已成功唤醒、08:00 launchd 已启动任务，但 Mac 在 RSS 请求期间再次睡眠，导致日报接近 09:00 才完成”的情况。RSS 请求同时增加单次 15 秒超时，保留最多 2 次尝试和失败后等待 3 秒的既有重试策略，避免单个源阻塞几十分钟。
+
+脚本会把 `task`、`main.py`、`publish_mobile_digest.py` 和 `send_bark_notification.py` 的 start/end、exit code 与耗时写入 launchd 现有 stdout/stderr 日志，便于区分任务晚启动、网络请求变慢和 Bark 单独失败。
+
 需要保持：
 
 - Mac 不关机
@@ -631,6 +637,8 @@ Mac 睡眠
 - 终端
 
 Mac 睡眠时若没有配置自动唤醒，不保证 08:00 准点运行。唤醒后 launchd 可能补跑，但不能保证在你打开电脑前已经生成日报。
+
+不建议仅把 `pmset` 唤醒时间提前到 07:45 或 07:30 来处理运行中延迟。2026-06-19 的诊断确认 07:58 已准时唤醒、08:00 已启动任务，核心问题是任务运行期间重新睡眠；应优先依赖脚本的 `caffeinate` 防睡眠保护和 RSS 网络超时。
 
 测试定时任务时，建议在计划时间前唤醒电脑并保持联网。也可以临时保持唤醒 1 小时：
 

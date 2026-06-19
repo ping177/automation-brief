@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import time as time_module
+import urllib.request
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from difflib import SequenceMatcher
@@ -24,6 +25,7 @@ DEFAULT_OUTPUT_DIR = BASE_DIR / "output"
 LOG_FILE = BASE_DIR / "daily-news.log"
 FEED_FETCH_ATTEMPTS = 2
 FEED_FETCH_RETRY_DELAY_SECONDS = 3
+FEED_FETCH_TIMEOUT_SECONDS = 15
 
 
 @dataclass(frozen=True)
@@ -533,7 +535,18 @@ def parse_feed_with_retry(feed: dict[str, str]) -> Any:
     last_error: Optional[BaseException] = None
     for attempt in range(1, FEED_FETCH_ATTEMPTS + 1):
         try:
-            parsed_feed = feedparser.parse(feed["url"])
+            request = urllib.request.Request(
+                feed["url"],
+                headers={
+                    "User-Agent": feedparser.USER_AGENT,
+                    "Accept": "application/atom+xml, application/rss+xml, application/xml, text/xml, */*",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=FEED_FETCH_TIMEOUT_SECONDS) as response:
+                payload = response.read()
+                response_headers = {key.lower(): value for key, value in response.headers.items()}
+                response_headers.setdefault("content-location", response.geturl())
+            parsed_feed = feedparser.parse(payload, response_headers=response_headers)
         except Exception as exc:
             last_error = exc
         else:

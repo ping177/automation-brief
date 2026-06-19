@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from email.utils import format_datetime
 from pathlib import Path
 import sys
-from types import SimpleNamespace
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -591,21 +591,43 @@ def main() -> None:
     assert "https://example.com/food-safety-policy" in core_noise_core_links
     assert "鹅腿阿姨" not in one_line_theme(core_noise_sections)
 
-    original_parse = main_module.feedparser.parse
+    original_urlopen = main_module.urllib.request.urlopen
+    captured_timeouts: list[int] = []
+
+    class FakeResponse:
+        headers = {"Content-Type": "application/rss+xml; charset=utf-8"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def read(self) -> bytes:
+            published = format_datetime(datetime.now(timezone.utc), usegmt=True)
+            return f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Tech</title>
+    <item>
+      <title>OpenAI launches enterprise payments integration</title>
+      <link>https://example.com/cnbc-source-name</link>
+      <description>OpenAI and Visa launch enterprise payments integration for merchants.</description>
+      <pubDate>{published}</pubDate>
+    </item>
+  </channel>
+</rss>
+""".encode()
+
+        def geturl(self) -> str:
+            return "https://www.cnbc.com/id/19854910/device/rss/rss.html"
+
     try:
-        main_module.feedparser.parse = lambda url: SimpleNamespace(
-            bozo=False,
-            feed={"title": "Tech"},
-            entries=[
-                SimpleNamespace(
-                    title="OpenAI launches enterprise payments integration",
-                    link="https://example.com/cnbc-source-name",
-                    summary="OpenAI and Visa launch enterprise payments integration for merchants.",
-                    published=f"{today:%a, %d %b %Y} 00:00:00 GMT",
-                    published_parsed=(today.year, today.month, today.day, 0, 0, 0, 0, 0, 0),
-                )
-            ],
-        )
+        def fake_urlopen(request, timeout):
+            captured_timeouts.append(timeout)
+            return FakeResponse()
+
+        main_module.urllib.request.urlopen = fake_urlopen
         fetched = fetch_feed(
             {
                 "name": "CNBC Technology",
@@ -618,8 +640,9 @@ def main() -> None:
             ReportConfig(report_type="digest"),
         )
         assert fetched[0].source == "CNBC Technology"
+        assert captured_timeouts == [15]
     finally:
-        main_module.feedparser.parse = original_parse
+        main_module.urllib.request.urlopen = original_urlopen
 
     print("Visa/OpenAI sample section: market_signal")
     print(

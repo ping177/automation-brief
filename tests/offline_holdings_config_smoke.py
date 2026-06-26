@@ -131,12 +131,20 @@ def main() -> None:
     assert "67890" not in sensitive_result.stdout
 
     output_dir = fixture_dir / "output"
+    empty_feeds_path = fixture_dir / "feeds.json"
+    empty_keywords_path = fixture_dir / "keywords.json"
+    write_json(empty_feeds_path, [])
+    write_json(empty_keywords_path, {})
     market_result = run_command(
         [
             sys.executable,
             str(MAIN_SCRIPT),
             "--config",
             str(fixture_dir / "missing-config.json"),
+            "--feeds",
+            str(empty_feeds_path),
+            "--keywords",
+            str(empty_keywords_path),
             "--report-type",
             "market_brief",
             "--output",

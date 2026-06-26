@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from dataclasses import dataclass
 from pathlib import Path
 import sys
 import tempfile
@@ -17,6 +18,27 @@ from market_brief_writer import (  # noqa: E402
     render_market_brief_markdown,
 )
 from market_data import load_offline_market_snapshot  # noqa: E402
+
+
+@dataclass(frozen=True)
+class ArticleFixture:
+    title: str
+    summary: str
+    source: str
+    feed_role: str
+    link: str
+    matched_keywords: dict[str, list[str]]
+
+
+def article(title: str, summary: str, link: str) -> ArticleFixture:
+    return ArticleFixture(
+        title=title,
+        summary=summary,
+        source="离线测试源",
+        feed_role="market",
+        link=link,
+        matched_keywords={},
+    )
 
 
 def write_holdings_fixture(path: Path, code: str, name: str) -> None:
@@ -51,13 +73,29 @@ def main() -> None:
 
     first_holdings = load_holdings(first_fixture, example_path=first_fixture)
     second_holdings = load_holdings(second_fixture, example_path=second_fixture)
+    first_articles = [
+        article(
+            "国家电网启动特高压设备招标，中国西电所在电力设备链条受关注",
+            "招标订单和电网投资节奏可能成为产业催化。",
+            "https://example.com/grid-tender-first",
+        )
+    ]
+    second_articles = [
+        article(
+            "海外风电项目披露新订单，金风科技所属方向关注度上升",
+            "风电订单和海上风电政策节奏需要继续验证。",
+            "https://example.com/wind-order-second",
+        )
+    ]
     first_context = build_market_brief_context(
         load_offline_market_snapshot(report_date),
         first_holdings,
+        first_articles,
     )
     second_context = build_market_brief_context(
         load_offline_market_snapshot(report_date),
         second_holdings,
+        second_articles,
     )
     first_markdown = render_market_brief_markdown(first_context)
     second_markdown = render_market_brief_markdown(second_context)
@@ -68,10 +106,16 @@ def main() -> None:
         assert section in first_markdown
 
     assert "### 601179 中国西电" in first_markdown
+    assert "国家电网启动特高压设备招标" in first_markdown
     assert "### 002202 金风科技" not in first_markdown
     assert "### 002202 金风科技" in second_markdown
+    assert "海外风电项目披露新订单" in second_markdown
     assert "### 601179 中国西电" not in second_markdown
     assert first_markdown != second_markdown
+    assert "### 1日强势" not in first_markdown
+    assert "### 5日持续强势" not in first_markdown
+    assert "### 20日趋势主线" not in first_markdown
+    assert first_markdown.count("未接真实行情") <= 2
 
     for term in DIRECT_TRADING_ADVICE_TERMS:
         assert term not in first_markdown
@@ -85,6 +129,7 @@ def main() -> None:
         PROJECT_ROOT / "market_brief_writer.py",
         PROJECT_ROOT / "market_data.py",
         PROJECT_ROOT / "market_analysis.py",
+        PROJECT_ROOT / "market_news.py",
     ]
     forbidden_terms = ("601179", "002202", "中国西电", "金风科技")
     for path in business_files:

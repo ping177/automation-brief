@@ -25,7 +25,8 @@ PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile main.py check_feeds.py
 For v0.5-alpha market brief changes, also compile the market brief modules and run:
 
 ```bash
-PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile holdings.py market_brief_writer.py market_data.py market_analysis.py
+PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile holdings.py market_brief_writer.py market_data.py market_analysis.py market_news.py
+.venv/bin/python tests/offline_market_news_smoke.py
 .venv/bin/python tests/offline_market_brief_smoke.py
 ```
 
@@ -88,13 +89,16 @@ python3 -m json.tool config/holdings.example.json
 
 ## market_brief smoke checklist
 
-v0.5-alpha 的 `market_brief` 仍是离线骨架。修改持仓读取、市场简报结构或投资安全边界时，至少确认：
+v0.5.2-alpha 的显式 `market_brief` 会复用 RSS 候选新闻，但仍不接真实行情。修改持仓读取、新闻筛选、市场简报结构或投资安全边界时，至少确认：
 
 - `market_brief` 能生成 Markdown。
 - 输出包含固定 section。
 - 持仓标题来自 holdings fixture，fixture 改变后输出随之变化。
+- holdings 相关新闻只来自 `code`、`name`、`sector`、`watch_tags` 动态匹配。
+- 离线 `offline_market_news_smoke.py` 使用 fixture，不依赖真实 RSS 网络。
 - 业务代码不硬编码示例持仓。
 - 输出不包含直接交易建议词。
+- “未接真实行情”说明只出现在市场环境和数据限制相关位置，避免多 section 重复空文案。
 - `tests/offline_digest_smoke.py` 仍通过，确保普通 daily digest 不回退。
 - `scripts/init_holdings_config.py` 不覆盖已有本地 holdings。
 - `scripts/validate_holdings_config.py` 对合法配置通过、对 JSON/字段错误失败、对成本/仓位/市值/盈亏字段 warning 且不输出具体值。

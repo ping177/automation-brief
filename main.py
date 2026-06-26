@@ -2239,7 +2239,12 @@ def write_markdown(
     if config.report_type == "market_brief":
         holdings_config = load_holdings()
         market_snapshot = load_offline_market_snapshot(report_date)
-        market_context = build_market_brief_context(market_snapshot, holdings_config)
+        market_context = build_market_brief_context(
+            market_snapshot,
+            holdings_config,
+            items,
+            feed_failures=failures,
+        )
         return write_market_brief_markdown(market_context, output_dir)
     if config.report_type == "digest":
         return write_digest_markdown(items, output_dir, report_date, config, failures)
@@ -2284,13 +2289,10 @@ def main() -> None:
     report_date = parse_report_date(args.date)
     output_dir = args.output if args.output else BASE_DIR / config.output_dir
 
-    if config.report_type == "market_brief":
-        output_file = write_markdown([], {}, output_dir, report_date, config, [])
-    else:
-        feeds = normalize_feeds(load_json(args.feeds))
-        keywords = normalize_keywords(load_json(args.keywords))
-        items, failures = collect_news(feeds, keywords, config, report_date)
-        output_file = write_markdown(items, keywords, output_dir, report_date, config, failures)
+    feeds = normalize_feeds(load_json(args.feeds))
+    keywords = normalize_keywords(load_json(args.keywords))
+    items, failures = collect_news(feeds, keywords, config, report_date)
+    output_file = write_markdown(items, keywords, output_dir, report_date, config, failures)
     logging.info("Generated report: %s", output_file)
 
 

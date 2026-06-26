@@ -18,11 +18,11 @@ class MarketSnapshot:
 def load_offline_market_snapshot(report_date: date) -> MarketSnapshot:
     return MarketSnapshot(
         data_date=report_date,
-        environment_note="暂无真实行情数据，等待 v0.5-beta 接入。",
-        strong_1d=("暂无真实行情数据，暂不计算 1 日强势方向。",),
-        strong_5d=("暂无真实行情数据，暂不计算 5 日持续强势方向。",),
-        trend_20d=("暂无真实行情数据，暂不计算 20 日趋势主线。",),
-        catalysts=("暂无实时产业催化数据，当前仅保留观察框架。",),
+        environment_note="当前未接真实行情，本节只作为新闻驱动观察的边界说明。",
+        strong_1d=(),
+        strong_5d=(),
+        trend_20d=(),
+        catalysts=(),
         watch_signals=(
             "观察主要指数、成交量和行业轮动是否出现连续性。",
             "观察持仓所属板块是否跟随市场主线。",

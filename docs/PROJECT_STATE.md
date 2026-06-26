@@ -18,14 +18,6 @@ Local Python automation for daily RSS-based Markdown brief generation. The curre
 
 Runtime stability hotfix: `scripts/run_daily_digest.sh` uses `caffeinate -dimsu` across the full task chain, stage logging was added, and RSS request timeout behavior was tightened.
 
-## Latest commit
-
-`281d443 fix: keep daily digest awake during scheduled run`
-
-## Working tree
-
-Clean at verification time.
-
 ## Last verified
 
 2026-06-25
@@ -40,6 +32,7 @@ Needs verification. docs/BACKLOG.md and docs/DECISIONS.md were not found in the 
 
 ## Important Context
 
+- Git branch、latest commit、working tree 由 project-command-center 实时 Git 扫描读取；PROJECT_STATE.md 不作为这些字段的权威来源。
 - README states the current version does not call DeepSeek, Tavily, or any paid search API.
 - v0.3.5 verified the Mac sleep -> pmset wake -> launchd -> digest -> Obsidian iCloud -> Bark -> iPhone Obsidian loop.
 - v0.4.1 expanded source roles for `global_tech_business`, `ai_industry`, and `ai_tools`.

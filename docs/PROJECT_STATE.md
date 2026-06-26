@@ -16,7 +16,7 @@ Local Python automation for daily RSS-based Markdown brief generation. The curre
 
 ## Latest completed
 
-v0.5.2-alpha RSS-driven market brief is in place: `market_news.py` analyzes collected RSS candidate articles, `market_analysis.py` combines snapshot/holdings/news context, and `market_brief_writer.py` renders the new eight-section market brief with holdings-related news. `scripts/run_market_brief.sh` explicitly generates `market-brief-YYYY-MM-DD.md`. Runtime stability hotfix remains in place: `scripts/run_daily_digest.sh` uses `caffeinate -dimsu` across the full task chain, stage logging was added, and RSS request timeout behavior was tightened.
+v0.5.2-alpha RSS-driven market brief is complete and pushed to `origin/main` at commit `7339145`. `market_news.py` analyzes collected RSS candidate articles, `market_analysis.py` combines snapshot/holdings/news context, and `market_brief_writer.py` renders the new eight-section market brief with holdings-related news. `scripts/run_market_brief.sh` explicitly generates `market-brief-YYYY-MM-DD.md`. Runtime stability hotfix remains in place: `scripts/run_daily_digest.sh` uses `caffeinate -dimsu` across the full task chain, stage logging was added, and RSS request timeout behavior was tightened.
 
 ## Last verified
 
@@ -24,11 +24,11 @@ v0.5.2-alpha RSS-driven market brief is in place: `market_news.py` analyzes coll
 
 ## Next Action
 
-Keep observing normal daily digest automation for stability. For the market research direction, the next recommended step is v0.5-beta: connect real A-share market data behind the existing market data interface while keeping the current no-trading-advice boundary.
+v0.5.3-alpha news quality tuning. The technical chain works and explicit `market_brief` can reuse real RSS, but the sample review shows the news filtering is not yet investment-research grade. Tune event selection, reason generation, theme deduplication, risk/contrarian signal quality, watch-list quality, and holdings-related news precision before connecting real A-share market data.
 
 ## Blockers
 
-No current P0 blocker recorded. `market_brief` can now use RSS news, but it still does not connect real market data, so market strength, relative strength, sector strength, and price/volume confirmation remain unavailable.
+No current P0 blocker recorded. Current product-quality blocker for the market brief direction is news quality: event selection is too broad, observation reasons are too templated, AI / 人工智能 theme clues can duplicate, risk/contrarian sections can include weakly related news, today's watch list quality is uneven, and holdings did not yet match high-value related news in the reviewed sample. `market_brief` still does not connect real market data, so market strength, relative strength, sector strength, and price/volume confirmation remain unavailable.
 
 ## Important Context
 
@@ -40,13 +40,14 @@ No current P0 blocker recorded. `market_brief` can now use RSS news, but it stil
 - v0.5-alpha adds `market_brief` as an explicit report type only; default `python3 main.py` and `scripts/run_daily_digest.sh` behavior stays on the existing configured daily digest.
 - v0.5.1-alpha adds `python3 main.py --report-type market_brief` and `scripts/run_market_brief.sh` as explicit one-off market brief entry points.
 - v0.5.2-alpha changes only the explicit `market_brief` path to reuse RSS candidate news; default `python3 main.py` still follows `config.json`, and `scripts/run_daily_digest.sh` remains untouched.
+- v0.5.2-alpha sample review conclusion: the technical path succeeds, but the current rules need v0.5.3-alpha news quality tuning before the report is useful as a market research brief.
 - `config/holdings.json` is ignored by Git. `config/holdings.example.json` is only an example and must not contain real cost, position size, market value, or loss amounts.
 - Initialize local holdings with `python3 scripts/init_holdings_config.py`; validate with `python3 scripts/validate_holdings_config.py`.
-- `market_brief` currently uses RSS news plus offline market snapshot placeholders. v0.5-beta should add real market data integration without adding trading recommendations.
+- `market_brief` currently uses RSS news plus offline market snapshot placeholders. v0.5-beta should add real A-share market data only after v0.5.3-alpha news quality tuning, and without adding trading recommendations.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
 - Further quality improvements may require evaluating AI-based filtering or ranking rather than continuing small rule tweaks.
 - `.env` is used for local Bark / Obsidian configuration and must not be copied into project docs.
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.5.2-alpha by preserving the normal daily digest automation and preparing v0.5-beta real A-share market data integration for `market_brief`. Keep holdings dynamic via local `config/holdings.json`, keep real holdings and cost/position/value/profit-loss fields out of Git and docs, and do not add trading recommendations.
+Continue automation-brief from v0.5.2-alpha by preserving the normal daily digest automation and implementing v0.5.3-alpha news quality tuning for `market_brief`. Focus on stricter market-event selection, less templated observation reasons, deduped theme clues, better risk/contrarian classification, higher-quality watch items, and more precise holdings-related news. Defer v0.5-beta real A-share market data integration until after news quality improves. Keep holdings dynamic via local `config/holdings.json`, keep real holdings and cost/position/value/profit-loss fields out of Git and docs, and do not add trading recommendations.

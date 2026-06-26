@@ -327,3 +327,21 @@ v0.4.1 只扩展 RSS 候选池、source role、关键词和漏报样本闭环，
 - 不修改 Bark 和 Obsidian 的业务逻辑。
 - 不影响 v0.4.1 RSS 扩源及 v0.4.1.1 分类、去重和内容形态降级逻辑。
 - v0.3.5 自动唤醒、launchd、Obsidian iCloud 和 Bark 推送链路保持不变，只增强任务运行期间的稳定性与可观测性。
+
+## P1 基础文档补齐
+
+### 背景
+
+项目已经形成稳定的本地自动化闭环，后续需要让 project-command-center 和人工交接都能快速理解当前状态、后续任务、测试方式和长期决策。
+
+### 实际改动
+
+- 新增 `docs/BACKLOG.md`，按 P0/P1/P2/P3 整理自动运行稳定性、市场投研晨报、RSS 覆盖、AI 筛选、missed coverage、Bark、Obsidian、launchd 和 pmset 后续任务。
+- 新增 `docs/TESTING.md`，记录 docs-only、Python、JSON 配置、自动化链路 smoke 和 missed coverage 复盘流程。
+- 新增 `docs/DECISIONS.md`，记录 08:00 早间回顾、简体中文输出、Obsidian iCloud、Bark、launchd + pmset、RSS + 规则筛选、未来 AI 筛选、GitHub Trending 和可配置持仓观察等长期决策。
+- README 增加项目文档入口。
+- `docs/PROJECT_STATE.md` 轻量更新 P1 基础文档状态，不写入 Git 快照字段。
+
+### 结论
+
+本次为 docs-only 变更，不修改业务代码、配置、RSS 源、Bark、Obsidian、launchd 或 pmset 链路。

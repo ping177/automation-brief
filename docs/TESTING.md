@@ -1,0 +1,81 @@
+# Testing
+
+本文记录 automation-brief 的测试命令、smoke checklist 和验收习惯。根据改动类型选择最小必要检查，不为 docs-only 任务运行不必要的业务链路。
+
+## Docs-only 验证
+
+仅修改 Markdown 文档时，通常运行：
+
+```bash
+git diff --check
+git status --short
+```
+
+`git diff --check` 用于检查尾随空格、空白错误和 patch 格式问题。docs-only 改动不需要跑 Python 编译、RSS 健康检查或真实日报生成，除非文档改动同时暴露出需要验证的运行假设。
+
+## Python 改动验证
+
+修改 Python 运行逻辑时，建议至少运行：
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile main.py check_feeds.py
+.venv/bin/python tests/offline_digest_smoke.py
+```
+
+如改动涉及脚本调用链、RSS 抓取、Bark、Obsidian 同步或真实输出，再按需运行：
+
+```bash
+.venv/bin/python check_feeds.py
+.venv/bin/python main.py
+scripts/run_daily_digest.sh
+```
+
+不要在验证输出中打印 `.env`、Bark key、Obsidian 私有路径等敏感配置或其他 secrets。
+
+## JSON 配置验证
+
+修改 JSON 配置或示例配置时，建议运行：
+
+```bash
+python3 -m json.tool feeds.json
+python3 -m json.tool feeds.example.json
+python3 -m json.tool config.json
+python3 -m json.tool config.example.json
+python3 -m json.tool keywords.json
+python3 -m json.tool keywords.example.json
+```
+
+如果只改其中一部分文件，可只验证对应 JSON；发布前或较大改动时建议全量验证。
+
+## 自动化链路 smoke checklist
+
+当改动影响真实运行链路，或需要确认早报闭环时，按以下顺序检查：
+
+- 生成每日简报：运行 `scripts/run_daily_digest.sh` 或 `.venv/bin/python main.py`，确认 `output/daily-news-YYYY-MM-DD.md` 生成。
+- 输出到 Obsidian iCloud：确认 Obsidian iCloud 目标目录出现同名日报，且内容与 `output/` 中文件一致。
+- Bark 推送：确认 iPhone 收到 Bark 通知；如配置了 Obsidian URI，点击后应打开当天日报。
+- launchd 定时：使用 `launchctl print gui/$(id -u)/com.ping.automation-brief.daily` 检查任务状态、运行次数和退出码。
+- Mac 自动唤醒链路：使用 `pmset -g sched` 检查计划，必要时结合 `pmset -g log` 判断 07:58 唤醒和 08:00 运行是否按预期发生。
+
+自动化链路 smoke 涉及本机环境、iCloud、Bark 和网络，只有在运行逻辑或自动化链路相关改动后才需要执行。
+
+## missed coverage 复盘流程
+
+当真实早报出现漏报、误升格、误降级或重复展示时：
+
+1. 在 `docs/MISSED_CASES.md` 新增案例，记录日期、标题、原始链接、期望 section、重要性、原因类型和采取动作。
+2. 判断问题属于 source gap、keyword gap、role gap、rule gap、dedupe gap、content format gap 或未来 AI rerank gap。
+3. 优先补离线 smoke 样本或 section 组装级样本，再做规则调整。
+4. 调整后运行 `tests/offline_digest_smoke.py`，必要时再运行真实 `main.py` 或 `scripts/run_daily_digest.sh`。
+5. 回填 `docs/MISSED_CASES.md` 的回归状态。
+
+`docs/MISSED_CASES.md` 是漏报和质量追踪文档，应保留为长期复盘入口。
+
+## 本次 P1 文档补齐任务
+
+本次任务是 docs-only：新增/补齐基础项目文档，不改业务代码、不改配置、不新增依赖、不读取 secrets。按项目规则只需要运行：
+
+```bash
+git diff --check
+git status --short
+```

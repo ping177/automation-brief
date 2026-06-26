@@ -16,6 +16,11 @@ from typing import Any, Optional
 
 import feedparser
 
+from holdings import load_holdings
+from market_analysis import build_market_brief_context
+from market_brief_writer import write_market_brief_markdown
+from market_data import load_offline_market_snapshot
+
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_FEEDS_FILE = BASE_DIR / "feeds.json"
@@ -205,8 +210,8 @@ def normalize_config(raw_config: Any) -> ReportConfig:
         raw_config.get("category_order"), defaults.category_order, "category_order"
     )
     report_type = str(raw_config.get("report_type", defaults.report_type)).strip().lower()
-    if report_type not in {"list", "digest"}:
-        raise ValueError("config.report_type must be either 'list' or 'digest'")
+    if report_type not in {"list", "digest", "market_brief"}:
+        raise ValueError("config.report_type must be one of 'list', 'digest', or 'market_brief'")
 
     return ReportConfig(
         output_dir=str(raw_config.get("output_dir", defaults.output_dir)).strip() or defaults.output_dir,
@@ -683,8 +688,6 @@ MARKET_SIGNAL_TERMS = (
     "半导体",
     "AI",
     "机器人",
-    "金风科技",
-    "中国西电",
 )
 MARKET_GENERIC_TERMS = ("资金", "资本", "财政", "金融")
 MARKET_STRONG_TERMS = (
@@ -1442,8 +1445,6 @@ INDUSTRY_TERMS = (
     "人工智能",
     "机器人",
     "芯片",
-    "金风科技",
-    "中国西电",
     "OpenAI",
     "ChatGPT",
     "Anthropic",
@@ -2235,6 +2236,11 @@ def write_markdown(
     config: ReportConfig,
     failures: list[tuple[str, str]],
 ) -> Path:
+    if config.report_type == "market_brief":
+        holdings_config = load_holdings()
+        market_snapshot = load_offline_market_snapshot(report_date)
+        market_context = build_market_brief_context(market_snapshot, holdings_config)
+        return write_market_brief_markdown(market_context, output_dir)
     if config.report_type == "digest":
         return write_digest_markdown(items, output_dir, report_date, config, failures)
     return write_list_markdown(items, keywords_by_category, output_dir, report_date, config, failures)
@@ -2265,14 +2271,17 @@ def main() -> None:
     setup_logging()
     args = parse_args()
 
-    feeds = normalize_feeds(load_json(args.feeds))
-    keywords = normalize_keywords(load_json(args.keywords))
     config = normalize_config(load_optional_json(args.config))
     report_date = parse_report_date(args.date)
     output_dir = args.output if args.output else BASE_DIR / config.output_dir
 
-    items, failures = collect_news(feeds, keywords, config, report_date)
-    output_file = write_markdown(items, keywords, output_dir, report_date, config, failures)
+    if config.report_type == "market_brief":
+        output_file = write_markdown([], {}, output_dir, report_date, config, [])
+    else:
+        feeds = normalize_feeds(load_json(args.feeds))
+        keywords = normalize_keywords(load_json(args.keywords))
+        items, failures = collect_news(feeds, keywords, config, report_date)
+        output_file = write_markdown(items, keywords, output_dir, report_date, config, failures)
     logging.info("Generated report: %s", output_file)
 
 

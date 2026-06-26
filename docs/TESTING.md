@@ -22,6 +22,13 @@ PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile main.py check_feeds.py
 .venv/bin/python tests/offline_digest_smoke.py
 ```
 
+For v0.5-alpha market brief changes, also compile the market brief modules and run:
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile holdings.py market_brief_writer.py market_data.py market_analysis.py
+.venv/bin/python tests/offline_market_brief_smoke.py
+```
+
 如改动涉及脚本调用链、RSS 抓取、Bark、Obsidian 同步或真实输出，再按需运行：
 
 ```bash
@@ -43,6 +50,7 @@ python3 -m json.tool config.json
 python3 -m json.tool config.example.json
 python3 -m json.tool keywords.json
 python3 -m json.tool keywords.example.json
+python3 -m json.tool config/holdings.example.json
 ```
 
 如果只改其中一部分文件，可只验证对应 JSON；发布前或较大改动时建议全量验证。
@@ -71,11 +79,15 @@ python3 -m json.tool keywords.example.json
 
 `docs/MISSED_CASES.md` 是漏报和质量追踪文档，应保留为长期复盘入口。
 
-## 本次 P1 文档补齐任务
+## market_brief smoke checklist
 
-本次任务是 docs-only：新增/补齐基础项目文档，不改业务代码、不改配置、不新增依赖、不读取 secrets。按项目规则只需要运行：
+v0.5-alpha 的 `market_brief` 仍是离线骨架。修改持仓读取、市场简报结构或投资安全边界时，至少确认：
 
-```bash
-git diff --check
-git status --short
-```
+- `market_brief` 能生成 Markdown。
+- 输出包含固定 section。
+- 持仓标题来自 holdings fixture，fixture 改变后输出随之变化。
+- 业务代码不硬编码示例持仓。
+- 输出不包含直接交易建议词。
+- `tests/offline_digest_smoke.py` 仍通过，确保普通 daily digest 不回退。
+
+当前不要求真实行情、AKShare、TuShare、AI rerank、Bark、Obsidian、launchd 或 pmset 级联 smoke。

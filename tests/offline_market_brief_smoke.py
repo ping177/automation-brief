@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+from datetime import date
+from pathlib import Path
+import sys
+import tempfile
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from holdings import load_holdings  # noqa: E402
+from market_analysis import build_market_brief_context  # noqa: E402
+from market_brief_writer import (  # noqa: E402
+    DIRECT_TRADING_ADVICE_TERMS,
+    MARKET_BRIEF_SECTIONS,
+    render_market_brief_markdown,
+)
+from market_data import load_offline_market_snapshot  # noqa: E402
+
+
+def write_holdings_fixture(path: Path, code: str, name: str) -> None:
+    path.write_text(
+        """{
+  "holdings": [
+    {
+      "code": "%s",
+      "name": "%s",
+      "market": "A股",
+      "sector": "电力设备",
+      "watch_tags": ["特高压", "电网设备"],
+      "notes": "观察是否跟随所属板块和市场主线"
+    }
+  ]
+}
+"""
+        % (code, name),
+        encoding="utf-8",
+    )
+
+
+def main() -> None:
+    report_date = date(2026, 6, 26)
+    fixture_dir = Path(tempfile.mkdtemp(prefix="automation-brief-market-"))
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+    first_fixture = fixture_dir / "holdings-first.json"
+    second_fixture = fixture_dir / "holdings-second.json"
+
+    write_holdings_fixture(first_fixture, "601179", "中国西电")
+    write_holdings_fixture(second_fixture, "002202", "金风科技")
+
+    first_holdings = load_holdings(first_fixture, example_path=first_fixture)
+    second_holdings = load_holdings(second_fixture, example_path=second_fixture)
+    first_context = build_market_brief_context(
+        load_offline_market_snapshot(report_date),
+        first_holdings,
+    )
+    second_context = build_market_brief_context(
+        load_offline_market_snapshot(report_date),
+        second_holdings,
+    )
+    first_markdown = render_market_brief_markdown(first_context)
+    second_markdown = render_market_brief_markdown(second_context)
+
+    assert first_markdown.startswith("# 每日市场投研晨报｜2026-06-26")
+    assert "Mode: market_brief" in first_markdown
+    for section in MARKET_BRIEF_SECTIONS:
+        assert section in first_markdown
+
+    assert "### 601179 中国西电" in first_markdown
+    assert "### 002202 金风科技" not in first_markdown
+    assert "### 002202 金风科技" in second_markdown
+    assert "### 601179 中国西电" not in second_markdown
+    assert first_markdown != second_markdown
+
+    for term in DIRECT_TRADING_ADVICE_TERMS:
+        assert term not in first_markdown
+        assert term not in second_markdown
+
+    assert "本报告仅用于个人市场观察和复盘，不构成投资建议。" in first_markdown
+
+    business_files = [
+        PROJECT_ROOT / "main.py",
+        PROJECT_ROOT / "holdings.py",
+        PROJECT_ROOT / "market_brief_writer.py",
+        PROJECT_ROOT / "market_data.py",
+        PROJECT_ROOT / "market_analysis.py",
+    ]
+    forbidden_terms = ("601179", "002202", "中国西电", "金风科技")
+    for path in business_files:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for term in forbidden_terms:
+            assert term not in text, f"{term} should not be hard-coded in {path.name}"
+
+    print("offline market brief smoke passed")
+
+
+if __name__ == "__main__":
+    main()

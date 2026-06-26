@@ -345,3 +345,29 @@ v0.4.1 只扩展 RSS 候选池、source role、关键词和漏报样本闭环，
 ### 结论
 
 本次为 docs-only 变更，不修改业务代码、配置、RSS 源、Bark、Obsidian、launchd 或 pmset 链路。
+
+## v0.5-alpha Market Research Brief 基础版
+
+### 背景
+
+项目从普通新闻晨报开始升级为轻量级市场投研晨报。目标是每日市场雷达、持仓观察、主线发现和风险提醒，不做自动交易，不输出买卖建议，也不替用户做投资决策。
+
+### 实际改动
+
+- 新增显式 `market_brief` report type，输出 `market-brief-YYYY-MM-DD.md`。
+- 新增 `holdings.py`，从 `config/holdings.json` 读取真实关注列表；不存在时回退到 `config/holdings.example.json`。
+- 新增 `config/holdings.example.json` 示例持仓，不包含成本、仓位、市值、亏损金额等敏感信息；真实 `config/holdings.json` 已加入 `.gitignore`。
+- 新增 `market_data.py`、`market_analysis.py`、`market_brief_writer.py`，分别承载离线 sample 数据、占位分析和 Markdown 输出。
+- 从 `main.py` 移除示例个股名的业务规则硬编码；持仓观察标题只来自 holdings 配置。
+- 新增 `tests/offline_market_brief_smoke.py`，验证 market brief section、动态 holdings、禁止业务硬编码、禁止直接交易建议词和免责声明。
+
+### 边界
+
+- 不接 AKShare、TuShare 或真实行情。
+- 不接 AI rerank。
+- 不修改 Bark、Obsidian、launchd、pmset 或 `scripts/run_daily_digest.sh` 链路。
+- `python main.py` 仍按当前 `config.json` 生成现有普通日报；`market_brief` 只能通过显式配置触发。
+
+### 结论
+
+v0.5-alpha 完成市场投研晨报最小骨架。后续 v0.5-beta 可在 `market_data.py` 后面接真实 A 股市场数据，同时继续保持持仓动态配置和不构成投资建议的安全边界。

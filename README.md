@@ -2,7 +2,7 @@
 
 一个低成本的每日资讯自动化工具：从 `feeds.json` 配置的 RSS 源抓取文章，根据 `keywords.json` 中的关键词分类过滤，去重后生成 Markdown 简报。
 
-v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 新增 `market_brief` 市场投研晨报骨架，用离线 mock/sample 数据和可配置 holdings 文件生成“每日市场雷达 + 持仓观察 + 主线发现 + 风险提醒”的基础 Markdown 结构。当前版本仍不调用 AI。
+v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 新增 `market_brief` 市场投研晨报骨架，用离线 mock/sample 数据和可配置 holdings 文件生成“每日市场雷达 + 持仓观察 + 主线发现 + 风险提醒”的基础 Markdown 结构。v0.5.1-alpha 完善 holdings 本地初始化、校验和手动生成体验。当前版本仍不调用 AI。
 
 当前版本不接 DeepSeek，不接 Tavily，也不依赖任何付费搜索 API。
 `market_brief` 当前不接真实行情、不做买卖建议，也不替用户做投资决策。
@@ -108,6 +108,37 @@ output/market-brief-YYYY-MM-DD.md
 
 免责声明固定保留：本报告仅用于个人市场观察和复盘，不构成投资建议。
 
+### holdings 本地配置
+
+初始化本地 holdings 配置：
+
+```bash
+python3 scripts/init_holdings_config.py
+```
+
+脚本会从 `config/holdings.example.json` 创建本地 `config/holdings.json`。如果文件已经存在，脚本不会覆盖。`config/holdings.json` 已被 `.gitignore` 忽略，应只保留在本机。
+
+编辑 `config/holdings.json` 时，每个条目只建议填写这些字段：
+
+```json
+{
+  "code": "示例代码",
+  "name": "示例名称",
+  "market": "A股",
+  "sector": "示例行业",
+  "watch_tags": ["关注标签"],
+  "notes": "只写观察备注"
+}
+```
+
+不要在 `config/holdings.json` 保存成本、仓位、持股数量、市值、盈亏金额、账户金额等真实敏感信息。调仓或调整关注对象后，直接编辑本地 `config/holdings.json`，然后运行校验：
+
+```bash
+python3 scripts/validate_holdings_config.py
+```
+
+校验脚本只输出字段级错误或 warning，不输出成本、仓位、市值、盈亏金额等具体值。
+
 ## 本地运行
 
 创建虚拟环境：
@@ -155,22 +186,25 @@ daily-news.log
 python main.py --feeds feeds.json --keywords keywords.json --config config.json --output output --date 2026-06-11
 ```
 
-如需手动生成 v0.5-alpha 市场投研晨报，可使用单独配置文件显式设置：
-
-```json
-{
-  "output_dir": "output",
-  "report_type": "market_brief"
-}
-```
-
-再运行：
+如需手动生成 v0.5.1-alpha 市场投研晨报，先确认 holdings 配置有效：
 
 ```bash
-python main.py --config path/to/market-brief-config.json --output output --date 2026-06-11
+python3 scripts/validate_holdings_config.py
 ```
 
-`python main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief`。
+再运行独立脚本：
+
+```bash
+scripts/run_market_brief.sh
+```
+
+也可以直接使用显式 CLI 覆盖：
+
+```bash
+python3 main.py --report-type market_brief --output output --date 2026-06-11
+```
+
+`python3 main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief`。`scripts/run_daily_digest.sh` 也不受影响，仍服务每天 08:00 的普通 digest、Obsidian 同步和 Bark 推送链路。
 
 ## RSS 源健康检查
 

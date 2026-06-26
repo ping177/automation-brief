@@ -2264,6 +2264,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_FILE, help="Path to config.json")
     parser.add_argument("--output", type=Path, help="Override output directory")
     parser.add_argument("--date", help="Report date, defaults to today. Example: 2026-06-11")
+    parser.add_argument(
+        "--report-type",
+        choices=("list", "digest", "market_brief"),
+        help="Override config.report_type for this run only.",
+    )
     return parser.parse_args()
 
 
@@ -2271,7 +2276,11 @@ def main() -> None:
     setup_logging()
     args = parse_args()
 
-    config = normalize_config(load_optional_json(args.config))
+    raw_config = load_optional_json(args.config)
+    if args.report_type:
+        raw_config = dict(raw_config) if isinstance(raw_config, dict) else {}
+        raw_config["report_type"] = args.report_type
+    config = normalize_config(raw_config)
     report_date = parse_report_date(args.date)
     output_dir = args.output if args.output else BASE_DIR / config.output_dir
 

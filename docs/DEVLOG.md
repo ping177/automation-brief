@@ -371,3 +371,33 @@ v0.4.1 只扩展 RSS 候选池、source role、关键词和漏报样本闭环，
 ### 结论
 
 v0.5-alpha 完成市场投研晨报最小骨架。后续 v0.5-beta 可在 `market_data.py` 后面接真实 A 股市场数据，同时继续保持持仓动态配置和不构成投资建议的安全边界。
+
+## v0.5.1-alpha holdings 本地配置体验完善
+
+### 背景
+
+v0.5-alpha 已经完成 `market_brief` 骨架，但用户还需要更安全、清楚的本地 holdings 配置流程：不手动复制 example、不猜命令、不担心误提交真实持仓，也能在调仓或调整关注对象后快速校验。
+
+### 实际改动
+
+- 新增 `scripts/init_holdings_config.py`，从 `config/holdings.example.json` 创建本地 `config/holdings.json`；如果本地文件已存在则不覆盖。
+- 新增 `scripts/validate_holdings_config.py`，校验 `holdings` list、允许字段、必填字段和 `watch_tags` 类型。
+- `holdings.py` 新增共享校验 helper，统一允许字段和敏感字段列表。
+- 校验脚本对成本、仓位、持股数量、市值、盈亏金额、账户金额等字段给出 warning，但不输出具体值，也不因为这些字段直接失败。
+- `main.py` 新增显式 `--report-type` 覆盖参数，可用 `python3 main.py --report-type market_brief` 手动生成市场投研晨报；不传参数时仍按 `config.json` 默认行为运行。
+- 新增 `scripts/run_market_brief.sh`，作为独立手动生成入口，输出 `output/market-brief-YYYY-MM-DD.md`。
+- 新增 `tests/offline_holdings_config_smoke.py`，用临时目录覆盖 init、validate、敏感字段 warning、显式 market brief 生成和 `run_daily_digest.sh` 不变。
+- README 和 TESTING 补充 holdings 初始化、编辑、校验、允许字段、敏感字段边界和手动 market brief 命令。
+- `docs/PROJECT_STATE.md` 更新到 v0.5.1-alpha，便于 project-command-center 展示当前阶段。
+
+### 边界
+
+- 不接 AKShare、TuShare 或真实行情。
+- 不接 AI rerank。
+- 不做买卖建议。
+- 不修改 Bark、Obsidian、launchd、pmset 或 `scripts/run_daily_digest.sh` 链路。
+- `config/holdings.json` 继续被 `.gitignore` 忽略，不应提交真实持仓。
+
+### 结论
+
+v0.5.1-alpha 完成 holdings 本地配置体验完善。后续 v0.5-beta 可以在现有 market data interface 后接真实 A 股行情，但仍需保持不保存敏感仓位信息、不输出交易建议的边界。

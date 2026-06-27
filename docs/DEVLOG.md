@@ -458,3 +458,70 @@ v0.5.2-alpha 已完成并 push 到 `origin/main`，提交为 `7339145`。真实 
 - docs-only correction。
 - 不修改业务代码、配置、脚本、测试、RSS 源、Bark、Obsidian、launchd 或 pmset。
 - 不 commit，不 push，等待人工确认。
+
+## v0.5.3-alpha news quality tuning
+
+### 背景
+
+v0.5.2-alpha 已经跑通显式 `market_brief` 复用 RSS 候选新闻的技术链路，但真实样例评审发现新闻质量不够投研化：关键词命中容易误升格，观察理由偏模板化，AI / 人工智能线索可能重复，弱相关商业内容可能进入核心段落，holdings 匹配需要区分高精度和宽泛标签。
+
+### 实际改动
+
+- `market_news.py` 为 `NewsInsight` 增加 `relevance_score` 和 `news_type`，在进入 market events、industry catalysts、risk、watch points 和 holdings 相关新闻前先做相关度评分。
+- 新闻类型分为宏观风险、政策监管、产业催化、公司融资 / IPO、普通商业新闻和弱相关内容。
+- 对泛圆桌、泛访谈、普通消费维权、食品检验、普通活动/体验类内容做弱相关降权；没有明确行情、政策、订单、监管或公司资本事件支撑时不进入核心段落。
+- 对 AI / 人工智能 / 大模型 / 算力 / 数据中心电力做主题聚合，避免同义主题重复铺新闻。
+- 观察理由改为基于命中的具体变量生成，说明它可能影响风险偏好、板块预期、资金定价、订单/投资节奏或可比公司预期。
+- holdings 相关新闻继续来自 `config/holdings.json` 或 example fixture 的 `code`、`name`、`sector`、`watch_tags`，并过滤 `出海`、`AI`、`新能源` 等宽泛标签单独触发。
+- `market_brief_writer.py` 在核心新闻和 holdings 相关新闻中展示新闻类型和相关度。
+- 扩展 `tests/offline_market_news_smoke.py` 和 `tests/offline_market_brief_smoke.py`，覆盖 relevance score、弱相关过滤、主题聚合、具体观察理由和 holdings 高/低精度匹配。
+
+### 边界
+
+- 不接真实 A 股行情。
+- 不接 AKShare / TuShare。
+- 不接 AI rerank。
+- 不输出买卖等交易动作建议。
+- 不读取、打印或修改 `.env`。
+- 不修改 `scripts/run_daily_digest.sh`、Bark、Obsidian、launchd 或 pmset 链路。
+- `config/holdings.json` 继续只作为本地忽略文件；业务代码不硬编码具体持仓。
+
+### 验证结果
+
+- `PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile main.py market_news.py market_analysis.py market_brief_writer.py holdings.py market_data.py` 通过。
+- `tests/offline_market_news_smoke.py` 通过。
+- `tests/offline_market_brief_smoke.py` 通过。
+- `tests/offline_holdings_config_smoke.py` 使用项目 `.venv` 前置 PATH 后通过；系统 `python3` 缺少 `feedparser`，未安装新依赖。
+- JSON example 校验、`sh -n scripts/run_market_brief.sh`、`sh -n scripts/run_daily_digest.sh` 和 `git diff --check` 通过。
+- 使用显式 `scripts/run_market_brief.sh --date 2026-06-27` 生成真实 RSS 样例 `output/market-brief-2026-06-27.md`；`output/` 为 gitignored。
+
+### 结论
+
+v0.5.3-alpha 把显式 market brief 的新闻筛选从“关键词命中即可进入”推进到“相关度评分 + 新闻类型 + 弱相关过滤 + 主题聚合 + 精确 holdings 匹配”。下一步应生成一份真实 RSS market brief 样例人工复核；样例质量稳定后，再考虑 v0.5-beta 接真实 A 股行情数据。
+
+## v0.5.3-alpha quality fix
+
+### 背景
+
+人工复核 `output/market-brief-2026-06-27.md` 后，发现 v0.5.3-alpha 仍有几类质量问题：`9点1氪`、`氪星晚报` 等综合快讯合集因子事件关键词叠加导致相关度虚高；DeepSeek 招聘 / 智元灵巧手、IPO / 上市 / 开盘暴涨等分类仍会误判；产业催化可能只显示主题不显示代表新闻；风险与反证、今日观察清单仍偏复制标题或理由；holdings 可能被泛行业词误触发。
+
+### 实际改动
+
+- 综合快讯合集、晚报、早报、日报、周报类内容整体降权，不再直接进入核心事件；本轮不做子事件抽取。
+- 新闻分类改为标题优先：IPO、上市、融资、估值、并购等优先归为公司融资 / IPO；只有标题或正文出现正式监管处罚、证监会、交易所、监管函、政策文件等才归为政策监管。
+- 观察理由加入来源、标题、类别和对应市场变量，不再只输出命中词模板。
+- 产业主题线索只从已入选的代表产业催化新闻生成；没有代表新闻时不展示孤立主题。
+- 风险与反证改为风险变量 / 反证逻辑，不再重复重要事件标题。
+- 今日观察清单改为可观察变量，不再复制观察理由。
+- holdings 相关新闻匹配进一步区分精度，`电力设备`、`风电设备` 等泛行业词不能单独触发强相关新闻。
+- 扩展离线 smoke，覆盖 `9点1氪` / `氪星晚报` 合集、IPO 分类、弱相关 theme、风险/观察变量和泛行业 holdings 误挂。
+
+### 验证结果
+
+- `tests/offline_market_news_smoke.py` 通过。
+- `tests/offline_market_brief_smoke.py` 通过。
+- 使用显式 `scripts/run_market_brief.sh --date 2026-06-27` 重新生成真实 RSS 样例 `output/market-brief-2026-06-27.md`；样例中 `9点1氪` / `氪星晚报` 不再进入核心事件，IPO / 上市样本归为公司融资 / IPO，holdings 不再误挂 *ST 电力设备并购新闻。
+
+### 结论
+
+v0.5.3-alpha quality fix 明显改善了真实样例的误升格、误分类、重复和 holdings 泛匹配问题。剩余质量仍受规则方案限制，后续若继续追求投研级筛选，建议基于 `docs/MISSED_CASES.md` 记录具体样例后再评估 AI rerank 或子事件抽取。

@@ -78,7 +78,22 @@ def main() -> None:
             "国家电网启动特高压设备招标，中国西电所在电力设备链条受关注",
             "招标订单和电网投资节奏可能成为产业催化。",
             "https://example.com/grid-tender-first",
-        )
+        ),
+        article(
+            "AI 圆桌访谈热议 IPO 和大模型 ROI",
+            "泛圆桌和访谈内容没有具体融资、订单、监管或行情变量。",
+            "https://example.com/ai-roundtable-first",
+        ),
+        article(
+            "普通食品检验结果公布，消费维权案例持续发酵",
+            "普通消费维权和食品检验不应进入市场投研核心段落。",
+            "https://example.com/consumer-rights-first",
+        ),
+        article(
+            "9点1氪｜苹果涨价引山姆代购潮；DeepSeek大规模招聘；黄金再度跌破4000美元",
+            "综合快讯合集不应整体进入核心事件。",
+            "https://example.com/kr-roundup-first",
+        ),
     ]
     second_articles = [
         article(
@@ -107,6 +122,15 @@ def main() -> None:
 
     assert "### 601179 中国西电" in first_markdown
     assert "国家电网启动特高压设备招标" in first_markdown
+    assert "类型：产业催化" in first_markdown
+    assert "相关度：" in first_markdown
+    assert "观察理由：离线测试源 报道的" in first_markdown
+    assert "产业主题和可验证催化" in first_markdown
+    assert "AI 圆桌访谈热议 IPO 和大模型 ROI" not in first_markdown
+    assert "普通食品检验结果公布" not in first_markdown
+    assert "9点1氪" not in first_markdown
+    industry_section = first_markdown.split("## 三、产业催化与主线线索", 1)[1].split("## 四、我的持仓新闻观察", 1)[0]
+    assert "新闻线索指向：" not in industry_section or "暂无可展示内容" not in industry_section
     assert "### 002202 金风科技" not in first_markdown
     assert "### 002202 金风科技" in second_markdown
     assert "海外风电项目披露新订单" in second_markdown

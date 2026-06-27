@@ -55,6 +55,8 @@ def append_insights(lines: list[str], items: Iterable[NewsInsight]) -> None:
     for item in listed:
         lines.append(f"- {markdown_escape(item.title)}")
         lines.append(f"  - 来源：{markdown_escape(item.source)}")
+        lines.append(f"  - 类型：{markdown_escape(item.news_type)}")
+        lines.append(f"  - 相关度：{item.relevance_score}")
         if item.reason:
             lines.append(f"  - 观察理由：{markdown_escape(item.reason)}")
         if item.link:
@@ -90,6 +92,10 @@ def render_holding_observations(context: MarketBriefContext) -> list[str]:
                 lines.append("- 相关新闻：")
                 for item in related.matches:
                     lines.append(f"  - {markdown_escape(item.title)}（{markdown_escape(item.source)}）")
+                    lines.append(f"    - 类型：{markdown_escape(item.news_type)}")
+                    lines.append(f"    - 相关度：{item.relevance_score}")
+                    if item.reason:
+                        lines.append(f"    - 观察理由：{markdown_escape(item.reason)}")
                     if item.link:
                         lines.append(f"    - 链接：{item.link}")
             else:
@@ -134,7 +140,7 @@ def render_market_brief_markdown(context: MarketBriefContext, generated_at: date
     append_insights(lines, news.market_events)
 
     lines.extend(["## 三、产业催化与主线线索", ""])
-    if news.theme_clues:
+    if news.industry_catalysts and news.theme_clues:
         append_bullets(lines, news.theme_clues)
     append_insights(lines, news.industry_catalysts)
 

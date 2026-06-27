@@ -24,7 +24,7 @@ v0.5-beta.1 small fix is implemented locally. `market_data.py` now separates rep
 
 ## Next Action
 
-Run the full requested verification checklist for v0.5-beta.1, then regenerate a manual explicit market brief sample and confirm the weekend/report-date wording, IPO volume, risk de-duplication, and holdings relative observations are acceptable.
+Push the committed v0.5-beta and v0.5-beta.1 changes to origin/main, then observe 1-2 more manually generated explicit market_brief samples on real market/news days. Focus on whether the lightweight quote source remains stable, whether RSS news can surface clearer market themes beyond IPO/financing items, and whether holdings relative observations stay useful without becoming trading advice. Keep the normal daily digest automation unchanged; do not merge market_brief into Bark / Obsidian / launchd yet.
 
 ## Blockers
 

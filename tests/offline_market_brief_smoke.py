@@ -17,7 +17,7 @@ from market_brief_writer import (  # noqa: E402
     MARKET_BRIEF_SECTIONS,
     render_market_brief_markdown,
 )
-from market_data import load_offline_market_snapshot  # noqa: E402
+from market_data import MarketDataFailure, MarketQuote, MarketSnapshot, load_offline_market_snapshot  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,65 @@ def write_holdings_fixture(path: Path, code: str, name: str) -> None:
 """
         % (code, name),
         encoding="utf-8",
+    )
+
+
+def market_snapshot(report_date: date, holding_code: str, holding_name: str, holding_pct: float) -> MarketSnapshot:
+    return MarketSnapshot(
+        data_date=report_date,
+        environment_note="已尝试接入轻量公开行情数据；缺失字段不做推断。",
+        indexes=(
+            MarketQuote(
+                name="上证指数",
+                code="000001",
+                pct_change=0.52,
+                amount=468000000000,
+                source="fixture",
+                as_of="2026-06-26T15:00:00+08:00",
+            ),
+            MarketQuote(
+                name="深成指",
+                code="399001",
+                pct_change=-0.21,
+                amount=590000000000,
+                source="fixture",
+                as_of="2026-06-26T15:00:00+08:00",
+            ),
+            MarketQuote(
+                name="创业板指",
+                code="399006",
+                pct_change=1.13,
+                amount=None,
+                source="fixture",
+                as_of="2026-06-26T15:00:00+08:00",
+            ),
+            MarketQuote(
+                name="科创50",
+                code="000688",
+                pct_change=None,
+                amount=None,
+                source="fixture",
+                as_of="2026-06-26T15:00:00+08:00",
+            ),
+        ),
+        holdings=(
+            MarketQuote(
+                name=holding_name,
+                code=holding_code,
+                pct_change=holding_pct,
+                amount=1234000000,
+                source="fixture",
+                as_of="2026-06-26T15:00:00+08:00",
+                industry="电力设备",
+                sector="电力设备",
+            ),
+        ),
+        failures=(),
+        strong_1d=(),
+        strong_5d=(),
+        trend_20d=(),
+        catalysts=(),
+        watch_signals=("观察主要指数涨跌和成交额是否支持新闻主线。",),
     )
 
 
@@ -103,24 +162,56 @@ def main() -> None:
         )
     ]
     first_context = build_market_brief_context(
-        load_offline_market_snapshot(report_date),
+        market_snapshot(report_date, "601179", "中国西电", 2.34),
         first_holdings,
         first_articles,
     )
     second_context = build_market_brief_context(
-        load_offline_market_snapshot(report_date),
+        market_snapshot(report_date, "002202", "金风科技", -1.25),
         second_holdings,
         second_articles,
     )
+    failed_context = build_market_brief_context(
+        MarketSnapshot(
+            data_date=report_date,
+            environment_note="行情数据源未返回可用数据，本次不做行情验证。",
+            indexes=(),
+            holdings=(),
+            failures=(MarketDataFailure(scope="indexes", message="offline failure"),),
+            strong_1d=(),
+            strong_5d=(),
+            trend_20d=(),
+            catalysts=(),
+            watch_signals=("观察主要指数涨跌和成交额是否支持新闻主线。",),
+        ),
+        first_holdings,
+        first_articles,
+    )
+    empty_context = build_market_brief_context(
+        load_offline_market_snapshot(report_date),
+        load_holdings(fixture_dir / "missing-holdings.json", example_path=fixture_dir / "missing-example.json"),
+        first_articles,
+    )
     first_markdown = render_market_brief_markdown(first_context)
     second_markdown = render_market_brief_markdown(second_context)
+    failed_markdown = render_market_brief_markdown(failed_context)
+    empty_markdown = render_market_brief_markdown(empty_context)
 
     assert first_markdown.startswith("# 每日市场投研晨报｜2026-06-26")
     assert "Mode: market_brief" in first_markdown
     for section in MARKET_BRIEF_SECTIONS:
         assert section in first_markdown
 
+    assert "## 一、市场温度" in first_markdown
+    assert "上证指数（000001）：+0.52%" in first_markdown
+    assert "深成指（399001）：-0.21%" in first_markdown
+    assert "创业板指（399006）：+1.13%，成交额 数据暂不可用" in first_markdown
+    assert "科创50（000688）：涨跌幅 数据暂不可用" in first_markdown
+    assert "主要指数涨跌分化" in first_markdown
+
     assert "### 601179 中国西电" in first_markdown
+    assert "行情：+2.34%，成交额 12.3 亿" in first_markdown
+    assert "行业/板块：电力设备" in first_markdown
     assert "国家电网启动特高压设备招标" in first_markdown
     assert "类型：产业催化" in first_markdown
     assert "相关度：" in first_markdown
@@ -129,21 +220,27 @@ def main() -> None:
     assert "AI 圆桌访谈热议 IPO 和大模型 ROI" not in first_markdown
     assert "普通食品检验结果公布" not in first_markdown
     assert "9点1氪" not in first_markdown
-    industry_section = first_markdown.split("## 三、产业催化与主线线索", 1)[1].split("## 四、我的持仓新闻观察", 1)[0]
-    assert "新闻线索指向：" not in industry_section or "暂无可展示内容" not in industry_section
+    today_theme_section = first_markdown.split("## 二、今日主线", 1)[1].split("## 三、我的持仓观察", 1)[0]
+    assert "新闻线索指向：" in today_theme_section
+    assert "行情验证：" in today_theme_section
     assert "### 002202 金风科技" not in first_markdown
     assert "### 002202 金风科技" in second_markdown
+    assert "行情：-1.25%，成交额 12.3 亿" in second_markdown
     assert "海外风电项目披露新订单" in second_markdown
     assert "### 601179 中国西电" not in second_markdown
     assert first_markdown != second_markdown
     assert "### 1日强势" not in first_markdown
     assert "### 5日持续强势" not in first_markdown
     assert "### 20日趋势主线" not in first_markdown
-    assert first_markdown.count("未接真实行情") <= 2
+    assert "指数行情：数据暂不可用。" in failed_markdown
+    assert "行情验证：指数行情数据暂不可用" in failed_markdown
+    assert "行情：数据暂不可用" in failed_markdown
+    assert "暂无持仓配置" in empty_markdown
 
     for term in DIRECT_TRADING_ADVICE_TERMS:
         assert term not in first_markdown
         assert term not in second_markdown
+        assert term not in failed_markdown
 
     assert "本报告仅用于个人市场观察和复盘，不构成投资建议。" in first_markdown
 

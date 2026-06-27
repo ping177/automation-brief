@@ -26,6 +26,7 @@ For v0.5-alpha market brief changes, also compile the market brief modules and r
 
 ```bash
 PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile holdings.py market_brief_writer.py market_data.py market_analysis.py market_news.py
+.venv/bin/python tests/offline_market_data_smoke.py
 .venv/bin/python tests/offline_market_news_smoke.py
 .venv/bin/python tests/offline_market_brief_smoke.py
 ```
@@ -89,20 +90,25 @@ python3 -m json.tool config/holdings.example.json
 
 ## market_brief smoke checklist
 
-v0.5.2-alpha 的显式 `market_brief` 会复用 RSS 候选新闻，但仍不接真实行情。修改持仓读取、新闻筛选、市场简报结构或投资安全边界时，至少确认：
+v0.5-beta first stage 的显式 `market_brief` 会复用 RSS 候选新闻，并尝试用轻量公开接口抓取主要指数和 holdings 个股行情。修改持仓读取、行情数据、新闻筛选、市场简报结构或投资安全边界时，至少确认：
 
 - `market_brief` 能生成 Markdown。
 - 输出包含固定 section。
 - 持仓标题来自 holdings fixture，fixture 改变后输出随之变化。
+- 指数行情 mock 正常返回时，输出展示上证 / 深成指 / 创业板 / 科创 50 涨跌。
+- holdings 行情 mock 正常返回时，输出展示持仓个股涨跌。
+- 行情字段缺失或请求失败时，输出显示“数据暂不可用”，报告仍能生成。
+- 未配置 holdings 时，report 不崩溃。
 - holdings 相关新闻只来自 `code`、`name`、`sector`、`watch_tags` 动态匹配。
 - 离线 `offline_market_news_smoke.py` 使用 fixture，不依赖真实 RSS 网络。
+- 离线 `offline_market_data_smoke.py` 使用 fixture / mock，不依赖真实行情网络。
 - 业务代码不硬编码示例持仓。
 - 输出不包含直接交易建议词。
-- “未接真实行情”说明只出现在市场环境和数据限制相关位置，避免多 section 重复空文案。
+- 行情限制说明只出现在市场温度、行情验证或数据限制相关位置，避免多 section 重复空文案。
 - `tests/offline_digest_smoke.py` 仍通过，确保普通 daily digest 不回退。
 - `scripts/init_holdings_config.py` 不覆盖已有本地 holdings。
 - `scripts/validate_holdings_config.py` 对合法配置通过、对 JSON/字段错误失败、对成本/仓位/市值/盈亏字段 warning 且不输出具体值。
 - `python3 main.py --report-type market_brief` 或 `scripts/run_market_brief.sh` 能显式生成 `output/market-brief-YYYY-MM-DD.md`。
 - `scripts/run_daily_digest.sh` 不增加 `--report-type market_brief`，默认每日普通 digest 链路不变。
 
-当前不要求真实行情、AKShare、TuShare、AI rerank、Bark、Obsidian、launchd 或 pmset 级联 smoke。
+当前不要求 AKShare、TuShare、AI rerank、Bark、Obsidian、launchd 或 pmset 级联 smoke。真实行情网络只在手动显式 market brief 样例中观察，不作为离线测试前置条件。

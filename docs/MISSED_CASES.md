@@ -27,3 +27,13 @@
 - 原因分析：v0.4.1 扩充英文科技商业和 AI 产业源后，不同来源及 podcast、video、interview 等不同内容形态会报道同一事件或主题。此前去重主要覆盖 `market_signal` 内部和部分跨 section 场景，对 `core_event` 中文近似标题及内容形态重复覆盖不足；同时规则对 IPOs / ROI 等词过敏，而对明确 valuation / 大厂背书信号优先级不足。
 - 采取动作：扩展最终 section 组装级去重，并在各 section 截断前去重；跨 section 按 `core_event > market_signal > watch_item > quick_scan` 优先级保留；增强中文相似事件 key；podcast / video / interview / 泛讨论默认不进入 `market_signal`，除非包含具体融资、估值、IPO、交易、监管或财报等硬事件；允许明确估值、融资及大厂背书信号进入 `market_signal`；增加 section 组装级回归测试。
 - 回归状态：已修复；组装级测试通过；真实日报未发现目标类型明显重复；抓取失败为无；v0.3.5 自动运行链路未受影响。
+
+## 2026-06-27 v0.5-beta 轻量行情源字段限制
+
+- 日期：2026-06-27
+- 案例标题：轻量公开行情接口可能缺失成交额、涨跌幅或临时不可用
+- 原始现象：v0.5-beta 第一阶段为了避免 AKShare / TuShare 等重依赖，使用标准库请求轻量公开行情接口。该接口字段稳定性和可用性不由本项目控制，成交额或个股行情可能缺失。
+- 漏报 / 误报类型：`market_data_source_gap` / `field_missing` / `runtime_availability`
+- 原因分析：第一阶段只做最小行情验证，不建立多数据源交叉校验，也不计算板块强度或复杂相对强弱。公开接口返回字段缺失时，继续推断会引入编造风险。
+- 采取动作：`market_data.py` 将行情失败收敛到 `failures`，report 中显示“数据暂不可用”或“行情数据源未返回该字段，本次不做该项判断”；离线 smoke 覆盖字段缺失和请求失败。
+- 回归状态：已加入 `tests/offline_market_data_smoke.py` 和 `tests/offline_market_brief_smoke.py`；后续真实样例若出现长期缺字段，再评估更稳定数据源。

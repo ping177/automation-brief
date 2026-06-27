@@ -19,7 +19,7 @@ import feedparser
 from holdings import load_holdings
 from market_analysis import build_market_brief_context
 from market_brief_writer import write_market_brief_markdown
-from market_data import load_offline_market_snapshot
+from market_data import fetch_market_snapshot
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -2238,7 +2238,7 @@ def write_markdown(
 ) -> Path:
     if config.report_type == "market_brief":
         holdings_config = load_holdings()
-        market_snapshot = load_offline_market_snapshot(report_date)
+        market_snapshot = fetch_market_snapshot(report_date, holdings_config)
         market_context = build_market_brief_context(
             market_snapshot,
             holdings_config,

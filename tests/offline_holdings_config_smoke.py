@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -15,10 +16,13 @@ MAIN_SCRIPT = PROJECT_ROOT / "main.py"
 
 
 def run_command(args: list[str]) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["AUTOMATION_BRIEF_OFFLINE_MARKET_DATA"] = "1"
     return subprocess.run(
         args,
         cwd=PROJECT_ROOT,
         check=False,
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

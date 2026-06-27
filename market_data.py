@@ -47,6 +47,7 @@ class MarketDataFailure:
 @dataclass(frozen=True)
 class MarketSnapshot:
     data_date: date
+    market_data_date: date
     environment_note: str
     indexes: tuple[MarketQuote, ...]
     holdings: tuple[MarketQuote, ...]
@@ -71,6 +72,23 @@ def _format_as_of(timestamp: Any) -> str:
     if isinstance(timestamp, (int, float)) and timestamp > 0:
         return datetime.fromtimestamp(timestamp).astimezone().isoformat(timespec="seconds")
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _date_from_as_of(value: str) -> date | None:
+    try:
+        return datetime.fromisoformat(value).date()
+    except ValueError:
+        return None
+
+
+def _market_data_date(quotes: tuple[MarketQuote, ...], fallback: date) -> date:
+    quote_dates = tuple(
+        quote_date
+        for quote in quotes
+        for quote_date in (_date_from_as_of(quote.as_of),)
+        if quote_date is not None
+    )
+    return max(quote_dates) if quote_dates else fallback
 
 
 def _eastmoney_url(secids: tuple[str, ...]) -> str:
@@ -116,7 +134,7 @@ def _quote_from_payload(
         name=str(payload.get("f14") or fallback_name).strip() or fallback_name,
         code=str(payload.get("f12") or fallback_code).strip() or fallback_code,
         pct_change=_to_float(payload.get("f3")),
-        amount=_to_float(payload.get("f6")),
+        amount=None,
         source=MARKET_DATA_SOURCE,
         as_of=_format_as_of(payload.get("f124")),
         industry=sector,
@@ -214,8 +232,17 @@ def fetch_market_snapshot(
     else:
         environment_note = "行情数据源未返回可用数据，本次不做行情验证。"
 
+    if indexes or holding_quotes:
+        failures.append(
+            MarketDataFailure(
+                scope="amount",
+                message="轻量行情源成交额字段口径未在本项目中完成校验，本次按数据暂不可用处理。",
+            )
+        )
+
     return MarketSnapshot(
         data_date=report_date,
+        market_data_date=_market_data_date(tuple(indexes) + tuple(holding_quotes), report_date),
         environment_note=environment_note,
         indexes=tuple(indexes),
         holdings=tuple(holding_quotes),
@@ -235,6 +262,7 @@ def fetch_market_snapshot(
 def load_offline_market_snapshot(report_date: date) -> MarketSnapshot:
     return MarketSnapshot(
         data_date=report_date,
+        market_data_date=report_date,
         environment_note="行情数据源未返回可用数据，本次不做行情验证。",
         indexes=(),
         holdings=(),

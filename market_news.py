@@ -241,6 +241,34 @@ THEME_ALIASES = (
     ("半导体 / 芯片", ("半导体", "芯片")),
     ("新能源 / 储能", ("新能源", "储能", "光伏")),
 )
+OVERSEAS_IPO_TERMS = (
+    "美股",
+    "纳斯达克",
+    "港股",
+    "pre-ipo",
+    "pre ipo",
+    "investor meetings",
+    "递表美股",
+    "秘密递表",
+)
+A_SHARE_RELATED_IPO_TERMS = (
+    "A股",
+    "科创",
+    "创业板",
+    "北交所",
+    "硬科技",
+    "半导体",
+    "芯片",
+    "人工智能",
+    "算力",
+    "新能源",
+    "储能",
+    "风电",
+    "电网",
+    "特高压",
+    "机器人",
+)
+MAX_COMPANY_FINANCING_EVENTS = 2
 
 
 def _clean(value: Any) -> str:
@@ -303,6 +331,17 @@ def _dedupe_insights(items: list[NewsInsight], limit: int) -> tuple[NewsInsight,
         deduped.append(item)
         if len(deduped) >= limit:
             break
+    return tuple(deduped)
+
+
+def _dedupe_text_items(items: tuple[str, ...]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        deduped.append(item)
     return tuple(deduped)
 
 
@@ -482,6 +521,27 @@ def _is_excluded_article(article: Any) -> bool:
     return _contains_any(title, WEAK_RELATED_PATTERNS) and not _contains_any(title, title_hard_terms)
 
 
+def _is_unmapped_overseas_ipo(article: Any, news_type: str) -> bool:
+    if news_type != NEWS_TYPE_COMPANY_FINANCING:
+        return False
+    text = _article_text(article)
+    if not _contains_any(text, OVERSEAS_IPO_TERMS):
+        return False
+    return not _contains_any(text, A_SHARE_RELATED_IPO_TERMS)
+
+
+def _limit_company_financing_events(items: tuple[NewsInsight, ...]) -> tuple[NewsInsight, ...]:
+    limited: list[NewsInsight] = []
+    financing_count = 0
+    for item in items:
+        if item.news_type == NEWS_TYPE_COMPANY_FINANCING:
+            if financing_count >= MAX_COMPANY_FINANCING_EVENTS:
+                continue
+            financing_count += 1
+        limited.append(item)
+    return tuple(limited)
+
+
 def _risk_variable(item: NewsInsight) -> str:
     if item.news_type == NEWS_TYPE_POLICY_REGULATION:
         return "监管变量：后续是否出现正式处罚、问询范围扩大或同类公司合规风险重估。"
@@ -522,6 +582,8 @@ def analyze_market_news(
         score, news_type, reason, weak_related = _score_article(article)
         if not _is_investable_candidate(score, news_type, weak_related):
             continue
+        if _is_unmapped_overseas_ipo(article, news_type):
+            continue
 
         if news_type in {NEWS_TYPE_MACRO_RISK, NEWS_TYPE_POLICY_REGULATION, NEWS_TYPE_COMPANY_FINANCING}:
             event_candidates.append(_insight(article, reason, score, news_type))
@@ -548,6 +610,8 @@ def analyze_market_news(
             score, news_type, reason, weak_related = _score_article(article)
             if not _is_investable_candidate(score, news_type, weak_related):
                 continue
+            if _is_unmapped_overseas_ipo(article, news_type):
+                continue
             for term in terms:
                 if term not in precise_terms:
                     continue
@@ -564,14 +628,17 @@ def analyze_market_news(
                 )
             )
 
-    market_events = _dedupe_insights(event_candidates, max_items)
+    market_events = _limit_company_financing_events(_dedupe_insights(event_candidates, max_items))
     industry_catalysts = _dedupe_insights(catalyst_candidates, max_items)
     risk_points = _dedupe_insights(risk_candidates, max_items)
     watch_points = _dedupe_insights(watch_candidates, max_items)
 
     environment_points = (f"RSS 候选新闻 {len(articles)} 条；以下只基于新闻线索做观察。",)
     if risk_points:
-        environment_points += tuple(f"风险/反证：{_risk_variable(item)}" for item in risk_points[:2])
+        environment_points += tuple(
+            f"风险/反证：{item}"
+            for item in _dedupe_text_items(tuple(_risk_variable(item) for item in risk_points))[:2]
+        )
 
     theme_clues = tuple(
         f"新闻线索指向：{theme}"

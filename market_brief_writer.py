@@ -54,10 +54,11 @@ def append_bullets(lines: list[str], items: tuple[str, ...]) -> None:
     lines.append("")
 
 
-def append_insights(lines: list[str], items: Iterable[NewsInsight]) -> None:
+def append_insights(lines: list[str], items: Iterable[NewsInsight], empty_text: str | None = "- 暂无可展示内容。") -> None:
     listed = tuple(items)
     if not listed:
-        lines.extend(["- 暂无可展示内容。", ""])
+        if empty_text:
+            lines.extend([empty_text, ""])
         return
     for item in listed:
         lines.append(f"- {markdown_escape(item.title)}")
@@ -110,8 +111,29 @@ def market_temperature_note(context: MarketBriefContext) -> str:
     return "主要指数整体偏震荡，暂不把单日波动解读为趋势。"
 
 
+def average_index_pct_change(context: MarketBriefContext) -> float | None:
+    pct_values = [quote.pct_change for quote in context.snapshot.indexes if quote.pct_change is not None]
+    if not pct_values:
+        return None
+    return sum(pct_values) / len(pct_values)
+
+
+def relative_to_indexes_text(context: MarketBriefContext, pct_change: float | None) -> str:
+    average_pct = average_index_pct_change(context)
+    if pct_change is None or average_pct is None:
+        return "相对观察：主要指数或个股涨跌数据不足。"
+    diff = pct_change - average_pct
+    if diff >= 0.5:
+        return "相对观察：强于主要指数均值。"
+    if diff <= -0.5:
+        return "相对观察：弱于主要指数均值。"
+    return "相对观察：接近主要指数均值。"
+
+
 def append_market_temperature(lines: list[str], context: MarketBriefContext) -> None:
     snapshot = context.snapshot
+    lines.append(f"- 报告日期：{snapshot.data_date.isoformat()}")
+    lines.append(f"- 行情交易日：{snapshot.market_data_date.isoformat()}")
     if snapshot.indexes:
         for quote in snapshot.indexes:
             lines.append(
@@ -162,6 +184,11 @@ def render_holding_observations(context: MarketBriefContext) -> list[str]:
                         f"{markdown_escape(format_quote_meta(quote.source, quote.as_of))}"
                         if quote
                         else "- 行情：数据暂不可用"
+                    ),
+                    (
+                        f"- {markdown_escape(relative_to_indexes_text(context, quote.pct_change))}"
+                        if quote
+                        else "- 相对观察：行情数据暂不可用。"
                     ),
                     f"- 关注标签：{markdown_escape(tags)}",
                     f"- 观察备注：{markdown_escape(observation.notes or '暂无备注。')}",
@@ -214,7 +241,8 @@ def render_market_brief_markdown(context: MarketBriefContext, generated_at: date
         f"# 每日市场投研晨报｜{snapshot.data_date.isoformat()}",
         "",
         f"Generated at: {generated_time.isoformat(timespec='seconds')}",
-        f"Data date: {snapshot.data_date.isoformat()}",
+        f"Report date: {snapshot.data_date.isoformat()}",
+        f"Market data date: {snapshot.market_data_date.isoformat()}",
         "Mode: market_brief",
         "",
         "## 一、市场温度",
@@ -226,7 +254,7 @@ def render_market_brief_markdown(context: MarketBriefContext, generated_at: date
 
     lines.extend(["## 二、今日主线", ""])
     append_today_theme(lines, context)
-    append_insights(lines, news.industry_catalysts)
+    append_insights(lines, news.industry_catalysts, empty_text=None)
 
     lines.extend(["## 三、我的持仓观察", ""])
     lines.extend(render_holding_observations(context))

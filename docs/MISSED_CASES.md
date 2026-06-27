@@ -37,3 +37,13 @@
 - 原因分析：第一阶段只做最小行情验证，不建立多数据源交叉校验，也不计算板块强度或复杂相对强弱。公开接口返回字段缺失时，继续推断会引入编造风险。
 - 采取动作：`market_data.py` 将行情失败收敛到 `failures`，report 中显示“数据暂不可用”或“行情数据源未返回该字段，本次不做该项判断”；离线 smoke 覆盖字段缺失和请求失败。
 - 回归状态：已加入 `tests/offline_market_data_smoke.py` 和 `tests/offline_market_brief_smoke.py`；后续真实样例若出现长期缺字段，再评估更稳定数据源。
+
+## 2026-06-27 v0.5-beta 真实样例 IPO 与行情展示噪音
+
+- 日期：2026-06-27
+- 案例标题：周末 market brief 混淆 report date / market date，IPO 新闻刷屏，风险变量重复
+- 原始现象：真实 `output/market-brief-2026-06-27.md` 在周末生成时显示 `Data date: 2026-06-27`，但行情实际截至 2026-06-26；成交额字段直接展示且口径未确认；今日主线为空时出现“暂无可展示内容”；重要新闻几乎全是 IPO / 融资；风险与反证重复同一条资本市场变量；持仓有涨跌但缺少相对主要指数的轻量描述。
+- 漏报 / 误报类型：`report_date_confusion` / `field_semantics_uncertain` / `empty_template` / `ipo_overweight` / `duplicate_risk_variable`
+- 原因分析：v0.5-beta 第一阶段只完成最小行情接入，没有把非交易日行情日期、成交额口径、新闻类型配额和风险变量去重作为单独约束。
+- 采取动作：v0.5-beta.1 增加 `market_data_date`；成交额口径未确认前显示“数据暂不可用”；今日主线空内容不输出空模板；风险变量文本去重；IPO / 融资类最多 2 条；无法映射 A 股产业链或当前主线的海外 IPO 不展示；holdings 增加强于 / 弱于 / 接近主要指数均值的轻量观察。
+- 回归状态：已扩展 `tests/offline_market_data_smoke.py` 和 `tests/offline_market_brief_smoke.py` 覆盖。

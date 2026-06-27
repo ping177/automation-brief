@@ -64,13 +64,14 @@ def write_holdings_fixture(path: Path, code: str, name: str) -> None:
 def market_snapshot(report_date: date, holding_code: str, holding_name: str, holding_pct: float) -> MarketSnapshot:
     return MarketSnapshot(
         data_date=report_date,
+        market_data_date=date(2026, 6, 25),
         environment_note="已尝试接入轻量公开行情数据；缺失字段不做推断。",
         indexes=(
             MarketQuote(
                 name="上证指数",
                 code="000001",
                 pct_change=0.52,
-                amount=468000000000,
+                amount=None,
                 source="fixture",
                 as_of="2026-06-26T15:00:00+08:00",
             ),
@@ -78,7 +79,7 @@ def market_snapshot(report_date: date, holding_code: str, holding_name: str, hol
                 name="深成指",
                 code="399001",
                 pct_change=-0.21,
-                amount=590000000000,
+                amount=None,
                 source="fixture",
                 as_of="2026-06-26T15:00:00+08:00",
             ),
@@ -104,7 +105,7 @@ def market_snapshot(report_date: date, holding_code: str, holding_name: str, hol
                 name=holding_name,
                 code=holding_code,
                 pct_change=holding_pct,
-                amount=1234000000,
+                amount=None,
                 source="fixture",
                 as_of="2026-06-26T15:00:00+08:00",
                 industry="电力设备",
@@ -174,6 +175,7 @@ def main() -> None:
     failed_context = build_market_brief_context(
         MarketSnapshot(
             data_date=report_date,
+            market_data_date=report_date,
             environment_note="行情数据源未返回可用数据，本次不做行情验证。",
             indexes=(),
             holdings=(),
@@ -207,10 +209,13 @@ def main() -> None:
     assert "深成指（399001）：-0.21%" in first_markdown
     assert "创业板指（399006）：+1.13%，成交额 数据暂不可用" in first_markdown
     assert "科创50（000688）：涨跌幅 数据暂不可用" in first_markdown
+    assert "行情交易日：2026-06-25" in first_markdown
+    assert "报告日期：2026-06-26" in first_markdown
     assert "主要指数涨跌分化" in first_markdown
 
     assert "### 601179 中国西电" in first_markdown
-    assert "行情：+2.34%，成交额 12.3 亿" in first_markdown
+    assert "行情：+2.34%，成交额 数据暂不可用" in first_markdown
+    assert "相对观察：强于主要指数均值" in first_markdown
     assert "行业/板块：电力设备" in first_markdown
     assert "国家电网启动特高压设备招标" in first_markdown
     assert "类型：产业催化" in first_markdown
@@ -223,9 +228,10 @@ def main() -> None:
     today_theme_section = first_markdown.split("## 二、今日主线", 1)[1].split("## 三、我的持仓观察", 1)[0]
     assert "新闻线索指向：" in today_theme_section
     assert "行情验证：" in today_theme_section
+    assert "暂无可展示内容" not in today_theme_section
     assert "### 002202 金风科技" not in first_markdown
     assert "### 002202 金风科技" in second_markdown
-    assert "行情：-1.25%，成交额 12.3 亿" in second_markdown
+    assert "行情：-1.25%，成交额 数据暂不可用" in second_markdown
     assert "海外风电项目披露新订单" in second_markdown
     assert "### 601179 中国西电" not in second_markdown
     assert first_markdown != second_markdown
@@ -236,6 +242,34 @@ def main() -> None:
     assert "行情验证：指数行情数据暂不可用" in failed_markdown
     assert "行情：数据暂不可用" in failed_markdown
     assert "暂无持仓配置" in empty_markdown
+
+    empty_theme_context = build_market_brief_context(
+        market_snapshot(report_date, "601179", "中国西电", 0.12),
+        first_holdings,
+        [],
+    )
+    empty_theme_markdown = render_market_brief_markdown(empty_theme_context)
+    empty_theme_section = empty_theme_markdown.split("## 二、今日主线", 1)[1].split("## 三、我的持仓观察", 1)[0]
+    assert "暂无可展示内容" not in empty_theme_section
+
+    ipo_articles = [
+        article("大秦储能冲港股IPO，锂价高位囤货后亏损三年", "港股 IPO 但难以映射当前 A 股主线。", "https://example.com/ipo-a"),
+        article("中科闻歌开盘暴涨81%，北京再增一家硬科技IPO", "硬科技 IPO 属于公司资本事件。", "https://example.com/ipo-b"),
+        article("保险经纪巨头Hub International秘密递表美股IPO", "海外保险经纪 IPO 与 A 股主线映射弱。", "https://example.com/ipo-c"),
+        article("OpenAI hasn't held pre-IPO investor meetings or set timeline yet", "海外 pre-IPO timeline news.", "https://example.com/ipo-d"),
+    ]
+    ipo_context = build_market_brief_context(
+        market_snapshot(report_date, "601179", "中国西电", 0.12),
+        first_holdings,
+        ipo_articles,
+    )
+    ipo_markdown = render_market_brief_markdown(ipo_context)
+    important_news_section = ipo_markdown.split("## 四、重要新闻与验证", 1)[1].split("## 五、风险与反证", 1)[0]
+    assert important_news_section.count("类型：公司融资 / IPO") <= 2
+    assert "OpenAI hasn't held pre-IPO" not in important_news_section
+
+    risk_section = ipo_markdown.split("## 五、风险与反证", 1)[1].split("## 六、今日继续观察", 1)[0]
+    assert risk_section.count("资本市场变量") <= 1
 
     for term in DIRECT_TRADING_ADVICE_TERMS:
         assert term not in first_markdown

@@ -50,10 +50,10 @@ def fake_urlopen(request, timeout: int = 0) -> FakeResponse:  # noqa: ANN001
             {
                 "data": {
                     "diff": [
-                        {"f12": "000001", "f14": "上证指数", "f3": 0.52, "f6": 468000000000, "f124": 1782489600},
-                        {"f12": "399001", "f14": "深成指", "f3": -0.21, "f6": 590000000000, "f124": 1782489600},
-                        {"f12": "399006", "f14": "创业板指", "f3": 1.13, "f6": "-", "f124": 1782489600},
-                        {"f12": "000688", "f14": "科创50", "f3": None, "f6": None, "f124": 1782489600},
+                        {"f12": "000001", "f14": "上证指数", "f3": 0.52, "f6": 468000000000, "f124": 1782457200},
+                        {"f12": "399001", "f14": "深成指", "f3": -0.21, "f6": 590000000000, "f124": 1782457200},
+                        {"f12": "399006", "f14": "创业板指", "f3": 1.13, "f6": "-", "f124": 1782457200},
+                        {"f12": "000688", "f14": "科创50", "f3": None, "f6": None, "f124": 1782457200},
                     ]
                 }
             }
@@ -62,7 +62,7 @@ def fake_urlopen(request, timeout: int = 0) -> FakeResponse:  # noqa: ANN001
         {
             "data": {
                 "diff": [
-                    {"f12": "601179", "f14": "中国西电", "f3": 2.34, "f6": 1234000000, "f124": 1782489600}
+                    {"f12": "601179", "f14": "中国西电", "f3": 2.34, "f6": 1234000000, "f124": 1782457200}
                 ]
             }
         }
@@ -78,12 +78,14 @@ def main() -> None:
     snapshot = fetch_market_snapshot(report_date, holdings_config(), urlopen=fake_urlopen)
 
     assert snapshot.data_date == report_date
+    assert snapshot.market_data_date.isoformat() == "2026-06-26"
     assert len(snapshot.indexes) == 4
     assert len(snapshot.holdings) == 1
-    assert snapshot.failures == ()
+    assert len(snapshot.failures) == 1
     assert snapshot.indexes[0].name == "上证指数"
     assert snapshot.indexes[0].pct_change == 0.52
-    assert snapshot.indexes[0].amount == 468000000000
+    assert snapshot.indexes[0].amount is None
+    assert any(failure.scope == "amount" for failure in snapshot.failures)
     assert snapshot.indexes[2].amount is None
     assert snapshot.indexes[3].pct_change is None
     assert snapshot.holdings[0].code == "601179"

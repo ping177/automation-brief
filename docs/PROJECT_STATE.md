@@ -12,11 +12,11 @@ v0.5-beta.1 market brief quote polish, based on `docs/DEVLOG.md`.
 
 ## Current status
 
-Local Python automation for daily RSS-based Markdown brief generation. The current chain still generates the normal daily report, syncs it to Obsidian iCloud, sends a Bark notification, and supports click-through to the iPhone Obsidian note. v0.5-alpha added an explicit `market_brief` report type, v0.5.1-alpha added local holdings initialization and validation, v0.5.2-alpha lets explicit market briefs reuse RSS candidate news, v0.5.3-alpha adds rules-based news quality tuning, v0.5-beta first stage adds lightweight A-share market quotes, and v0.5-beta.1 polishes quote-date handling, IPO noise, empty sections, and holdings relative observations. It remains rules-based and does not call AI APIs.
+项目已打通本地定时生成、Obsidian 同步和 Bark 推送链路，并开始升级为面向 A 股观察的市场投研晨报。当前阶段已接入轻量 A 股行情观察，仍保持规则驱动，不调用 AI API。
 
 ## Latest completed
 
-v0.5-beta.1 small fix is implemented locally. `market_data.py` now separates report date from market data date and treats the public quote source成交额 field as unavailable until its口径 is verified. `market_news.py` limits IPO / financing items to at most two and drops overseas IPO items that cannot map to A-share industries or the current theme. `market_brief_writer.py` avoids empty “暂无可展示内容” templates in 今日主线 and adds light holdings relative descriptions versus major index average. `scripts/run_market_brief.sh` remains the explicit market brief entry point. Runtime stability hotfix remains in place: `scripts/run_daily_digest.sh` uses `caffeinate -dimsu` across the full task chain, stage logging was added, and RSS request timeout behavior was tightened.
+v0.5-beta.1 已完成 market_brief quote-date 处理、IPO 噪声控制、空段落清理和持仓相对表现描述优化。
 
 ## Last verified
 
@@ -24,11 +24,11 @@ v0.5-beta.1 small fix is implemented locally. `market_data.py` now separates rep
 
 ## Next Action
 
-Push the committed v0.5-beta and v0.5-beta.1 changes to origin/main, then observe 1-2 more manually generated explicit market_brief samples on real market/news days. Focus on whether the lightweight quote source remains stable, whether RSS news can surface clearer market themes beyond IPO/financing items, and whether holdings relative observations stay useful without becoming trading advice. Keep the normal daily digest automation unchanged; do not merge market_brief into Bark / Obsidian / launchd yet.
+等待下一个真实交易日样例，检查行情日期、持仓相对表现和市场观察内容是否稳定。
 
 ## Blockers
 
-No current P0 blocker recorded. v0.5-beta.1 still uses lightweight quote data only for explicit `market_brief`, not the normal daily brief. Remaining limitations: sector strength is not computed, industry/sector comes from local holdings config, 成交额 is intentionally shown as unavailable until field口径 is verified, and public quote source fields may be missing or temporarily unavailable.
+暂无明确阻塞；`market_brief` 仍只用于显式生成，不并入日常 Bark / Obsidian / launchd 链路。
 
 ## Important Context
 

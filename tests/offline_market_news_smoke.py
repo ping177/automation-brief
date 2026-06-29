@@ -146,6 +146,13 @@ def main() -> None:
             keywords={"财经股票": ["IPO", "上市"]},
         ),
         article(
+            "智能血糖管理需求旺盛，微泰医疗海外营收大增227.2%",
+            "上市公司海外营收、利润和经营数据改善，属于公司经营和财报变量。",
+            "https://example.com/operating-revenue",
+            role="market",
+            keywords={"财经股票": ["营收", "利润", "业绩"]},
+        ),
+        article(
             "压上全部现金也要跨界并购？昔日集成灶龙头*ST帅电保壳豪赌，拟收购电力设备资产",
             "只命中电力设备泛行业词，不应挂到具体关注对象。",
             "https://example.com/st-power-equipment",
@@ -161,6 +168,14 @@ def main() -> None:
         "中科闻歌开盘暴涨" in item.title and item.news_type == "公司融资 / IPO"
         for item in analysis.market_events
     )
+    assert any(
+        "微泰医疗海外营收" in item.title and item.news_type == "公司经营 / 财报"
+        for item in analysis.market_events
+    )
+    assert not any(
+        "微泰医疗海外营收" in item.title and item.news_type == "公司融资 / IPO"
+        for item in analysis.market_events
+    )
     assert any("特高压设备招标" in item.title for item in analysis.industry_catalysts)
     assert any("海外风电项目" in item.title for item in analysis.industry_catalysts)
     assert any("数据中心电力" in item.title for item in analysis.industry_catalysts)
@@ -173,8 +188,8 @@ def main() -> None:
     assert any("RSS 候选新闻" in point for point in analysis.environment_points)
     assert any("风险/反证" in point for point in analysis.environment_points)
     assert not any("9点1氪" in point or "氪星晚报" in point for point in analysis.environment_points)
-    assert any("电网设备" in clue or "特高压" in clue for clue in analysis.theme_clues)
-    assert sum("AI / 算力 / 数据中心电力" in clue for clue in analysis.theme_clues) == 1
+    assert not any("电网设备" in clue or "特高压" in clue for clue in analysis.theme_clues)
+    assert not any("AI / 算力 / 数据中心电力" in clue for clue in analysis.theme_clues)
     assert not any(clue == "新闻线索指向：AI" for clue in analysis.theme_clues)
     assert not any(clue == "新闻线索指向：人工智能" for clue in analysis.theme_clues)
     assert any("后续将披露" in point for point in analysis.watch_points)
@@ -216,6 +231,40 @@ def main() -> None:
     assert "NanmiCoder/MediaCrawler" not in excluded_titles
     assert not any("9点1氪" in title or "氪星晚报" in title for title in excluded_titles)
     assert not any("：直接指向" in point or "：包含" in point for point in analysis.watch_points)
+
+    weak_theme_analysis = analyze_market_news(
+        [
+            article(
+                "宁德时代积极响应《动力和储能电池企业供应商账款支付规范倡议》",
+                "供应商账款支付规范更偏供应链账期和合规变量，不足以确认新能源主线。",
+                "https://example.com/catl-payment-standard",
+                keywords={"财经股票": ["新能源", "储能"]},
+            )
+        ],
+        HoldingsConfig(holdings=(), source_path=None),
+    )
+    assert not any("新能源 / 储能" in clue for clue in weak_theme_analysis.theme_clues)
+
+    confirmed_theme_analysis = analyze_market_news(
+        [
+            article(
+                "人工智能算力需求推高数据中心电力投资预期",
+                "大模型训练带动算力、电网负荷和数据中心电力改造关注。",
+                "https://example.com/ai-power-a",
+                role="ai_industry",
+                keywords={"AI方向": ["人工智能", "算力", "数据中心电力"]},
+            ),
+            article(
+                "数据中心电力改造项目启动，算力基础设施投资提速",
+                "投资、建设和算力基础设施形成同一主题的可验证催化。",
+                "https://example.com/ai-power-b",
+                role="ai_industry",
+                keywords={"AI方向": ["算力", "数据中心电力"]},
+            ),
+        ],
+        HoldingsConfig(holdings=(), source_path=None),
+    )
+    assert any("AI / 算力 / 数据中心电力" in clue for clue in confirmed_theme_analysis.theme_clues)
 
     print("offline market news smoke passed")
 

@@ -121,6 +121,66 @@ def market_snapshot(report_date: date, holding_code: str, holding_name: str, hol
     )
 
 
+def market_led_snapshot(report_date: date, holding_code: str, holding_name: str, holding_pct: float) -> MarketSnapshot:
+    return MarketSnapshot(
+        data_date=report_date,
+        market_data_date=report_date,
+        environment_note="已尝试接入轻量公开行情数据；缺失字段不做推断。",
+        indexes=(
+            MarketQuote(
+                name="上证指数",
+                code="000001",
+                pct_change=1.16,
+                amount=None,
+                source="fixture",
+                as_of="2026-06-29T15:00:00+08:00",
+            ),
+            MarketQuote(
+                name="深成指",
+                code="399001",
+                pct_change=0.19,
+                amount=None,
+                source="fixture",
+                as_of="2026-06-29T15:00:00+08:00",
+            ),
+            MarketQuote(
+                name="创业板指",
+                code="399006",
+                pct_change=0.54,
+                amount=None,
+                source="fixture",
+                as_of="2026-06-29T15:00:00+08:00",
+            ),
+            MarketQuote(
+                name="科创50",
+                code="000688",
+                pct_change=4.61,
+                amount=None,
+                source="fixture",
+                as_of="2026-06-29T15:00:00+08:00",
+            ),
+        ),
+        holdings=(
+            MarketQuote(
+                name=holding_name,
+                code=holding_code,
+                pct_change=holding_pct,
+                amount=None,
+                source="fixture",
+                as_of="2026-06-29T15:00:00+08:00",
+                industry="风电设备",
+                sector="风电设备",
+            ),
+        ),
+        failures=(MarketDataFailure(scope="amount", message="成交额口径未校验"),),
+        strong_1d=(),
+        strong_5d=(),
+        trend_20d=(),
+        catalysts=(),
+        watch_signals=("观察主要指数涨跌和成交额是否支持新闻主线。",),
+    )
+
+
 def main() -> None:
     report_date = date(2026, 6, 26)
     fixture_dir = Path(tempfile.mkdtemp(prefix="automation-brief-market-"))
@@ -154,6 +214,13 @@ def main() -> None:
             "综合快讯合集不应整体进入核心事件。",
             "https://example.com/kr-roundup-first",
         ),
+    ]
+    low_theme_articles = [
+        article(
+            "宁德时代积极响应《动力和储能电池企业供应商账款支付规范倡议》",
+            "供应商账款支付规范更偏供应链账期和合规变量，不足以确认新能源主线。",
+            "https://example.com/catl-payment-standard",
+        )
     ]
     second_articles = [
         article(
@@ -215,7 +282,7 @@ def main() -> None:
 
     assert "### 601179 中国西电" in first_markdown
     assert "行情：+2.34%，成交额 数据暂不可用" in first_markdown
-    assert "相对观察：强于主要指数均值" in first_markdown
+    assert "相对观察：明显强于主要指数均值" in first_markdown
     assert "行业/板块：电力设备" in first_markdown
     assert "国家电网启动特高压设备招标" in first_markdown
     assert "类型：产业催化" in first_markdown
@@ -226,7 +293,7 @@ def main() -> None:
     assert "普通食品检验结果公布" not in first_markdown
     assert "9点1氪" not in first_markdown
     today_theme_section = first_markdown.split("## 二、今日主线", 1)[1].split("## 三、我的持仓观察", 1)[0]
-    assert "新闻线索指向：" in today_theme_section
+    assert "RSS 候选新闻中暂未提取到足够明确的产业主线。" in today_theme_section
     assert "行情验证：" in today_theme_section
     assert "暂无可展示内容" not in today_theme_section
     assert "### 002202 金风科技" not in first_markdown
@@ -242,6 +309,26 @@ def main() -> None:
     assert "行情验证：指数行情数据暂不可用" in failed_markdown
     assert "行情：数据暂不可用" in failed_markdown
     assert "暂无持仓配置" in empty_markdown
+
+    market_led_context = build_market_brief_context(
+        market_led_snapshot(report_date, "002202", "金风科技", -6.86),
+        second_holdings,
+        low_theme_articles,
+    )
+    market_led_markdown = render_market_brief_markdown(market_led_context)
+    market_led_theme_section = market_led_markdown.split("## 二、今日主线", 1)[1].split("## 三、我的持仓观察", 1)[0]
+    assert "RSS 候选新闻中暂未提取到足够明确的产业主线。" in market_led_theme_section
+    assert "新闻线索指向：新能源 / 储能" not in market_led_theme_section
+    assert "行情层面观察：科创50明显强于其他主要指数" in market_led_theme_section
+    assert "科创 / 硬科技方向风险偏好较强" in market_led_theme_section
+    assert "该判断仅来自宽基指数表现" in market_led_theme_section
+    assert "逆势走弱" in market_led_markdown
+    assert "异常提示：主要指数整体偏强，但该持仓明显逆势走弱" in market_led_markdown
+    assert "RSS 候选新闻暂未解释该波动" in market_led_markdown
+    assert "成交额口径：当前轻量行情源未稳定返回成交额字段，本次不判断放量 / 缩量。" in market_led_markdown
+    assert "amount：" not in market_led_markdown
+    assert "观察主要指数涨跌和成交额是否支持新闻主线" not in market_led_markdown
+    assert "成交额字段稳定前，不判断放量 / 缩量" in market_led_markdown
 
     empty_theme_context = build_market_brief_context(
         market_snapshot(report_date, "601179", "中国西电", 0.12),
@@ -275,6 +362,7 @@ def main() -> None:
         assert term not in first_markdown
         assert term not in second_markdown
         assert term not in failed_markdown
+        assert term not in market_led_markdown
 
     assert "本报告仅用于个人市场观察和复盘，不构成投资建议。" in first_markdown
 

@@ -94,6 +94,10 @@ def format_quote_meta(source: str, as_of: str) -> str:
     return f"，{'，'.join(parts)}" if parts else ""
 
 
+def has_amount_data(context: MarketBriefContext) -> bool:
+    return any(quote.amount is not None for quote in context.snapshot.indexes + context.snapshot.holdings)
+
+
 def market_temperature_note(context: MarketBriefContext) -> str:
     pct_values = [quote.pct_change for quote in context.snapshot.indexes if quote.pct_change is not None]
     if not pct_values:
@@ -103,9 +107,9 @@ def market_temperature_note(context: MarketBriefContext) -> str:
     negative_count = sum(1 for value in pct_values if value < 0)
     average_pct = sum(pct_values) / len(pct_values)
     if positive_count and negative_count:
-        return "主要指数涨跌分化，新闻主线需要继续用成交额和板块表现验证。"
+        return "主要指数涨跌分化，新闻主线需要继续用后续行情和板块表现验证。"
     if average_pct >= 0.6:
-        return "主要指数整体偏强，但仍需观察成交额是否同步放大。"
+        return "主要指数整体偏强，但仍需观察后续持续性。"
     if average_pct <= -0.6:
         return "主要指数整体偏弱，风险偏好仍需等待后续数据确认。"
     return "主要指数整体偏震荡，暂不把单日波动解读为趋势。"
@@ -123,11 +127,74 @@ def relative_to_indexes_text(context: MarketBriefContext, pct_change: float | No
     if pct_change is None or average_pct is None:
         return "相对观察：主要指数或个股涨跌数据不足。"
     diff = pct_change - average_pct
+    if average_pct > 0.5 and pct_change < -2.0:
+        return "相对观察：逆势走弱。"
+    if average_pct < -0.5 and pct_change > 2.0:
+        return "相对观察：逆势走强。"
+    if diff >= 1.5:
+        return "相对观察：明显强于主要指数均值。"
     if diff >= 0.5:
-        return "相对观察：强于主要指数均值。"
+        return "相对观察：小幅强于主要指数均值。"
+    if diff <= -1.5:
+        return "相对观察：明显弱于主要指数均值。"
     if diff <= -0.5:
-        return "相对观察：弱于主要指数均值。"
+        return "相对观察：小幅弱于主要指数均值。"
     return "相对观察：接近主要指数均值。"
+
+
+def holding_anomaly_text(context: MarketBriefContext, pct_change: float | None) -> str:
+    relative_text = relative_to_indexes_text(context, pct_change)
+    if relative_text == "相对观察：逆势走弱。":
+        return "异常提示：主要指数整体偏强，但该持仓明显逆势走弱；RSS 候选新闻暂未解释该波动，后续需观察是否来自板块、公司消息或资金行为。"
+    if relative_text == "相对观察：逆势走强。":
+        return "异常提示：主要指数整体偏弱，但该持仓明显逆势走强；RSS 候选新闻暂未解释该波动，后续需观察是否来自板块、公司消息或资金行为。"
+    return ""
+
+
+def market_led_observation(context: MarketBriefContext) -> str:
+    science_quote = next(
+        (
+            quote
+            for quote in context.snapshot.indexes
+            if quote.code == "000688" or "科创50" in quote.name
+        ),
+        None,
+    )
+    if science_quote is None or science_quote.pct_change is None:
+        return ""
+    other_values = [
+        quote.pct_change
+        for quote in context.snapshot.indexes
+        if quote is not science_quote and quote.pct_change is not None
+    ]
+    if not other_values:
+        return ""
+    other_average = sum(other_values) / len(other_values)
+    if science_quote.pct_change - other_average >= 2.0 and science_quote.pct_change >= 1.5:
+        return (
+            "行情层面观察：科创50明显强于其他主要指数，指数层面显示科创 / 硬科技方向风险偏好较强；"
+            "该判断仅来自宽基指数表现，仍需后续新闻和板块数据验证。"
+        )
+    return ""
+
+
+def market_watch_signals(context: MarketBriefContext) -> tuple[str, ...]:
+    fallback = (
+        "观察主要指数涨跌是否继续支持市场风险偏好；成交额字段稳定前，不判断放量 / 缩量。",
+        "观察持仓所属板块是否跟随市场主线。",
+        "观察外部风险偏好、汇率利率和政策变量是否变化。",
+    )
+    if not context.snapshot.watch_signals:
+        return fallback
+    if has_amount_data(context):
+        return context.snapshot.watch_signals
+    adjusted: list[str] = []
+    for signal in context.snapshot.watch_signals:
+        if "成交额" in signal:
+            adjusted.append(fallback[0])
+        else:
+            adjusted.append(signal)
+    return tuple(dict.fromkeys(adjusted))
 
 
 def append_market_temperature(lines: list[str], context: MarketBriefContext) -> None:
@@ -145,9 +212,12 @@ def append_market_temperature(lines: list[str], context: MarketBriefContext) -> 
         lines.append("- 指数行情：数据暂不可用。")
     lines.append(f"- 市场判断：{markdown_escape(market_temperature_note(context))}")
     for failure in snapshot.failures:
-        lines.append(
-            f"- {markdown_escape(failure.scope)}：行情数据源未返回该字段或请求失败，本次不做该项判断。"
-        )
+        if failure.scope == "amount":
+            lines.append("- 成交额口径：当前轻量行情源未稳定返回成交额字段，本次不判断放量 / 缩量。")
+        else:
+            lines.append(
+                f"- {markdown_escape(failure.scope)}：行情数据源未返回该字段或请求失败，本次不做该项判断。"
+            )
     lines.append("")
 
 
@@ -156,9 +226,14 @@ def append_today_theme(lines: list[str], context: MarketBriefContext) -> None:
     if news.theme_clues:
         append_bullets(lines, news.theme_clues)
     elif news.industry_catalysts:
-        lines.extend(["- RSS 候选新闻出现产业催化线索，但主题聚合仍需后续验证。", ""])
+        lines.extend(["- RSS 候选新闻中暂未提取到足够明确的产业主线。", ""])
     else:
-        lines.extend(["- 暂未从 RSS 候选中提取到明确主线。", ""])
+        lines.extend(["- RSS 候选新闻中暂未提取到足够明确的产业主线。", ""])
+
+    market_observation = market_led_observation(context)
+    if market_observation:
+        lines.append(f"- {markdown_escape(market_observation)}")
+        lines.append("")
 
     if context.snapshot.indexes:
         lines.append(f"- 行情验证：{markdown_escape(market_temperature_note(context))}")
@@ -215,6 +290,9 @@ def render_holding_observations(context: MarketBriefContext) -> list[str]:
                         lines.append(f"    - 链接：{item.link}")
             else:
                 lines.append("- 相关新闻：暂无从 RSS 候选中匹配到的明确线索。")
+                anomaly = holding_anomaly_text(context, quote.pct_change if quote else None)
+                if anomaly:
+                    lines.append(f"- {markdown_escape(anomaly)}")
             lines.append("")
         return lines
 
@@ -269,7 +347,7 @@ def render_market_brief_markdown(context: MarketBriefContext, generated_at: date
         lines.extend(["- 暂未从 RSS 候选中提取到明确风险或反证线索。", ""])
 
     lines.extend(["## 六、今日继续观察", ""])
-    append_bullets(lines, news.watch_points or snapshot.watch_signals)
+    append_bullets(lines, news.watch_points or market_watch_signals(context))
 
     lines.extend(["- 数据限制：成交额、行业或行情字段缺失时均标记为数据暂不可用，不做推断。"])
     lines.append(f"- {DISCLAIMER}")

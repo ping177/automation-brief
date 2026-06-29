@@ -37,6 +37,7 @@ NEWS_TYPE_MACRO_RISK = "宏观风险"
 NEWS_TYPE_POLICY_REGULATION = "政策监管"
 NEWS_TYPE_INDUSTRY_CATALYST = "产业催化"
 NEWS_TYPE_COMPANY_FINANCING = "公司融资 / IPO"
+NEWS_TYPE_COMPANY_OPERATING = "公司经营 / 财报"
 NEWS_TYPE_BUSINESS = "普通商业新闻"
 NEWS_TYPE_WEAK = "弱相关内容"
 
@@ -98,10 +99,17 @@ COMPANY_FINANCING_TERMS = (
     "并购",
     "重组",
     "回购",
+)
+COMPANY_OPERATING_TERMS = (
     "财报",
     "业绩",
     "营收",
     "利润",
+    "经营数据",
+    "收入",
+    "毛利",
+    "净利",
+    "同比增长",
 )
 INDUSTRY_CATALYST_TERMS = (
     "订单",
@@ -269,6 +277,8 @@ A_SHARE_RELATED_IPO_TERMS = (
     "机器人",
 )
 MAX_COMPANY_FINANCING_EVENTS = 2
+CONFIRMED_THEME_MIN_SCORE = 75
+CONFIRMED_THEME_MIN_COUNT = 2
 
 
 def _clean(value: Any) -> str:
@@ -345,6 +355,17 @@ def _dedupe_text_items(items: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(deduped)
 
 
+def _confirmed_theme_clues(theme_stats: dict[str, dict[str, int]], max_items: int) -> tuple[str, ...]:
+    confirmed: list[tuple[str, int]] = []
+    for theme, stats in theme_stats.items():
+        if stats["count"] >= CONFIRMED_THEME_MIN_COUNT or stats["max_score"] >= CONFIRMED_THEME_MIN_SCORE:
+            confirmed.append((theme, stats["max_score"]))
+    return tuple(
+        f"新闻线索指向：{theme}"
+        for theme, _score in sorted(confirmed, key=lambda item: item[1], reverse=True)[:max_items]
+    )
+
+
 def _matched_terms(text: str, terms: tuple[str, ...]) -> tuple[str, ...]:
     lowered = text.lower()
     return tuple(term for term in terms if term.lower() in lowered)
@@ -373,6 +394,9 @@ def _reason_for_type(
     if news_type == NEWS_TYPE_COMPANY_FINANCING:
         variables = "、".join(company_terms[:4])
         return f"{source} 报道的「{title}」属于 {variables} 等公司资本事件，适合观察可比公司估值、上市后交易热度或融资环境。"
+    if news_type == NEWS_TYPE_COMPANY_OPERATING:
+        variables = "、".join(company_terms[:4])
+        return f"{source} 报道的「{title}」包含 {variables} 等经营或财报变量，适合观察公司基本面变化和同类公司预期。"
     if news_type == NEWS_TYPE_WEAK:
         return "内容形态或主题偏泛，缺少明确行情、政策、订单、监管或公司资本事件支撑。"
     variables = "、".join((industry_terms + company_terms + macro_terms)[:4])
@@ -386,15 +410,19 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
     title_macro_terms = _matched_terms(title, MACRO_RISK_TERMS)
     title_policy_terms = _matched_terms(title, POLICY_REGULATION_TERMS)
     title_company_terms = _matched_terms(title, COMPANY_FINANCING_TERMS)
+    title_operating_terms = _matched_terms(title, COMPANY_OPERATING_TERMS)
     title_industry_terms = _matched_terms(title, HIGH_VALUE_INDUSTRY_THEMES)
     title_catalyst_terms = _matched_terms(title, CONCRETE_CATALYST_TERMS)
     macro_terms = _matched_terms(text, MACRO_RISK_TERMS)
     policy_terms = _matched_terms(text, POLICY_REGULATION_TERMS)
     company_terms = _matched_terms(text, COMPANY_FINANCING_TERMS)
+    operating_terms = _matched_terms(text, COMPANY_OPERATING_TERMS)
     industry_terms = _matched_terms(text, HIGH_VALUE_INDUSTRY_THEMES)
     catalyst_terms = _matched_terms(text, CONCRETE_CATALYST_TERMS)
     risk_terms = _matched_terms(text, RISK_TERMS)
     weak_terms = _matched_terms(text, WEAK_RELATED_PATTERNS)
+    title_specific_financing_terms = tuple(term for term in title_company_terms if term != "上市")
+    specific_financing_terms = tuple(term for term in company_terms if term != "上市")
 
     score = 0
     if macro_terms:
@@ -403,6 +431,8 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
         score += 34 + min(len(policy_terms) * 4, 16)
     if company_terms:
         score += 34 + min(len(company_terms) * 4, 16)
+    if operating_terms:
+        score += 30 + min(len(operating_terms) * 4, 16)
     if industry_terms:
         score += 14 + min(len(industry_terms) * 3, 15)
     if catalyst_terms:
@@ -412,6 +442,8 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
 
     if title_company_terms:
         score += 18
+    if title_operating_terms:
+        score += 16
     if title_macro_terms:
         score += 10
     if title_policy_terms:
@@ -420,7 +452,9 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
         score += 14
 
     is_roundup = _contains_any(title, ROUNDUP_PATTERNS)
-    has_hard_signal = bool(policy_terms or company_terms or title_macro_terms or title_policy_terms)
+    has_hard_signal = bool(
+        policy_terms or company_terms or operating_terms or title_macro_terms or title_policy_terms
+    )
     has_negated_signal = _contains_any(text, NEGATED_SIGNAL_PATTERNS)
     weak_related = is_roundup or (bool(weak_terms) and (not has_hard_signal or has_negated_signal))
     if is_roundup:
@@ -432,8 +466,12 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
         news_type = NEWS_TYPE_WEAK
     elif title_policy_terms:
         news_type = NEWS_TYPE_POLICY_REGULATION
+    elif title_operating_terms or (operating_terms and not title_specific_financing_terms and not specific_financing_terms):
+        news_type = NEWS_TYPE_COMPANY_OPERATING
     elif title_company_terms or company_terms:
         news_type = NEWS_TYPE_COMPANY_FINANCING
+    elif title_operating_terms or operating_terms:
+        news_type = NEWS_TYPE_COMPANY_OPERATING
     elif policy_terms:
         news_type = NEWS_TYPE_POLICY_REGULATION
     elif title_macro_terms or (macro_terms and not company_terms):
@@ -445,6 +483,10 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
     else:
         news_type = NEWS_TYPE_BUSINESS
 
+    reason_company_terms = company_terms + operating_terms
+    if news_type == NEWS_TYPE_COMPANY_OPERATING:
+        reason_company_terms = operating_terms
+
     score = max(score, 0)
     return (
         score,
@@ -455,7 +497,7 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
             news_type=news_type,
             macro_terms=macro_terms,
             policy_terms=policy_terms,
-            company_terms=company_terms,
+            company_terms=reason_company_terms,
             industry_terms=industry_terms,
             catalyst_terms=catalyst_terms,
             risk_terms=risk_terms,
@@ -547,6 +589,8 @@ def _risk_variable(item: NewsInsight) -> str:
         return "监管变量：后续是否出现正式处罚、问询范围扩大或同类公司合规风险重估。"
     if item.news_type == NEWS_TYPE_COMPANY_FINANCING:
         return "资本市场变量：IPO / 融资 / 估值新闻后续交易热度是否退潮，并影响同类公司预期。"
+    if item.news_type == NEWS_TYPE_COMPANY_OPERATING:
+        return "经营变量：财报、营收或利润变化是否能持续，并影响同类公司基本面预期。"
     if item.news_type == NEWS_TYPE_MACRO_RISK:
         return "宏观变量：价格、汇率、利率或流动性信号是否继续压制风险偏好。"
     return "反证变量：主题新闻是否缺少订单、公告或成交结构验证。"
@@ -555,6 +599,8 @@ def _risk_variable(item: NewsInsight) -> str:
 def _watch_variable(item: NewsInsight) -> str:
     if item.news_type == NEWS_TYPE_COMPANY_FINANCING:
         return f"观察 {item.title} 的上市后成交热度、估值变化和可比公司反馈。"
+    if item.news_type == NEWS_TYPE_COMPANY_OPERATING:
+        return f"观察 {item.title} 的营收、利润或经营数据是否延续，并影响同类公司预期。"
     if item.news_type == NEWS_TYPE_POLICY_REGULATION:
         return f"观察 {item.title} 是否出现正式文件、处罚范围或交易所后续问询。"
     if item.news_type == NEWS_TYPE_INDUSTRY_CATALYST:
@@ -573,7 +619,7 @@ def analyze_market_news(
     catalyst_candidates: list[NewsInsight] = []
     risk_candidates: list[NewsInsight] = []
     watch_candidates: list[NewsInsight] = []
-    theme_scores: dict[str, int] = {}
+    theme_stats: dict[str, dict[str, int]] = {}
 
     for article in articles:
         if _is_excluded_article(article):
@@ -585,14 +631,21 @@ def analyze_market_news(
         if _is_unmapped_overseas_ipo(article, news_type):
             continue
 
-        if news_type in {NEWS_TYPE_MACRO_RISK, NEWS_TYPE_POLICY_REGULATION, NEWS_TYPE_COMPANY_FINANCING}:
+        if news_type in {
+            NEWS_TYPE_MACRO_RISK,
+            NEWS_TYPE_POLICY_REGULATION,
+            NEWS_TYPE_COMPANY_FINANCING,
+            NEWS_TYPE_COMPANY_OPERATING,
+        }:
             event_candidates.append(_insight(article, reason, score, news_type))
         if news_type == NEWS_TYPE_INDUSTRY_CATALYST and score >= 55:
             catalyst = _insight(article, reason, score, news_type)
             catalyst_candidates.append(catalyst)
             theme = _theme_key(text)
             if theme:
-                theme_scores[theme] = max(theme_scores.get(theme, 0), score)
+                stats = theme_stats.setdefault(theme, {"count": 0, "max_score": 0})
+                stats["count"] += 1
+                stats["max_score"] = max(stats["max_score"], score)
         if _contains_any(text, RISK_TERMS) and score >= 50:
             risk_candidates.append(_insight(article, reason, score, news_type))
         if _contains_any(text, WATCH_TERMS) and score >= 45:
@@ -640,12 +693,7 @@ def analyze_market_news(
             for item in _dedupe_text_items(tuple(_risk_variable(item) for item in risk_points))[:2]
         )
 
-    theme_clues = tuple(
-        f"新闻线索指向：{theme}"
-        for theme, _score in sorted(theme_scores.items(), key=lambda item: item[1], reverse=True)[
-            :max_items
-        ]
-    )
+    theme_clues = _confirmed_theme_clues(theme_stats, max_items)
     deep_dive_questions = tuple(
         f"{item.title}：后续是否能被真实行情、成交结构或公司公告验证？"
         for item in (market_events + industry_catalysts)[:max_items]

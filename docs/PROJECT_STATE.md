@@ -18,6 +18,13 @@ v0.5-beta.2 market-led theme and holdings anomaly polish, based on `docs/DEVLOG.
 
 v0.5-beta.2 已完成 market_brief 的轻量行情主线与持仓异常表达 polish：新闻主线增加置信度门槛，科创50显著强势时单独输出行情层面观察，持仓相对观察区分小幅 / 明显 / 逆势，持仓异常且 RSS 无相关新闻时输出观察变量说明，财报 / 营收类新闻不再归入 IPO / 融资。
 
+## Deployment
+
+Status: unknown
+Public URL: none
+Provider: none
+Notes: 暂无人工维护的公网部署信息。
+
 ## Last verified
 
 2026-06-29

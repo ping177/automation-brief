@@ -25,6 +25,25 @@ Public URL: none
 Provider: none
 Notes: 暂无人工维护的公网部署信息。
 
+## Version Index
+
+- v0.2 — 规则版日报
+- v0.3.1 — 本地定时运行
+- v0.3.2 — Bark 推送接入
+- v0.3.3-alpha — Obsidian 同步
+- v0.3.3-beta — Bark 点击直达
+- v0.3.4 — Bark 推送重试
+- v0.3.5 — 自动唤醒运行
+- v0.4.1 — RSS 覆盖扩展
+- v0.4.1.2 — 运行防睡眠保护
+- v0.5-alpha — 市场晨报骨架
+- v0.5.1-alpha — 持仓配置体验
+- v0.5.2-alpha — RSS 驱动市场晨报
+- v0.5.3-alpha — 新闻质量调优
+- v0.5-beta — A 股行情验证
+- v0.5-beta.1 — 行情展示修正
+- v0.5-beta.2 — 行情主线与持仓异常
+
 ## Last verified
 
 2026-06-29

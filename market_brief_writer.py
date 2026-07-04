@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Iterable
 
 from market_analysis import MarketBriefContext
-from market_news import NewsInsight
+from market_news import HOLDING_RELATION_CLEAR, HOLDING_RELATION_WEAK, NewsInsight
 
 
 MARKET_BRIEF_SECTIONS = (
@@ -279,17 +279,38 @@ def render_holding_observations(context: MarketBriefContext) -> list[str]:
                 None,
             )
             if related:
-                lines.append("- 相关新闻：")
-                for item in related.matches:
-                    lines.append(f"  - {markdown_escape(item.title)}（{markdown_escape(item.source)}）")
-                    lines.append(f"    - 类型：{markdown_escape(item.news_type)}")
-                    lines.append(f"    - 相关度：{item.relevance_score}")
-                    if item.reason:
-                        lines.append(f"    - 观察理由：{markdown_escape(item.reason)}")
-                    if item.link:
-                        lines.append(f"    - 链接：{item.link}")
+                clear_matches = tuple(
+                    item
+                    for item in related.matches
+                    if item.holding_relation in ("", HOLDING_RELATION_CLEAR)
+                )
+                weak_matches = tuple(
+                    item for item in related.matches if item.holding_relation == HOLDING_RELATION_WEAK
+                )
+                if clear_matches:
+                    lines.append("- 明确相关新闻：")
+                    for item in clear_matches:
+                        lines.append(f"  - {markdown_escape(item.title)}（{markdown_escape(item.source)}）")
+                        lines.append(f"    - 类型：{markdown_escape(item.news_type)}")
+                        lines.append(f"    - 相关度：{item.relevance_score}")
+                        if item.reason:
+                            lines.append(f"    - 观察理由：{markdown_escape(item.reason)}")
+                        if item.link:
+                            lines.append(f"    - 链接：{item.link}")
+                if weak_matches:
+                    lines.append("- 弱相关变量：")
+                    for item in weak_matches:
+                        lines.append(f"  - {markdown_escape(item.title)}（{markdown_escape(item.source)}）")
+                        lines.append(f"    - 类型：{markdown_escape(item.news_type)}")
+                        lines.append(f"    - 相关度：{item.relevance_score}")
+                        if item.reason:
+                            lines.append(f"    - 观察理由：{markdown_escape(item.reason)}")
+                        if item.link:
+                            lines.append(f"    - 链接：{item.link}")
+                if weak_matches and not clear_matches:
+                    lines.append("- RSS 候选新闻暂未解释该波动。")
             else:
-                lines.append("- 相关新闻：暂无从 RSS 候选中匹配到的明确线索。")
+                lines.append("- 相关新闻：暂无从 RSS 候选中匹配到的公司直接线索。")
                 anomaly = holding_anomaly_text(context, quote.pct_change if quote else None)
                 if anomaly:
                     lines.append(f"- {markdown_escape(anomaly)}")

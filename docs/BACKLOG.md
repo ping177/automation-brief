@@ -8,21 +8,15 @@
 
 P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推送或 Mac 自动唤醒链路的紧急问题。
 
-### v0.5.3-alpha sample review
-
-- 用 `scripts/run_market_brief.sh` 或 `python3 main.py --report-type market_brief --output output` 生成一份真实 RSS 样例。
-- 检查 relevance score、新闻类型、AI / 算力 / 数据中心电力主题聚合、弱相关过滤和 holdings 精确匹配是否符合预期。
-- 若样例仍出现误升格或漏报，先记录到 `docs/MISSED_CASES.md`，再补离线 fixture 回归。
-
-### v0.5-beta real A-share market data first stage verification
+### v0.5-beta real A-share market data continuing verification
 
 - 用显式 `market_brief` 样例验证轻量公开行情源是否稳定返回主要指数和 holdings 个股涨跌。
 - 检查成交额字段口径是否稳定；在口径确认前必须显示“数据暂不可用”，不能硬凑。
 - 检查 holdings 行业 / 板块只来自 `config/holdings.json` 的 `sector` 字段或示例配置，不引入硬编码真实持仓。
 - 检查周末或非交易日生成时，报告日期和行情交易日是否分开显示。
-- 检查 IPO / 融资新闻是否仍刷屏；海外 IPO 若无法映射到 A 股产业链或当前主线，应降级或不展示。
+- 检查政策监管新闻是否持续优先于普通 IPO / 融资新闻；同主题政策事件是否仍能合并或去重展示。
 - 检查单条低相关度产业新闻是否仍会误生成今日主线；新闻主线应与行情层面观察分开表达。
-- 检查持仓明显逆势时是否输出异常观察变量，且不出现交易动作建议。
+- 检查持仓明显逆势时是否输出异常观察变量；弱相关海外风电 / 基建新闻不能写成明确相关新闻，且不出现交易动作建议。
 - 继续确认默认 `python3 main.py` 和 `scripts/run_daily_digest.sh` 仍生成普通 digest，不自动推送 market brief。
 
 ## P1
@@ -43,6 +37,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - v0.5-beta first stage 已接入轻量公开 A 股行情：显式 `market_brief` 尝试展示主要指数、成交额和 holdings 个股涨跌；行情失败只降级提示，不阻断报告生成。
 - v0.5-beta.1 已完成小修：报告日期 / 行情交易日分离，成交额口径未确认时保守显示不可用，今日主线不输出空模板，风险变量去重，IPO / 融资展示限量并过滤弱映射海外 IPO，holdings 增加相对主要指数的轻量观察。
 - v0.5-beta.2 已完成行情与新闻融合 polish：新闻主线增加置信度门槛，科创50显著强于其他指数时输出行情层面观察，持仓相对观察细分小幅 / 明显 / 逆势，持仓异常且 RSS 无解释时输出后续观察变量，财报 / 营收 / 利润类新闻归为公司经营 / 财报。
+- v0.5-beta.3 已完成新闻事件排序和合并 polish：政策监管新闻优先级提高，同主题证监会再融资 / 定增政策合并展示，IPO / 融资分类更严格，holdings 相关新闻区分明确相关新闻 / 弱相关变量，风险与反证优先覆盖政策监管变量。
 - 明确早报的投研定位：先服务每日宏观、市场信号、AI 商业化、支付基础设施、全球科技商业和持仓相关观察。
 - 保持规则输出克制，不把普通科技动态、泛访谈、benchmark 争议和活动宣传误升格为市场信号。
 - 持仓观察必须来自 `config/holdings.json` 或示例文件，不能把具体持仓硬编码进业务代码。

@@ -61,6 +61,25 @@ def write_holdings_fixture(path: Path, code: str, name: str) -> None:
     )
 
 
+def write_wind_holdings_fixture(path: Path) -> None:
+    path.write_text(
+        """{
+  "holdings": [
+    {
+      "code": "002202",
+      "name": "金风科技",
+      "market": "A股",
+      "sector": "风电",
+      "watch_tags": ["海上风电"],
+      "notes": "观察订单和海外政策变量"
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+
+
 def market_snapshot(report_date: date, holding_code: str, holding_name: str, holding_pct: float) -> MarketSnapshot:
     return MarketSnapshot(
         data_date=report_date,
@@ -187,12 +206,15 @@ def main() -> None:
     fixture_dir.mkdir(parents=True, exist_ok=True)
     first_fixture = fixture_dir / "holdings-first.json"
     second_fixture = fixture_dir / "holdings-second.json"
+    weak_fixture = fixture_dir / "holdings-weak-wind.json"
 
     write_holdings_fixture(first_fixture, "601179", "中国西电")
     write_holdings_fixture(second_fixture, "002202", "金风科技")
+    write_wind_holdings_fixture(weak_fixture)
 
     first_holdings = load_holdings(first_fixture, example_path=first_fixture)
     second_holdings = load_holdings(second_fixture, example_path=second_fixture)
+    weak_holdings = load_holdings(weak_fixture, example_path=weak_fixture)
     first_articles = [
         article(
             "国家电网启动特高压设备招标，中国西电所在电力设备链条受关注",
@@ -330,6 +352,25 @@ def main() -> None:
     assert "观察主要指数涨跌和成交额是否支持新闻主线" not in market_led_markdown
     assert "成交额字段稳定前，不判断放量 / 缩量" in market_led_markdown
 
+    weak_related_context = build_market_brief_context(
+        market_led_snapshot(report_date, "002202", "金风科技", 4.59),
+        weak_holdings,
+        [
+            article(
+                "英国改革基建规划审批 力推大规模基建建设",
+                "海外基建审批改革可能影响海外风电建设节奏。",
+                "https://example.com/uk-infrastructure-wind",
+            )
+        ],
+    )
+    weak_related_markdown = render_market_brief_markdown(weak_related_context)
+    weak_holding_section = weak_related_markdown.split("### 002202 金风科技", 1)[1].split("## 四、重要新闻与验证", 1)[0]
+    assert "弱相关变量：" in weak_holding_section
+    assert "英国改革基建规划审批" in weak_holding_section
+    assert "明确相关新闻" not in weak_holding_section
+    assert "命中关注对象高精度线索" not in weak_holding_section
+    assert "RSS 候选新闻暂未解释该波动" in weak_holding_section
+
     empty_theme_context = build_market_brief_context(
         market_snapshot(report_date, "601179", "中国西电", 0.12),
         first_holdings,
@@ -363,6 +404,7 @@ def main() -> None:
         assert term not in second_markdown
         assert term not in failed_markdown
         assert term not in market_led_markdown
+        assert term not in weak_related_markdown
 
     assert "本报告仅用于个人市场观察和复盘，不构成投资建议。" in first_markdown
 

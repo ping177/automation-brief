@@ -14,6 +14,7 @@ class NewsInsight:
     reason: str
     relevance_score: int = 0
     news_type: str = "普通商业新闻"
+    holding_relation: str = ""
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,8 @@ NEWS_TYPE_COMPANY_FINANCING = "公司融资 / IPO"
 NEWS_TYPE_COMPANY_OPERATING = "公司经营 / 财报"
 NEWS_TYPE_BUSINESS = "普通商业新闻"
 NEWS_TYPE_WEAK = "弱相关内容"
+HOLDING_RELATION_CLEAR = "明确相关"
+HOLDING_RELATION_WEAK = "弱相关变量"
 
 MARKET_EVENT_TERMS = (
     "A股",
@@ -82,6 +85,9 @@ MACRO_RISK_TERMS = (
 POLICY_REGULATION_TERMS = (
     "证监会",
     "交易所",
+    "上交所",
+    "深交所",
+    "北交所",
     "监管",
     "处罚",
     "监管函",
@@ -90,12 +96,34 @@ POLICY_REGULATION_TERMS = (
     "立案调查",
     "问询函",
     "通报批评",
+    "再融资",
+    "定增",
+    "储架发行",
+    "减持",
+    "退市",
+    "并购重组",
+    "征求意见",
 )
 COMPANY_FINANCING_TERMS = (
-    "融资",
     "IPO",
-    "上市",
+    "Pre-IPO",
+    "pre-ipo",
+    "pre ipo",
+    "递表",
+    "招股书",
+    "募资",
+    "融资轮",
+    "A轮",
+    "B轮",
+    "C轮",
+    "港股IPO",
+    "美股IPO",
+    "冲刺上市",
+    "冲港股IPO",
+    "港交所",
+    "纳斯达克",
     "估值",
+    "融资",
     "并购",
     "重组",
     "回购",
@@ -127,6 +155,9 @@ INDUSTRY_CATALYST_TERMS = (
     "半导体",
     "机器人",
     "新能源",
+    "创新药",
+    "医药",
+    "出海",
     "风电",
     "光伏",
     "储能",
@@ -145,6 +176,9 @@ HIGH_VALUE_INDUSTRY_THEMES = (
     "半导体",
     "机器人",
     "新能源",
+    "创新药",
+    "医药",
+    "出海",
     "风电",
     "光伏",
     "储能",
@@ -157,6 +191,9 @@ CONCRETE_CATALYST_TERMS = (
     "中标",
     "招标",
     "投资",
+    "重押",
+    "出海",
+    "海外投资",
     "建设",
     "扩产",
     "商业化",
@@ -232,9 +269,25 @@ NEGATED_SIGNAL_PATTERNS = (
     "缺少明确",
     "不涉及",
 )
+NEGATED_FINANCING_PATTERNS = (
+    "不是 IPO",
+    "不是IPO",
+    "不属于 IPO",
+    "不属于IPO",
+    "不是融资",
+    "不属于融资",
+)
+GENERIC_EXCHANGE_POLICY_TERMS = (
+    "交易所",
+    "上交所",
+    "深交所",
+    "北交所",
+)
 HOLDING_LOW_PRECISION_SECTORS = (
     "电力设备",
     "风电设备",
+    "风电",
+    "海上风电",
     "新能源",
     "科技",
     "AI",
@@ -319,6 +372,7 @@ def _insight(
     reason: str,
     relevance_score: int = 0,
     news_type: str = "普通商业新闻",
+    holding_relation: str = "",
 ) -> NewsInsight:
     return NewsInsight(
         title=_clean(getattr(article, "title", "Untitled")) or "Untitled",
@@ -327,6 +381,7 @@ def _insight(
         reason=reason,
         relevance_score=relevance_score,
         news_type=news_type,
+        holding_relation=holding_relation,
     )
 
 
@@ -353,6 +408,18 @@ def _dedupe_text_items(items: tuple[str, ...]) -> tuple[str, ...]:
         seen.add(item)
         deduped.append(item)
     return tuple(deduped)
+
+
+def _with_reason(item: NewsInsight, reason: str, title: str | None = None, score: int | None = None) -> NewsInsight:
+    return NewsInsight(
+        title=title or item.title,
+        source=item.source,
+        link=item.link,
+        reason=reason,
+        relevance_score=score if score is not None else item.relevance_score,
+        news_type=item.news_type,
+        holding_relation=item.holding_relation,
+    )
 
 
 def _confirmed_theme_clues(theme_stats: dict[str, dict[str, int]], max_items: int) -> tuple[str, ...]:
@@ -421,6 +488,11 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
     catalyst_terms = _matched_terms(text, CONCRETE_CATALYST_TERMS)
     risk_terms = _matched_terms(text, RISK_TERMS)
     weak_terms = _matched_terms(text, WEAK_RELATED_PATTERNS)
+    if _contains_any(text, NEGATED_FINANCING_PATTERNS):
+        title_company_terms = ()
+        company_terms = ()
+    if company_terms and not title_policy_terms:
+        policy_terms = tuple(term for term in policy_terms if term not in GENERIC_EXCHANGE_POLICY_TERMS)
     title_specific_financing_terms = tuple(term for term in title_company_terms if term != "上市")
     specific_financing_terms = tuple(term for term in company_terms if term != "上市")
 
@@ -428,7 +500,7 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
     if macro_terms:
         score += 30 + min(len(macro_terms) * 4, 16)
     if policy_terms:
-        score += 34 + min(len(policy_terms) * 4, 16)
+        score += 50 + min(len(policy_terms) * 5, 25)
     if company_terms:
         score += 34 + min(len(company_terms) * 4, 16)
     if operating_terms:
@@ -447,7 +519,7 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
     if title_macro_terms:
         score += 10
     if title_policy_terms:
-        score += 18
+        score += 28
     if title_catalyst_terms and title_industry_terms:
         score += 14
 
@@ -468,12 +540,12 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
         news_type = NEWS_TYPE_POLICY_REGULATION
     elif title_operating_terms or (operating_terms and not title_specific_financing_terms and not specific_financing_terms):
         news_type = NEWS_TYPE_COMPANY_OPERATING
+    elif policy_terms:
+        news_type = NEWS_TYPE_POLICY_REGULATION
     elif title_company_terms or company_terms:
         news_type = NEWS_TYPE_COMPANY_FINANCING
     elif title_operating_terms or operating_terms:
         news_type = NEWS_TYPE_COMPANY_OPERATING
-    elif policy_terms:
-        news_type = NEWS_TYPE_POLICY_REGULATION
     elif title_macro_terms or (macro_terms and not company_terms):
         news_type = NEWS_TYPE_MACRO_RISK
     elif (title_catalyst_terms or catalyst_terms) and (title_industry_terms or industry_terms):
@@ -536,6 +608,56 @@ def _theme_key(text: str) -> str | None:
     return matched[0] if matched else None
 
 
+def _policy_event_key(item: NewsInsight) -> str | None:
+    if item.news_type != NEWS_TYPE_POLICY_REGULATION:
+        return None
+    text = f"{item.title} {item.reason}"
+    if _contains_any(text, ("证监会",)) and _contains_any(text, ("再融资", "定增", "储架发行", "征求意见")):
+        return "policy:csrc-refinancing-private-placement"
+    if _contains_any(text, ("减持",)):
+        return "policy:shareholding-reduction"
+    if _contains_any(text, ("退市",)):
+        return "policy:delisting"
+    if _contains_any(text, ("并购重组",)):
+        return "policy:ma-restructuring"
+    if _contains_any(text, ("问询", "问询函")):
+        return "policy:inquiry"
+    if _contains_any(text, ("处罚", "行政处罚", "监管函")):
+        return "policy:penalty"
+    return None
+
+
+def _policy_event_title(key: str, fallback: str) -> str:
+    if key == "policy:csrc-refinancing-private-placement":
+        return "证监会完善上市公司再融资规则，并拟建立定增储架发行制度"
+    return fallback
+
+
+def _consolidate_policy_events(items: list[NewsInsight]) -> list[NewsInsight]:
+    consolidated: list[NewsInsight] = []
+    key_to_index: dict[str, int] = {}
+    for item in sorted(items, key=lambda candidate: candidate.relevance_score, reverse=True):
+        key = _policy_event_key(item)
+        if not key:
+            consolidated.append(item)
+            continue
+        if key not in key_to_index:
+            key_to_index[key] = len(consolidated)
+            consolidated.append(_with_reason(item, item.reason, title=_policy_event_title(key, item.title)))
+            continue
+        index = key_to_index[key]
+        existing = consolidated[index]
+        merged_reason = f"{existing.reason} 同主题政策线索：{item.title}。"
+        merged_score = max(existing.relevance_score, item.relevance_score) + 20
+        consolidated[index] = _with_reason(
+            existing,
+            merged_reason,
+            title=_policy_event_title(key, existing.title),
+            score=merged_score,
+        )
+    return consolidated
+
+
 def _is_investable_candidate(score: int, news_type: str, weak_related: bool) -> bool:
     return not weak_related and news_type != "弱相关内容" and score >= 45
 
@@ -584,8 +706,39 @@ def _limit_company_financing_events(items: tuple[NewsInsight, ...]) -> tuple[New
     return tuple(limited)
 
 
+def _holding_relation_for_match(holding: Any, term: str, precise_terms: tuple[str, ...], score: int) -> str:
+    direct_terms = {
+        _clean(getattr(holding, "code", "")),
+        _clean(getattr(holding, "name", "")),
+    }
+    if term in direct_terms:
+        return HOLDING_RELATION_CLEAR
+    if term not in precise_terms and score >= 60:
+        return ""
+    if score < 60 or term not in precise_terms:
+        return HOLDING_RELATION_WEAK
+    return HOLDING_RELATION_CLEAR
+
+
+def _holding_match_reason(
+    holding: Any,
+    base_reason: str,
+    term: str,
+    relation: str,
+) -> str:
+    if relation == HOLDING_RELATION_CLEAR:
+        return f"{base_reason} 命中关注对象高精度线索：{term}。"
+    holding_name = _clean(getattr(holding, "name", "")) or "该持仓"
+    return (
+        f"弱相关变量：仅命中 {term} 等行业或外部变量，"
+        f"当前 RSS 候选未出现与{holding_name}直接相关的订单、业绩、公告或公司消息。"
+    )
+
+
 def _risk_variable(item: NewsInsight) -> str:
     if item.news_type == NEWS_TYPE_POLICY_REGULATION:
+        if _contains_any(f"{item.title} {item.reason}", ("再融资", "定增", "储架发行")):
+            return "政策变量：再融资和定增储架制度落地细则、适用范围和市场解读，可能影响上市公司融资节奏与资金偏好。"
         return "监管变量：后续是否出现正式处罚、问询范围扩大或同类公司合规风险重估。"
     if item.news_type == NEWS_TYPE_COMPANY_FINANCING:
         return "资本市场变量：IPO / 融资 / 估值新闻后续交易热度是否退潮，并影响同类公司预期。"
@@ -666,12 +819,14 @@ def analyze_market_news(
             if _is_unmapped_overseas_ipo(article, news_type):
                 continue
             for term in terms:
-                if term not in precise_terms:
-                    continue
                 if term.lower() not in text.lower():
                     continue
-                match_reason = f"{reason} 命中关注对象高精度线索：{term}。"
-                matches.append(_insight(article, match_reason, score, news_type))
+                relation = _holding_relation_for_match(holding, term, precise_terms, score)
+                if not relation:
+                    continue
+                match_reason = _holding_match_reason(holding, reason, term, relation)
+                matches.append(_insight(article, match_reason, score, news_type, holding_relation=relation))
+                break
         deduped_matches = _dedupe_insights(matches, max_items)
         if deduped_matches:
             holding_matches.append(
@@ -681,9 +836,11 @@ def analyze_market_news(
                 )
             )
 
-    market_events = _limit_company_financing_events(_dedupe_insights(event_candidates, max_items))
+    consolidated_events = _consolidate_policy_events(event_candidates)
+    market_events = _limit_company_financing_events(_dedupe_insights(consolidated_events, max_items))
     industry_catalysts = _dedupe_insights(catalyst_candidates, max_items)
-    risk_points = _dedupe_insights(risk_candidates, max_items)
+    policy_risk_candidates = [item for item in market_events if item.news_type == NEWS_TYPE_POLICY_REGULATION]
+    risk_points = _dedupe_insights(risk_candidates + policy_risk_candidates, max_items)
     watch_points = _dedupe_insights(watch_candidates, max_items)
 
     environment_points = (f"RSS 候选新闻 {len(articles)} 条；以下只基于新闻线索做观察。",)

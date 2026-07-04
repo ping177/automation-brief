@@ -266,6 +266,109 @@ def main() -> None:
     )
     assert any("AI / 算力 / 数据中心电力" in clue for clue in confirmed_theme_analysis.theme_clues)
 
+    event_ranking_analysis = analyze_market_news(
+        [
+            article(
+                "秋声 | 袁进辉新公司冲港股IPO，成立不到三年",
+                "港股 IPO 和公司融资事件适合观察交易热度，但不是本组最重要的 A 股政策变量。",
+                "https://example.com/common-hk-ipo",
+                role="global_tech_business",
+                keywords={"财经股票": ["港股", "IPO"]},
+            ),
+            article(
+                "400家starup聚集、阿斯利康重押13亿欧元，创新药出海欧洲绕不开这座城｜最前线",
+                "创新药出海、海外投资和欧洲产业生态，不是 IPO 递表或招股书事件。",
+                "https://example.com/astrazeneca-europe-biopharma",
+                role="global_tech_business",
+                keywords={"财经股票": ["投资", "出海", "创新药"]},
+            ),
+            article(
+                "国泰海通预计上半年归母净利润超200亿元",
+                "归母净利润、业绩和经营数据属于财报变量。",
+                "https://example.com/guotai-haitong-profit",
+                role="market",
+                keywords={"财经股票": ["业绩", "利润"]},
+            ),
+            article(
+                "中国证监会就完善上市公司再融资规则公开征求意见",
+                "证监会拟优化上市公司再融资和定增制度，影响资金供给与融资节奏。",
+                "https://example.com/csrc-refinancing-consultation",
+                role="market",
+                keywords={"财经股票": ["证监会", "再融资", "定增", "征求意见"]},
+            ),
+            article(
+                "中国证监会拟建立上市公司再融资定增储架发行制度",
+                "同一政策事件涉及再融资、定增储架发行和上市公司融资节奏。",
+                "https://example.com/csrc-shelf-registration",
+                role="market",
+                keywords={"财经股票": ["证监会", "再融资", "定增", "储架发行"]},
+            ),
+            article(
+                "某机器人公司递表港交所，拟募资推进商业化",
+                "递表、港股、交易所、招股书和募资属于明确 IPO / 融资事件。",
+                "https://example.com/robot-hk-filing",
+                role="global_tech_business",
+                keywords={"财经股票": ["递表", "港股", "招股书", "募资"]},
+            ),
+        ],
+        HoldingsConfig(holdings=(), source_path=None),
+    )
+    assert event_ranking_analysis.market_events[0].news_type == "政策监管"
+    assert "再融资" in event_ranking_analysis.market_events[0].title or "定增" in event_ranking_analysis.market_events[0].title
+    assert (
+        sum(
+            "证监会" in item.title and ("再融资" in item.title or "定增" in item.title)
+            for item in event_ranking_analysis.market_events
+        )
+        == 1
+    )
+    assert any("储架发行" in item.reason or "同主题政策线索" in item.reason for item in event_ranking_analysis.market_events)
+    assert any(
+        "再融资" in point and "定增储架" in point
+        for point in event_ranking_analysis.environment_points
+    )
+    assert not any(
+        "阿斯利康重押13亿欧元" in item.title and item.news_type == "公司融资 / IPO"
+        for item in event_ranking_analysis.market_events + event_ranking_analysis.industry_catalysts
+    )
+    assert any(
+        "阿斯利康重押13亿欧元" in item.title and item.news_type == "产业催化"
+        for item in event_ranking_analysis.industry_catalysts
+    )
+    assert any(
+        "国泰海通预计" in item.title and item.news_type == "公司经营 / 财报"
+        for item in event_ranking_analysis.market_events
+    )
+    assert any(
+        "机器人公司递表港交所" in item.title and item.news_type == "公司融资 / IPO"
+        for item in event_ranking_analysis.market_events
+    )
+
+    weak_holding_analysis = analyze_market_news(
+        [
+            article(
+                "英国改革基建规划审批 力推大规模基建建设",
+                "海外基建审批改革可能影响海外风电建设节奏，但未直接提到具体公司。",
+                "https://example.com/uk-infrastructure-wind",
+                role="market",
+                keywords={"财经股票": ["风电"]},
+            )
+        ],
+        holdings,
+    )
+    weak_holding_map = {match.holding_title: match for match in weak_holding_analysis.holding_related_news}
+    assert "002202 金风科技" in weak_holding_map
+    assert any(
+        "英国改革基建规划审批" in item.title
+        and item.relevance_score < 60
+        and item.holding_relation == "弱相关变量"
+        for item in weak_holding_map["002202 金风科技"].matches
+    )
+    assert not any(
+        "英国改革基建规划审批" in item.title and "高精度线索" in item.reason
+        for item in weak_holding_map["002202 金风科技"].matches
+    )
+
     print("offline market news smoke passed")
 
 

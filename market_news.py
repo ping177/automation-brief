@@ -104,6 +104,57 @@ POLICY_REGULATION_TERMS = (
     "并购重组",
     "征求意见",
 )
+STRONG_POLICY_TERMS = (
+    "证监会",
+    "交易所",
+    "上交所",
+    "深交所",
+    "北交所",
+    "监管部门",
+    "征求意见",
+    "规则",
+    "制度",
+    "办法",
+    "通知",
+    "处罚",
+    "问询",
+    "问询函",
+    "退市",
+    "减持",
+    "再融资",
+    "定增",
+    "储架发行",
+    "并购重组",
+)
+A_SHARE_POLICY_EVENT_TERMS = (
+    "再融资",
+    "定增",
+    "储架发行",
+)
+A_SHARE_POLICY_CONTEXT_TERMS = (
+    "证监会",
+    "交易所",
+    "上交所",
+    "深交所",
+    "北交所",
+    "规则",
+    "制度",
+    "征求意见",
+)
+REGULATION_COMBO_TERMS = (
+    "部门",
+    "规则",
+    "制度",
+    "办法",
+    "通知",
+    "处罚",
+    "问询",
+    "证监会",
+    "交易所",
+    "上交所",
+    "深交所",
+    "北交所",
+)
 COMPANY_FINANCING_TERMS = (
     "IPO",
     "Pre-IPO",
@@ -131,13 +182,19 @@ COMPANY_FINANCING_TERMS = (
 COMPANY_OPERATING_TERMS = (
     "财报",
     "业绩",
+    "业绩预告",
+    "预计",
+    "上半年",
     "营收",
     "利润",
+    "净利润",
+    "归母净利润",
     "经营数据",
     "收入",
     "毛利",
     "净利",
     "同比增长",
+    "亿元",
 )
 INDUSTRY_CATALYST_TERMS = (
     "订单",
@@ -435,7 +492,76 @@ def _confirmed_theme_clues(theme_stats: dict[str, dict[str, int]], max_items: in
 
 def _matched_terms(text: str, terms: tuple[str, ...]) -> tuple[str, ...]:
     lowered = text.lower()
-    return tuple(term for term in terms if term.lower() in lowered)
+    matched: list[str] = []
+    seen: set[str] = set()
+    for term in terms:
+        if term.lower() not in lowered or term in seen:
+            continue
+        seen.add(term)
+        matched.append(term)
+    return tuple(matched)
+
+
+def _dedupe_terms(*groups: tuple[str, ...]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for group in groups:
+        for term in group:
+            if term in seen:
+                continue
+            seen.add(term)
+            deduped.append(term)
+    return tuple(deduped)
+
+
+def _strong_policy_terms(policy_terms: tuple[str, ...]) -> tuple[str, ...]:
+    if not policy_terms:
+        return ()
+    strong = tuple(term for term in policy_terms if term in STRONG_POLICY_TERMS)
+    has_regulation_combo = "监管" in policy_terms and any(
+        term in policy_terms for term in REGULATION_COMBO_TERMS if term != "监管"
+    )
+    if has_regulation_combo and "监管" not in strong:
+        strong += ("监管",)
+    return strong
+
+
+def _is_a_share_policy_event(text: str) -> bool:
+    return _contains_any(text, A_SHARE_POLICY_EVENT_TERMS) and _contains_any(text, A_SHARE_POLICY_CONTEXT_TERMS)
+
+
+def _is_large_financial_earnings_preview(title: str, text: str) -> bool:
+    if not _contains_any(text, ("归母净利润", "净利润", "利润")):
+        return False
+    if not _contains_any(text, ("预计", "上半年", "超", "亿元")):
+        return False
+    return _contains_any(title, ("国泰海通", "券商", "证券"))
+
+
+def _filter_negated_policy_terms(
+    text: str,
+    title_terms: tuple[str, ...],
+    policy_terms: tuple[str, ...],
+) -> tuple[str, ...]:
+    if not ("没有" in text or "无" in text):
+        return policy_terms
+    negated_fragments: list[str] = []
+    for marker in ("没有", "无"):
+        start = text.find(marker)
+        while start != -1:
+            end_candidates = [
+                text.find(separator, start)
+                for separator in ("。", "；", ";", "\n")
+                if text.find(separator, start) != -1
+            ]
+            end = min(end_candidates) if end_candidates else len(text)
+            negated_fragments.append(text[start:end])
+            start = text.find(marker, start + len(marker))
+    return tuple(
+        term
+        for term in policy_terms
+        if term in title_terms or not any(term in fragment for fragment in negated_fragments)
+    )
 
 
 def _reason_for_type(
@@ -450,13 +576,13 @@ def _reason_for_type(
     risk_terms: tuple[str, ...],
 ) -> str:
     if news_type == NEWS_TYPE_MACRO_RISK:
-        variables = "、".join((macro_terms + risk_terms)[:4])
+        variables = "、".join(_dedupe_terms(macro_terms, risk_terms)[:4])
         return f"{source} 报道的「{title}」包含 {variables} 等宏观或资产价格变量，重点看它是否继续影响风险偏好、汇率利率预期或跨市场联动。"
     if news_type == NEWS_TYPE_POLICY_REGULATION:
-        variables = "、".join((policy_terms + risk_terms)[:4])
+        variables = "、".join(_dedupe_terms(policy_terms, risk_terms)[:4])
         return f"{source} 报道的「{title}」出现 {variables} 等正式政策或监管线索，可能改变相关板块合规风险和资金定价。"
     if news_type == NEWS_TYPE_INDUSTRY_CATALYST:
-        variables = "、".join((catalyst_terms + industry_terms)[:4])
+        variables = "、".join(_dedupe_terms(catalyst_terms, industry_terms)[:4])
         return f"{source} 报道的「{title}」同时具备 {variables} 等产业主题和可验证催化，后续看订单、投资节奏或产业链扩散。"
     if news_type == NEWS_TYPE_COMPANY_FINANCING:
         variables = "、".join(company_terms[:4])
@@ -466,7 +592,7 @@ def _reason_for_type(
         return f"{source} 报道的「{title}」包含 {variables} 等经营或财报变量，适合观察公司基本面变化和同类公司预期。"
     if news_type == NEWS_TYPE_WEAK:
         return "内容形态或主题偏泛，缺少明确行情、政策、订单、监管或公司资本事件支撑。"
-    variables = "、".join((industry_terms + company_terms + macro_terms)[:4])
+    variables = "、".join(_dedupe_terms(industry_terms, company_terms, macro_terms)[:4])
     return f"「{title}」包含 {variables or '商业动态'} 线索，但缺少更强市场验证变量，作为普通商业新闻低优先级观察。"
 
 
@@ -488,11 +614,17 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
     catalyst_terms = _matched_terms(text, CONCRETE_CATALYST_TERMS)
     risk_terms = _matched_terms(text, RISK_TERMS)
     weak_terms = _matched_terms(text, WEAK_RELATED_PATTERNS)
+    policy_terms = _filter_negated_policy_terms(text, title_policy_terms, policy_terms)
+    strong_policy_terms = _strong_policy_terms(policy_terms)
+    title_strong_policy_terms = _strong_policy_terms(title_policy_terms)
+    is_a_share_policy_event = _is_a_share_policy_event(text)
+    is_large_financial_earnings_preview = _is_large_financial_earnings_preview(title, text)
     if _contains_any(text, NEGATED_FINANCING_PATTERNS):
         title_company_terms = ()
         company_terms = ()
     if company_terms and not title_policy_terms:
         policy_terms = tuple(term for term in policy_terms if term not in GENERIC_EXCHANGE_POLICY_TERMS)
+        strong_policy_terms = _strong_policy_terms(policy_terms)
     title_specific_financing_terms = tuple(term for term in title_company_terms if term != "上市")
     specific_financing_terms = tuple(term for term in company_terms if term != "上市")
 
@@ -501,10 +633,16 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
         score += 30 + min(len(macro_terms) * 4, 16)
     if policy_terms:
         score += 50 + min(len(policy_terms) * 5, 25)
+    if strong_policy_terms:
+        score += 12 + min(len(strong_policy_terms) * 3, 18)
+    if is_a_share_policy_event:
+        score += 42
     if company_terms:
         score += 34 + min(len(company_terms) * 4, 16)
     if operating_terms:
         score += 30 + min(len(operating_terms) * 4, 16)
+    if is_large_financial_earnings_preview:
+        score += 104
     if industry_terms:
         score += 14 + min(len(industry_terms) * 3, 15)
     if catalyst_terms:
@@ -520,6 +658,8 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
         score += 10
     if title_policy_terms:
         score += 28
+    if title_strong_policy_terms:
+        score += 12
     if title_catalyst_terms and title_industry_terms:
         score += 14
 
@@ -536,11 +676,13 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
 
     if weak_related:
         news_type = NEWS_TYPE_WEAK
-    elif title_policy_terms:
+    elif title_strong_policy_terms or is_a_share_policy_event:
         news_type = NEWS_TYPE_POLICY_REGULATION
+    elif title_catalyst_terms and title_industry_terms and not title_specific_financing_terms:
+        news_type = NEWS_TYPE_INDUSTRY_CATALYST
     elif title_operating_terms or (operating_terms and not title_specific_financing_terms and not specific_financing_terms):
         news_type = NEWS_TYPE_COMPANY_OPERATING
-    elif policy_terms:
+    elif strong_policy_terms:
         news_type = NEWS_TYPE_POLICY_REGULATION
     elif title_company_terms or company_terms:
         news_type = NEWS_TYPE_COMPANY_FINANCING
@@ -738,7 +880,7 @@ def _holding_match_reason(
 def _risk_variable(item: NewsInsight) -> str:
     if item.news_type == NEWS_TYPE_POLICY_REGULATION:
         if _contains_any(f"{item.title} {item.reason}", ("再融资", "定增", "储架发行")):
-            return "政策变量：再融资和定增储架制度落地细则、适用范围和市场解读，可能影响上市公司融资节奏与资金偏好。"
+            return "政策变量：再融资和定增储架发行制度落地细则、适用范围和市场解读，可能影响上市公司融资节奏与资金偏好。"
         return "监管变量：后续是否出现正式处罚、问询范围扩大或同类公司合规风险重估。"
     if item.news_type == NEWS_TYPE_COMPANY_FINANCING:
         return "资本市场变量：IPO / 融资 / 估值新闻后续交易热度是否退潮，并影响同类公司预期。"

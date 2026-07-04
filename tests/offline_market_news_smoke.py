@@ -277,10 +277,10 @@ def main() -> None:
             ),
             article(
                 "400家starup聚集、阿斯利康重押13亿欧元，创新药出海欧洲绕不开这座城｜最前线",
-                "创新药出海、海外投资和欧洲产业生态，不是 IPO 递表或招股书事件。",
+                "创新药出海、海外投资和欧洲产业生态，正文提到 B轮、融资和预计，但标题不是 IPO 递表或招股书事件。",
                 "https://example.com/astrazeneca-europe-biopharma",
                 role="global_tech_business",
-                keywords={"财经股票": ["投资", "出海", "创新药"]},
+                keywords={"财经股票": ["投资", "出海", "创新药", "融资", "预计"]},
             ),
             article(
                 "国泰海通预计上半年归母净利润超200亿元",
@@ -342,6 +342,52 @@ def main() -> None:
     assert any(
         "机器人公司递表港交所" in item.title and item.news_type == "公司融资 / IPO"
         for item in event_ranking_analysis.market_events
+    )
+    event_titles = [item.title for item in event_ranking_analysis.market_events]
+    policy_index = next(index for index, title in enumerate(event_titles) if "再融资" in title and "定增" in title)
+    guotai_index = next(index for index, title in enumerate(event_titles) if "国泰海通预计" in title)
+    robot_ipo_index = next(index for index, title in enumerate(event_titles) if "机器人公司递表港交所" in title)
+    assert policy_index == 0
+    assert policy_index < robot_ipo_index
+    assert guotai_index < robot_ipo_index
+    policy_reason = event_ranking_analysis.market_events[policy_index].reason
+    assert "再融资" in policy_reason and "定增" in policy_reason
+    assert "监管、监管" not in policy_reason
+    astra_reason = next(
+        item.reason
+        for item in event_ranking_analysis.industry_catalysts
+        if "阿斯利康重押13亿欧元" in item.title
+    )
+    assert "出海、出海" not in astra_reason
+
+    generic_regulation_analysis = analyze_market_news(
+        [
+            article(
+                "创新药出海企业讨论欧洲监管、合规与审批路径",
+                "监管、合规、审批是产业出海流程变量，但没有证监会、交易所、规则、制度或处罚问询。",
+                "https://example.com/generic-regulation",
+                role="global_tech_business",
+                keywords={"财经股票": ["监管", "合规", "审批", "创新药", "出海"]},
+            ),
+            article(
+                "中国证监会就完善上市公司再融资规则公开征求意见",
+                "证监会、再融资、定增、规则和征求意见属于 A 股制度变量。",
+                "https://example.com/strong-policy-regulation",
+                role="market",
+                keywords={"财经股票": ["证监会", "再融资", "定增", "规则", "征求意见"]},
+            ),
+        ],
+        HoldingsConfig(holdings=(), source_path=None),
+    )
+    assert not any(
+        "创新药出海企业讨论" in item.title and item.news_type == "政策监管"
+        for item in generic_regulation_analysis.market_events + generic_regulation_analysis.industry_catalysts
+    )
+    assert any(
+        "证监会完善上市公司再融资规则" in item.title
+        and "公开征求意见" in item.reason
+        and item.news_type == "政策监管"
+        for item in generic_regulation_analysis.market_events
     )
 
     weak_holding_analysis = analyze_market_news(

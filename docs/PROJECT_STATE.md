@@ -8,7 +8,7 @@
 
 ## Current version
 
-v0.5-beta.3 news event ranking and consolidation polish, based on `docs/DEVLOG.md`.
+v0.5-beta.3.1 policy ranking and theme threshold hotfix, based on `docs/DEVLOG.md`.
 
 ## Current status
 
@@ -16,7 +16,7 @@ v0.5-beta.3 news event ranking and consolidation polish, based on `docs/DEVLOG.m
 
 ## Latest completed
 
-v0.5-beta.3 已完成 market_brief 的新闻事件排序与合并 polish：政策监管新闻优先级提高，同主题证监会再融资 / 定增政策合并展示，IPO / 融资分类更严格，holdings 相关新闻区分明确相关新闻 / 弱相关变量，风险与反证优先覆盖政策监管变量。本轮变更将随当前 commit / push 收口。
+v0.5-beta.3.1 已完成 market_brief 真实样例 hotfix：证监会再融资 / 定增储架发行制度变量排序继续提高，泛“监管”分类收紧，观察理由关键词去重，今日主线 `relevance < 70` 候选不再渲染，券商业绩预告排序提高，风险与反证明确覆盖再融资和定增储架发行变量。v0.5-beta.3.1 修复已纳入本轮收口。
 
 ## Deployment
 
@@ -44,6 +44,7 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.5-beta.1 — 行情展示修正
 - v0.5-beta.2 — 行情主线与持仓异常
 - v0.5-beta.3 — 新闻事件排序与合并
+- v0.5-beta.3.1 — 政策排序和主线阈值 hotfix
 
 ## Last verified
 
@@ -51,7 +52,7 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Next Action
 
-继续观察 1-2 个真实交易日的手动显式 market_brief 样例，重点看政策事件排序、同主题政策合并、IPO / 融资分类、holdings 弱相关变量表达和风险与反证政策变量是否仍符合预期。普通 daily brief 自动链路继续保持不变，不把 market_brief 接入 Bark / Obsidian / launchd。
+继续观察 1-2 个真实交易日的手动显式 market_brief 样例，重点看再融资 / 定增储架发行政策是否稳定排在普通 IPO / 融资前，泛“监管”是否不再误归政策监管，低相关产业新闻是否不再硬凑今日主线，券商业绩预告和政策风险变量是否仍符合预期。普通 daily brief 自动链路继续保持不变，不把 market_brief 接入 Bark / Obsidian / launchd。
 
 ## Blockers
 
@@ -72,6 +73,7 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.5-beta.1 changes only explicit `market_brief` output quality around quote dates, IPO noise, risk de-duplication, and holdings relative observation. Default `python3 main.py` still follows `config.json`, and `scripts/run_daily_digest.sh` remains untouched.
 - v0.5-beta.2 changes only explicit `market_brief` quality polish around cautious news themes, market-led 科创50 observation, holdings anomaly wording, and company operating / earnings classification. Default `python3 main.py` still follows `config.json`, and `scripts/run_daily_digest.sh` remains untouched.
 - v0.5-beta.3 changes only explicit `market_brief` news quality rules and rendering around policy event ranking/consolidation, stricter IPO / financing classification, holdings related-news confidence, and policy risk variables. Default `python3 main.py` still follows `config.json`, and `scripts/run_daily_digest.sh` remains untouched.
+- v0.5-beta.3.1 changes only explicit `market_brief` news quality rules and rendering around A-share policy ranking, generic regulation classification, reason keyword de-duplication, today-theme relevance threshold, broker earnings ranking, and policy risk wording. Default `python3 main.py` still follows `config.json`, and `scripts/run_daily_digest.sh` remains untouched.
 - `config/holdings.json` is ignored by Git. `config/holdings.example.json` is only an example and must not contain real cost, position size, market value, or loss amounts.
 - Initialize local holdings with `python3 scripts/init_holdings_config.py`; validate with `python3 scripts/validate_holdings_config.py`.
 - `market_brief` now uses RSS news plus a lightweight A-share quote snapshot when explicitly generated. It still does not calculate complex strategy, sector strength, or trading actions.
@@ -81,4 +83,4 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.5-beta.3 by preserving the normal daily digest automation and reviewing 1-2 more manually generated explicit `market_brief` samples. The market brief now separates news-confirmed themes from market-led observations, can flag 科创50 index-level strength, classifies holdings relative moves with anomaly wording, consolidates same-topic CSRC refinancing / private-placement policy events, ranks policy regulation ahead of ordinary IPO noise, and keeps weak holdings news as observation variables rather than direct company explanations. Keep holdings dynamic via local `config/holdings.json`, keep real holdings and cost/position/value/profit-loss fields out of Git and docs, and do not add trading recommendations.
+Continue automation-brief from v0.5-beta.3.1 by preserving the normal daily digest automation and reviewing 1-2 more manually generated explicit `market_brief` samples. The market brief now separates news-confirmed themes from market-led observations, can flag 科创50 index-level strength, classifies holdings relative moves with anomaly wording, consolidates same-topic CSRC refinancing / private-placement policy events, ranks A-share refinancing / private-placement system variables ahead of ordinary IPO noise, avoids generic “监管” false positives, hides today-theme candidates below relevance 70, and keeps weak holdings news as observation variables rather than direct company explanations. Keep holdings dynamic via local `config/holdings.json`, keep real holdings and cost/position/value/profit-loss fields out of Git and docs, and do not add trading recommendations.

@@ -352,6 +352,25 @@ def main() -> None:
     assert "观察主要指数涨跌和成交额是否支持新闻主线" not in market_led_markdown
     assert "成交额字段稳定前，不判断放量 / 缩量" in market_led_markdown
 
+    low_relevance_theme_context = build_market_brief_context(
+        market_led_snapshot(report_date, "002202", "金风科技", 0.18),
+        second_holdings,
+        [
+            article(
+                "云南巧家夏季草莓“锁鲜”出海",
+                "地方农业出海案例缺少 A 股市场变量、订单、公告或板块验证。",
+                "https://example.com/strawberry-export",
+            )
+        ],
+    )
+    low_relevance_theme_markdown = render_market_brief_markdown(low_relevance_theme_context)
+    low_relevance_theme_section = low_relevance_theme_markdown.split("## 二、今日主线", 1)[1].split(
+        "## 三、我的持仓观察",
+        1,
+    )[0]
+    assert "RSS 候选新闻中暂未提取到足够明确的产业主线。" in low_relevance_theme_section
+    assert "云南巧家夏季草莓" not in low_relevance_theme_section
+
     weak_related_context = build_market_brief_context(
         market_led_snapshot(report_date, "002202", "金风科技", 4.59),
         weak_holdings,
@@ -399,12 +418,46 @@ def main() -> None:
     risk_section = ipo_markdown.split("## 五、风险与反证", 1)[1].split("## 六、今日继续观察", 1)[0]
     assert risk_section.count("资本市场变量") <= 1
 
+    policy_context = build_market_brief_context(
+        market_snapshot(report_date, "601179", "中国西电", 0.12),
+        first_holdings,
+        [
+            article(
+                "秋声 | 袁进辉新公司冲港股IPO，成立不到三年",
+                "普通港股 IPO 和融资事件不应压过 A 股再融资制度变量。",
+                "https://example.com/common-hk-ipo",
+            ),
+            article(
+                "中国证监会就完善上市公司再融资规则公开征求意见",
+                "证监会完善再融资和定增规则。",
+                "https://example.com/csrc-refinancing-consultation",
+            ),
+            article(
+                "中国证监会拟建立上市公司再融资定增储架发行制度",
+                "再融资、定增和储架发行影响上市公司融资节奏与资金偏好。",
+                "https://example.com/csrc-shelf-registration",
+            ),
+        ],
+    )
+    policy_markdown = render_market_brief_markdown(policy_context)
+    policy_important_section = policy_markdown.split("## 四、重要新闻与验证", 1)[1].split("## 五、风险与反证", 1)[0]
+    assert policy_important_section.find("证监会完善上市公司再融资规则") < policy_important_section.find("袁进辉新公司")
+    policy_risk_section = policy_markdown.split("## 五、风险与反证", 1)[1].split("## 六、今日继续观察", 1)[0]
+    assert "再融资" in policy_risk_section
+    assert "定增" in policy_risk_section
+    assert "储架发行" in policy_risk_section
+    assert "融资节奏" in policy_risk_section
+    assert "资金偏好" in policy_risk_section
+    assert "处罚、问询" not in policy_risk_section
+
     for term in DIRECT_TRADING_ADVICE_TERMS:
         assert term not in first_markdown
         assert term not in second_markdown
         assert term not in failed_markdown
         assert term not in market_led_markdown
         assert term not in weak_related_markdown
+        assert term not in low_relevance_theme_markdown
+        assert term not in policy_markdown
 
     assert "本报告仅用于个人市场观察和复盘，不构成投资建议。" in first_markdown
 

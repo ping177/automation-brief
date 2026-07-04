@@ -32,6 +32,7 @@ DIRECT_TRADING_ADVICE_TERMS = (
 )
 
 DISCLAIMER = "本报告仅用于个人市场观察和复盘，不构成投资建议。"
+TODAY_THEME_MIN_RELEVANCE = 70
 
 
 def sanitize_report_text(value: str) -> str:
@@ -353,7 +354,11 @@ def render_market_brief_markdown(context: MarketBriefContext, generated_at: date
 
     lines.extend(["## 二、今日主线", ""])
     append_today_theme(lines, context)
-    append_insights(lines, news.industry_catalysts, empty_text=None)
+    append_insights(
+        lines,
+        (item for item in news.industry_catalysts if item.relevance_score >= TODAY_THEME_MIN_RELEVANCE),
+        empty_text=None,
+    )
 
     lines.extend(["## 三、我的持仓观察", ""])
     lines.extend(render_holding_observations(context))

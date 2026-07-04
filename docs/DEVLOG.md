@@ -457,7 +457,7 @@ v0.5.2-alpha 已完成并 push 到 `origin/main`，提交为 `7339145`。真实 
 
 - docs-only correction。
 - 不修改业务代码、配置、脚本、测试、RSS 源、Bark、Obsidian、launchd 或 pmset。
-- 不 commit，不 push，等待人工确认。
+- docs-only correction；不修改业务代码、配置、脚本、测试、RSS 源、Bark、Obsidian、launchd 或 pmset。
 
 ## v0.5.3-alpha news quality tuning
 
@@ -667,3 +667,38 @@ v0.5-beta.2 继续保持 `market_brief` 为手动显式生成，只改善已有�
 ### 结论
 
 v0.5-beta.3 将显式 `market_brief` 的 RSS 新闻处理从“单条新闻排序”推进到轻量事件级处理：政策监管更靠前、同主题政策不重复刷屏、IPO / 融资分类更克制、持仓相关新闻表达更区分置信度。后续若继续出现复杂跨源重复或重要性判断问题，再基于真实样例评估 AI rerank，不在本轮扩大范围。
+
+## v0.5-beta.3.1 policy ranking and theme threshold hotfix
+
+### 背景
+
+2026-07-03 真实 `market_brief` 样例继续暴露出几个规则边界问题：证监会再融资 / 定增政策仍可能被普通 IPO / 创业融资新闻压过；创新药出海文本里的泛“监管”可能误归为政策监管；今日主线兜底后仍展示低相关度产业新闻；观察理由里可能重复展示命中词；风险与反证需要更明确覆盖再融资 / 定增储架发行变量；大型券商业绩预告排序仍偏低。
+
+### 实际改动
+
+- 强化 A 股制度变量排序：再融资、定增、储架发行与证监会 / 交易所 / 规则 / 制度 / 征求意见同现时提高相关度。
+- 收紧政策监管分类：单独出现“监管”不再足以归为政策监管，需更强政策词或监管组合；否定语境中的政策词不会被当作正向命中。
+- 观察理由中的命中关键词按原顺序去重，避免 `出海、出海`、`监管、监管`。
+- 对大型金融 / 券商利润预告增加窄范围排序权重，确保重要上市公司业绩变量高于普通创业融资 / IPO。
+- 今日主线渲染增加 `relevance >= 70` 门槛，低相关产业候选不再跟在“暂未提取到足够明确的产业主线”后展示。
+- 风险与反证文案明确输出再融资和定增储架发行制度的落地细则、适用范围、融资节奏和资金偏好变量。
+- 扩展离线 smoke，覆盖政策排序、泛监管分类、关键词去重、低相关主线阈值、政策风险文案和交易建议词边界。
+
+### 边界
+
+- 不新增依赖、行情源、AI rerank、券商 / 交易账户或自动交易能力。
+- 不修改 `scripts/run_daily_digest.sh`，不改变默认 `python3 main.py` 行为。
+- 不接入 Bark / Obsidian / launchd / pmset，也不自动推送 `market_brief`。
+- 不读取、打印或提交 `.env`、`config/holdings.json`、`output/` 或 secrets。
+- 不输出买入、卖出、加仓、减仓、止损、止盈等直接交易建议。
+
+### 验证结果
+
+- 已新增 regression 后先跑出失败，再小步修复规则。
+- `tests/offline_market_news_smoke.py` 通过。
+- `tests/offline_market_brief_smoke.py` 通过。
+- 完整验证覆盖 Python 编译、market data / market news / market brief / holdings config / ordinary digest 离线 smoke、脚本语法检查和 `git diff --check`。
+
+### 结论
+
+v0.5-beta.3.1 将本轮真实样例中的排序、分类、低相关主线和风险变量问题收口为离线回归。显式 `market_brief` 仍保持规则驱动和手动运行，不影响普通 daily digest 自动链路。

@@ -646,6 +646,103 @@ def truncate_summary(summary: str, max_chars: int) -> str:
     return cleaned[:max_chars].rstrip() + "……"
 
 
+DIGEST_SUMMARY_FALLBACK = "这条新闻的 RSS 摘要信息较少，当前仅能确认标题所述事件。建议打开原文查看完整背景和后续细节。"
+DIGEST_SUMMARY_MAX_CHARS = 180
+DIGEST_SUMMARY_MAX_WORDS = 90
+
+
+def strip_digest_summary_noise(summary: str) -> str:
+    cleaned = clean_text(summary)
+    noise_patterns = (
+        r"责任编辑[:：]\s*\S+",
+        r"责编[:：]\s*\S+",
+        r"点击进入专题[:：]?.*$",
+        r"更多精彩内容.*$",
+        r"免责声明[:：].*$",
+        r"版权声明[:：].*$",
+    )
+    for pattern in noise_patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def is_english_summary(text: str) -> bool:
+    chinese_chars = len(re.findall(r"[\u4e00-\u9fff]", text))
+    english_words = len(re.findall(r"\b[A-Za-z][A-Za-z0-9'-]*\b", text))
+    return english_words > chinese_chars
+
+
+def first_complete_sentences(text: str, max_sentences: int = 3) -> list[str]:
+    sentences = re.split(r"(?<=[。！？；;])\s*|(?<=[.!?])\s+", text)
+    return [sentence.strip() for sentence in sentences if sentence.strip()][:max_sentences]
+
+
+def truncate_english_words(text: str, max_words: int) -> str:
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    return " ".join(words[:max_words]).rstrip(" ,;:") + "..."
+
+
+def digest_item_summary(item: NewsItem) -> str:
+    cleaned = strip_digest_summary_noise(item.summary)
+    if not cleaned:
+        return DIGEST_SUMMARY_FALLBACK
+
+    sentences = first_complete_sentences(cleaned)
+    if is_english_summary(cleaned):
+        selected: list[str] = []
+        word_count = 0
+        for sentence in sentences:
+            sentence_words = len(sentence.split())
+            if selected and word_count + sentence_words > DIGEST_SUMMARY_MAX_WORDS:
+                break
+            selected.append(sentence)
+            word_count += sentence_words
+        summary = " ".join(selected) if selected else cleaned
+        return truncate_english_words(summary, DIGEST_SUMMARY_MAX_WORDS)
+
+    selected = ""
+    for sentence in sentences:
+        candidate = f"{selected}{sentence}" if selected else sentence
+        if selected and len(candidate) > DIGEST_SUMMARY_MAX_CHARS:
+            break
+        selected = candidate
+    summary = selected or cleaned
+    if len(summary) <= DIGEST_SUMMARY_MAX_CHARS:
+        return summary
+    return summary[:DIGEST_SUMMARY_MAX_CHARS].rstrip("，,；;：: ") + "……"
+
+
+def format_digest_item_time(item: NewsItem) -> str:
+    if item.published_at:
+        return item.published_at.astimezone().strftime("%m-%d %H:%M")
+    try:
+        parsed_datetime = parsedate_to_datetime(item.published)
+    except (TypeError, ValueError):
+        return item.published or "Unknown"
+    if parsed_datetime.tzinfo is None:
+        parsed_datetime = parsed_datetime.replace(tzinfo=timezone.utc)
+    return parsed_datetime.astimezone().strftime("%m-%d %H:%M")
+
+
+def digest_item_meta_line(item: NewsItem) -> str:
+    return f"`{markdown_escape(item.source)} · {format_digest_item_time(item)}` · [原文]({item.link})"
+
+
+def append_digest_item(lines: list[str], index: int, item: NewsItem) -> None:
+    lines.extend(
+        [
+            f"### {index}. {markdown_escape(item.title)}",
+            "",
+            markdown_escape(digest_item_summary(item)),
+            "",
+            digest_item_meta_line(item),
+            "",
+        ]
+    )
+
+
 MARKET_SIGNAL_TERMS = (
     "A股",
     "沪指",
@@ -2165,59 +2262,28 @@ def write_digest_markdown(
 
     if sections.core:
         for index, item in enumerate(sections.core, start=1):
-            lines.extend(
-                [
-                    f"### {index}. {markdown_escape(item.title)}",
-                    f"- 来源：{markdown_escape(item.source)}",
-                    f"- 时间：{markdown_escape(item.published)}",
-                    f"- 为什么重要：{markdown_escape(rule_reason(item))}",
-                    f"- 链接：{item.link}",
-                    "",
-                ]
-            )
+            append_digest_item(lines, index, item)
     else:
         lines.extend(["过去时间窗口内暂无匹配内容。", ""])
 
     lines.extend(["## 二、昨日市场信号", ""])
     if sections.market:
         for index, item in enumerate(sections.market, start=1):
-            lines.extend(
-                [
-                    f"### {index}. {markdown_escape(item.title)}",
-                    f"- 来源：{markdown_escape(item.source)}",
-                    f"- 可能影响：{markdown_escape(market_impact(item))}",
-                    f"- 链接：{item.link}",
-                    "",
-                ]
-            )
+            append_digest_item(lines, index, item)
     else:
         lines.extend(["过去时间窗口内暂无明显市场信号。", ""])
 
     lines.extend(["## 三、今天值得关注的变量", ""])
     if sections.watch:
         for index, item in enumerate(sections.watch, start=1):
-            lines.extend(
-                [
-                    f"### {index}. {markdown_escape(item.title)}",
-                    f"- 可能影响：{markdown_escape(watch_impact(item))}",
-                    "",
-                ]
-            )
+            append_digest_item(lines, index, item)
     else:
         lines.extend(["暂无从昨日新闻中提取出的明确延续变量。", ""])
 
     lines.extend(["## 四、快速扫读", ""])
     if sections.quick_scan:
         for index, item in enumerate(sections.quick_scan, start=1):
-            lines.extend(
-                [
-                    f"### {index}. {markdown_escape(item.title)}",
-                    f"- 来源：{markdown_escape(item.source)}",
-                    f"- 类型：{markdown_escape(quick_scan_type(item))}",
-                    f"- 链接：{item.link}",
-                    "",
-                ]
-            )
+            append_digest_item(lines, index, item)
     else:
         lines.extend(["暂无可补充的快速扫读内容。", ""])
 

@@ -702,3 +702,37 @@ v0.5-beta.3 将显式 `market_brief` 的 RSS 新闻处理从“单条新闻排�
 ### 结论
 
 v0.5-beta.3.1 将本轮真实样例中的排序、分类、低相关主线和风险变量问题收口为离线回归。显式 `market_brief` 仍保持规则驱动和手动运行，不影响普通 daily digest 自动链路。
+
+## v0.5-beta.4 daily digest readability polish
+
+### 背景
+
+普通 daily digest 自动化链路已经稳定，但每日新闻条目仍以标题加多行元信息呈现：来源、时间、为什么重要和裸链接占用空间较多，而标题下缺少新闻梗概。读者扫读时需要打开原文才能理解事件细节，“为什么重要”也容易变成低信息量模板句。
+
+### 实际改动
+
+- 普通 `digest` 新闻条目统一改为：标题、RSS 摘要清洗后的梗概、一行压缩来源 / 时间 / 原文链接。
+- 摘要只使用现有 RSS 字段，不接 AI、不联网补充、不新增数据源。
+- 摘要清洗会去除 HTML tag、HTML entity、多余空白和少量站点模板残留。
+- 中文摘要优先保留最多 3 个完整短句，并在约 180 字以内截断；英文摘要控制在约 90 个词以内。
+- 无可用 RSS 摘要时使用保守 fallback：提示当前仅能确认标题所述事件，建议查看原文。
+- 元信息压缩为 `` `来源 · MM-DD HH:MM` · [原文](url) ``；时间解析失败时保留现有时间字符串但不拆成多行。
+- `tests/offline_digest_smoke.py` 增加 Markdown 渲染回归，覆盖 HTML 摘要清洗、压缩时间、原文链接、无摘要 fallback 和旧 bullet 格式移除。
+
+### 边界
+
+- 不修改 `scripts/run_daily_digest.sh` 或 `scripts/run_market_brief.sh`。
+- 不改变 Bark / Obsidian / launchd / pmset 自动化链路。
+- 不修改 `market_brief` 核心规则、行情、新闻排序或持仓逻辑。
+- 不读取、打印或提交 `.env`、`config/holdings.json`、`output/` 或 secrets。
+- 不新增 AI summary、外部 API、新 RSS 源、AKShare、TuShare、券商 / 交易账户或自动交易能力。
+
+### 验证结果
+
+- 先新增 digest Markdown 渲染 regression 并确认旧格式下失败，再小步实现新 renderer。
+- `tests/offline_digest_smoke.py` 已通过，证明普通 digest 分流逻辑和新条目格式同时满足预期。
+- 本轮完成后按任务要求运行完整离线回归、脚本语法检查和 `git diff --check`。
+
+### 结论
+
+v0.5-beta.4 只改善普通 daily digest 的 Markdown 阅读体验，让每条新闻更接近“可直接扫读”的摘要卡片。market_brief 和自动化执行链路保持隔离，后续重点观察真实每日 digest 的 RSS 摘要质量和无摘要 fallback 出现频率。

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,7 @@ from main import (  # noqa: E402
     one_line_theme,
     quick_scan_type,
     stale_by_url_date,
+    write_digest_markdown,
 )
 
 
@@ -643,6 +645,55 @@ def main() -> None:
         assert captured_timeouts == [15]
     finally:
         main_module.urllib.request.urlopen = original_urlopen
+
+    digest_render_item = make_item(
+        "委内瑞拉地震已致2954人遇难",
+        summary=(
+            "<p>委内瑞拉地震灾情继续扩大，遇难和受伤人数持续更新。</p>"
+            "&nbsp;救援、医疗和临时安置成为短期重点。后续需要关注国际救援进展。"
+        ),
+        role="breaking_news",
+        link="https://www.chinanews.com.cn/gj/2026/07-05/10653210.shtml",
+        source="中国新闻网-国际新闻",
+    )
+    digest_render_item = NewsItem(
+        title=digest_render_item.title,
+        source=digest_render_item.source,
+        feed_name=digest_render_item.feed_name,
+        feed_role=digest_render_item.feed_role,
+        published="Sun, 5 Jul 2026 20:18:20 +0800",
+        published_at=datetime(2026, 7, 5, 12, 18, 20, tzinfo=timezone.utc),
+        link=digest_render_item.link,
+        summary=digest_render_item.summary,
+        matched_keywords=digest_render_item.matched_keywords,
+    )
+    digest_fallback_item = make_item(
+        "央行今晚公布利率决议",
+        summary="",
+        role="market",
+        link="https://example.com/fallback-summary",
+        source="财经测试源",
+    )
+    with TemporaryDirectory() as temp_dir:
+        rendered_file = write_digest_markdown(
+            [digest_render_item, digest_fallback_item],
+            Path(temp_dir),
+            datetime(2026, 7, 6, tzinfo=timezone.utc).date(),
+            ReportConfig(report_type="digest", max_core_events=3, max_market_signals=3),
+            [],
+        )
+        rendered = rendered_file.read_text(encoding="utf-8")
+    assert "### 1. 委内瑞拉地震已致2954人遇难" in rendered
+    assert "委内瑞拉地震灾情继续扩大，遇难和受伤人数持续更新。" in rendered
+    assert "救援、医疗和临时安置成为短期重点。" in rendered
+    assert "`中国新闻网-国际新闻 · 07-05 20:18` · [原文](https://www.chinanews.com.cn/gj/2026/07-05/10653210.shtml)" in rendered
+    assert "`财经测试源 · " in rendered
+    assert "[原文](https://example.com/fallback-summary)" in rendered
+    assert "这条新闻的 RSS 摘要信息较少，当前仅能确认标题所述事件。建议打开原文查看完整背景和后续细节。" in rendered
+    assert "- 来源：" not in rendered
+    assert "- 时间：" not in rendered
+    assert "- 为什么重要：" not in rendered
+    assert "- 链接：" not in rendered
 
     print("Visa/OpenAI sample section: market_signal")
     print(

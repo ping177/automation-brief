@@ -103,6 +103,12 @@ POLICY_REGULATION_TERMS = (
     "退市",
     "并购重组",
     "征求意见",
+    "文旅部",
+    "立案",
+    "查处",
+    "整治",
+    "执法",
+    "专项行动",
 )
 STRONG_POLICY_TERMS = (
     "证监会",
@@ -184,7 +190,6 @@ COMPANY_OPERATING_TERMS = (
     "业绩",
     "业绩预告",
     "预计",
-    "上半年",
     "营收",
     "利润",
     "净利润",
@@ -194,7 +199,13 @@ COMPANY_OPERATING_TERMS = (
     "毛利",
     "净利",
     "同比增长",
-    "亿元",
+)
+FINANCING_TITLE_ACTION_TERMS = (
+    "完成融资", "获融资", "再获融资", "A轮", "B轮", "C轮", "Pre-A", "Pre-B", "Pre-IPO",
+    "领投", "跟投", "募资", "IPO", "递表", "招股书", "冲港股", "港股 IPO", "美股上市", "纳斯达克",
+)
+OPERATING_TITLE_ACTION_TERMS = (
+    "业绩预告", "预计净利润", "归母净利润", "净利润同比", "营收同比", "亏损", "扭亏", "财报", "年报", "半年报", "季报",
 )
 INDUSTRY_CATALYST_TERMS = (
     "订单",
@@ -334,6 +345,53 @@ NEGATED_FINANCING_PATTERNS = (
     "不是融资",
     "不属于融资",
 )
+DIRECTORY_OR_RANKING_TERMS = (
+    "名册",
+    "榜单",
+    "名单",
+    "百强",
+    "机构评选",
+    "系列名册",
+    "正式发布",
+)
+CONCRETE_CAPITAL_EVENT_TERMS = (
+    "完成融资",
+    "获融资",
+    "再获融资",
+    "领投",
+    "A轮",
+    "B轮",
+    "C轮",
+    "IPO",
+    "递表",
+    "招股书",
+    "募资完成",
+)
+GOVERNMENT_REGULATOR_TERMS = (
+    "文旅部",
+    "证监会",
+    "交易所",
+    "上交所",
+    "深交所",
+    "北交所",
+    "监管部门",
+    "部委",
+    "市场监管总局",
+    "发改委",
+    "财政部",
+    "央行",
+    "人民银行",
+)
+REGULATORY_ACTION_TERMS = (
+    "立案",
+    "查处",
+    "处罚",
+    "整治",
+    "监管",
+    "通报",
+    "执法",
+    "专项行动",
+)
 GENERIC_EXCHANGE_POLICY_TERMS = (
     "交易所",
     "上交所",
@@ -350,15 +408,19 @@ HOLDING_LOW_PRECISION_SECTORS = (
     "AI",
 )
 THEME_ALIASES = (
-    (
-        "AI / 算力 / 数据中心电力",
-        ("AI", "人工智能", "大模型", "算力", "数据中心", "数据中心电力"),
-    ),
+    ("AI 应用 / 企业软件", ("AI 应用", "AI应用", "企业软件", "SaaS", "首席销售官")),
     ("电网设备 / 特高压", ("电网设备", "特高压", "电网")),
     ("风电", ("风电", "海上风电")),
     ("半导体 / 芯片", ("半导体", "芯片")),
     ("新能源 / 储能", ("新能源", "储能", "光伏")),
 )
+COMPUTE_DIRECT_TERMS = (
+    "GPU", "芯片", "服务器", "算力中心", "训练集群", "推理集群", "AI 基础设施", "AI基础设施", "算力租赁", "算力基础设施",
+)
+DATA_CENTER_POWER_DIRECT_TERMS = (
+    "数据中心", "IDC", "供配电", "变压器", "UPS", "柴油发电机", "液冷", "电力需求", "数据中心用电",
+)
+AI_APPLICATION_TERMS = ("AI 应用", "AI应用", "企业软件", "SaaS", "首席销售官")
 OVERSEAS_IPO_TERMS = (
     "美股",
     "纳斯达克",
@@ -387,6 +449,7 @@ A_SHARE_RELATED_IPO_TERMS = (
     "机器人",
 )
 MAX_COMPANY_FINANCING_EVENTS = 2
+MAX_IMPORTANT_EVENTS_PER_SOURCE = 2
 CONFIRMED_THEME_MIN_SCORE = 75
 CONFIRMED_THEME_MIN_COUNT = 2
 
@@ -538,6 +601,16 @@ def _is_large_financial_earnings_preview(title: str, text: str) -> bool:
     return _contains_any(title, ("国泰海通", "券商", "证券"))
 
 
+def _is_directory_or_ranking_without_capital_event(title: str) -> bool:
+    return _contains_any(title, DIRECTORY_OR_RANKING_TERMS) and not _contains_any(
+        title, CONCRETE_CAPITAL_EVENT_TERMS
+    )
+
+
+def _is_government_regulatory_action(title: str) -> bool:
+    return _contains_any(title, GOVERNMENT_REGULATOR_TERMS) and _contains_any(title, REGULATORY_ACTION_TERMS)
+
+
 def _filter_negated_policy_terms(
     text: str,
     title_terms: tuple[str, ...],
@@ -606,6 +679,11 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
     title_operating_terms = _matched_terms(title, COMPANY_OPERATING_TERMS)
     title_industry_terms = _matched_terms(title, HIGH_VALUE_INDUSTRY_THEMES)
     title_catalyst_terms = _matched_terms(title, CONCRETE_CATALYST_TERMS)
+    title_financing_action_terms = _matched_terms(title, FINANCING_TITLE_ACTION_TERMS)
+    title_operating_action_terms = _matched_terms(title, OPERATING_TITLE_ACTION_TERMS)
+    direct_compute_terms = _matched_terms(text, COMPUTE_DIRECT_TERMS)
+    direct_data_center_power_terms = _matched_terms(text, DATA_CENTER_POWER_DIRECT_TERMS)
+    is_ai_application = _contains_any(title, AI_APPLICATION_TERMS) and _contains_any(title, ("AI", "人工智能"))
     macro_terms = _matched_terms(text, MACRO_RISK_TERMS)
     policy_terms = _matched_terms(text, POLICY_REGULATION_TERMS)
     company_terms = _matched_terms(text, COMPANY_FINANCING_TERMS)
@@ -619,9 +697,17 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
     title_strong_policy_terms = _strong_policy_terms(title_policy_terms)
     is_a_share_policy_event = _is_a_share_policy_event(text)
     is_large_financial_earnings_preview = _is_large_financial_earnings_preview(title, text)
+    is_directory_or_ranking = _is_directory_or_ranking_without_capital_event(title)
+    is_government_regulatory_action = _is_government_regulatory_action(title)
     if _contains_any(text, NEGATED_FINANCING_PATTERNS):
         title_company_terms = ()
         company_terms = ()
+    if is_directory_or_ranking:
+        title_company_terms = ()
+        company_terms = ()
+    if is_government_regulatory_action:
+        title_operating_terms = ()
+        title_operating_action_terms = ()
     if company_terms and not title_policy_terms:
         policy_terms = tuple(term for term in policy_terms if term not in GENERIC_EXCHANGE_POLICY_TERMS)
         strong_policy_terms = _strong_policy_terms(policy_terms)
@@ -643,12 +729,20 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
         score += 30 + min(len(operating_terms) * 4, 16)
     if is_large_financial_earnings_preview:
         score += 104
+    if direct_compute_terms or direct_data_center_power_terms:
+        score += 60
+    if is_ai_application:
+        score += 48
     if industry_terms:
         score += 14 + min(len(industry_terms) * 3, 15)
     if catalyst_terms:
         score += 24 + min(len(catalyst_terms) * 4, 16)
     if risk_terms:
         score += 10
+    if is_government_regulatory_action:
+        score += 50
+    if is_directory_or_ranking:
+        score -= 100
 
     if title_company_terms:
         score += 18
@@ -676,9 +770,19 @@ def _score_article(article: Any) -> tuple[int, str, str, bool]:
 
     if weak_related:
         news_type = NEWS_TYPE_WEAK
+    elif is_government_regulatory_action:
+        news_type = NEWS_TYPE_POLICY_REGULATION
     elif title_strong_policy_terms or is_a_share_policy_event:
         news_type = NEWS_TYPE_POLICY_REGULATION
-    elif title_catalyst_terms and title_industry_terms and not title_specific_financing_terms:
+    elif title_financing_action_terms:
+        news_type = NEWS_TYPE_COMPANY_FINANCING
+    elif title_operating_action_terms:
+        news_type = NEWS_TYPE_COMPANY_OPERATING
+    elif (
+        (title_catalyst_terms or direct_compute_terms or direct_data_center_power_terms or is_ai_application)
+        and (title_industry_terms or direct_compute_terms or direct_data_center_power_terms or is_ai_application)
+        and not title_specific_financing_terms
+    ):
         news_type = NEWS_TYPE_INDUSTRY_CATALYST
     elif title_operating_terms or (operating_terms and not title_specific_financing_terms and not specific_financing_terms):
         news_type = NEWS_TYPE_COMPANY_OPERATING
@@ -743,6 +847,10 @@ def _holding_precise_terms(holding: Any) -> tuple[str, ...]:
 
 
 def _theme_key(text: str) -> str | None:
+    if _contains_any(text, DATA_CENTER_POWER_DIRECT_TERMS):
+        return "数据中心电力"
+    if _contains_any(text, COMPUTE_DIRECT_TERMS):
+        return "算力"
     for label, terms in THEME_ALIASES:
         if _contains_any(text, terms):
             return label
@@ -836,16 +944,27 @@ def _is_unmapped_overseas_ipo(article: Any, news_type: str) -> bool:
     return not _contains_any(text, A_SHARE_RELATED_IPO_TERMS)
 
 
-def _limit_company_financing_events(items: tuple[NewsInsight, ...]) -> tuple[NewsInsight, ...]:
-    limited: list[NewsInsight] = []
+def _select_important_events(items: list[NewsInsight], limit: int) -> tuple[NewsInsight, ...]:
+    selected: list[NewsInsight] = []
+    source_counts: dict[str, int] = {}
     financing_count = 0
-    for item in items:
+    seen: set[tuple[str, str]] = set()
+    for item in sorted(items, key=lambda candidate: candidate.relevance_score, reverse=True):
+        key = (item.link, item.title)
+        if key in seen:
+            continue
+        seen.add(key)
+        if source_counts.get(item.source, 0) >= MAX_IMPORTANT_EVENTS_PER_SOURCE:
+            continue
+        if item.news_type == NEWS_TYPE_COMPANY_FINANCING and financing_count >= MAX_COMPANY_FINANCING_EVENTS:
+            continue
+        selected.append(item)
+        source_counts[item.source] = source_counts.get(item.source, 0) + 1
         if item.news_type == NEWS_TYPE_COMPANY_FINANCING:
-            if financing_count >= MAX_COMPANY_FINANCING_EVENTS:
-                continue
             financing_count += 1
-        limited.append(item)
-    return tuple(limited)
+        if len(selected) >= limit:
+            break
+    return tuple(selected)
 
 
 def _holding_relation_for_match(holding: Any, term: str, precise_terms: tuple[str, ...], score: int) -> str:
@@ -979,7 +1098,7 @@ def analyze_market_news(
             )
 
     consolidated_events = _consolidate_policy_events(event_candidates)
-    market_events = _limit_company_financing_events(_dedupe_insights(consolidated_events, max_items))
+    market_events = _select_important_events(consolidated_events, max_items)
     industry_catalysts = _dedupe_insights(catalyst_candidates, max_items)
     policy_risk_candidates = [item for item in market_events if item.news_type == NEWS_TYPE_POLICY_REGULATION]
     risk_points = _dedupe_insights(risk_candidates + policy_risk_candidates, max_items)

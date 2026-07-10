@@ -2,6 +2,13 @@
 
 记录 daily digest 漏报事件，用于把单次漏报转化为源、关键词、role、规则或未来 AI rerank 的可追踪改进。
 
+## 2026-07-10 v0.5-beta.5 重要新闻相关度与观察对象偏移
+
+- 原始现象：重要新闻可能被单一来源创业融资稿占据；`亿元`、`上半年`等弱词会与融资主动作冲突；投资机构名册 / 榜单类行业资料可能被泛“投资 / 募资 / 估值”词误归为具体融资事件；政府部门披露的立案 / 行业治理同比统计可能被误归为公司经营 / 财报；单条 AI 应用新闻被过度扩展为算力 / 数据中心电力；风险和今日继续观察可能优先跟随 IPO / 融资，而非市场和持仓异常。
+- 漏报 / 误报类型：`source_concentration` / `financing_earnings_conflict` / `directory_ranking_false_financing` / `regulatory_stat_false_earnings` / `weak_theme_overreach` / `watch_priority_gap` / `market_risk_gap`。
+- 采取动作：重要新闻增加同源和融资类型限额；融资/财报按标题主动作分类；投资机构名册、榜单、名单等行业资料在没有具体资本事件时降权且不归为公司融资 / IPO；政府部门 / 监管部门立案、查处、处罚、整治、通报等统计优先归政策监管；算力和数据中心电力改为直接证据主题；风险与观察优先输出市场强弱和未解释的持仓异常。
+- 回归状态：已加入 `tests/offline_market_news_smoke.py` 与 `tests/offline_market_brief_smoke.py` 离线回归；投资机构名册与文旅部强迫购物立案同比增长真实标题已纳入 regression；未引入 AI rerank、新数据源或外部 API。
+
 ## 2026-06-17 Visa / OpenAI / ChatGPT 支付合作
 
 - 日期：2026-06-17

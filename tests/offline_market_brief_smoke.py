@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import sys
 import tempfile
@@ -351,6 +351,10 @@ def main() -> None:
     assert "amount：" not in market_led_markdown
     assert "观察主要指数涨跌和成交额是否支持新闻主线" not in market_led_markdown
     assert "成交额字段稳定前，不判断放量 / 缩量" in market_led_markdown
+    market_led_risk_section = market_led_markdown.split("## 五、风险与反证", 1)[1].split("## 六、今日继续观察", 1)[0]
+    market_led_watch_section = market_led_markdown.split("## 六、今日继续观察", 1)[1]
+    assert "行情反证：强势是否扩散到更多硬科技板块" in market_led_risk_section
+    assert "观察硬科技风险偏好是否扩散、持续" in market_led_watch_section
 
     low_relevance_theme_context = build_market_brief_context(
         market_led_snapshot(report_date, "002202", "金风科技", 0.18),
@@ -449,6 +453,26 @@ def main() -> None:
     assert "融资节奏" in policy_risk_section
     assert "资金偏好" in policy_risk_section
     assert "处罚、问询" not in policy_risk_section
+
+    holding_watch_snapshot = market_led_snapshot(report_date, "002202", "金风科技", 9.99)
+    holding_watch_context = build_market_brief_context(
+        replace(
+            holding_watch_snapshot,
+            indexes=tuple(replace(quote, pct_change=-1.2) for quote in holding_watch_snapshot.indexes),
+        ),
+        second_holdings,
+        [
+            article(
+                "某创业公司完成B轮融资并计划冲港股IPO",
+                "普通资本事件不应抢占逆势持仓观察。",
+                "https://example.com/ordinary-ipo-watch",
+            )
+        ],
+    )
+    holding_watch_markdown = render_market_brief_markdown(holding_watch_context)
+    holding_watch_section = holding_watch_markdown.split("## 六、今日继续观察", 1)[1]
+    assert "持仓变量：当前 RSS 尚未解释该异常波动" in holding_watch_section
+    assert "某创业公司完成B轮融资" not in holding_watch_section
 
     for term in DIRECT_TRADING_ADVICE_TERMS:
         assert term not in first_markdown

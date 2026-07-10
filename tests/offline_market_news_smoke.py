@@ -30,11 +30,12 @@ def article(
     link: str,
     role: str = "market",
     keywords: dict[str, list[str]] | None = None,
+    source: str = "",
 ) -> ArticleFixture:
     return ArticleFixture(
         title=title,
         summary=summary,
-        source="离线测试源",
+        source=source or f"离线测试源-{link.rsplit('/', 1)[-1]}",
         feed_role=role,
         link=link,
         matched_keywords=keywords or {},
@@ -264,7 +265,7 @@ def main() -> None:
         ],
         HoldingsConfig(holdings=(), source_path=None),
     )
-    assert any("AI / 算力 / 数据中心电力" in clue for clue in confirmed_theme_analysis.theme_clues)
+    assert any("数据中心电力" in clue for clue in confirmed_theme_analysis.theme_clues)
 
     event_ranking_analysis = analyze_market_news(
         [
@@ -414,6 +415,138 @@ def main() -> None:
         "英国改革基建规划审批" in item.title and "高精度线索" in item.reason
         for item in weak_holding_map["002202 金风科技"].matches
     )
+
+    relevance_analysis = analyze_market_news(
+        [
+            article(
+                f"36氪创业项目 {index} 完成数亿元A轮融资",
+                "普通创业融资新闻不应占据大多数重要新闻名额。",
+                f"https://example.com/36kr-financing-{index}",
+                role="global_tech_business",
+                source="36氪",
+            )
+            for index in range(4)
+        ]
+        + [
+            article(
+                "中国证监会发布再融资规则征求意见稿",
+                "A 股制度变量需要优先进入重要新闻。",
+                "https://example.com/csrc-policy",
+                source="证券时报",
+            ),
+            article(
+                "国泰海通预计上半年归母净利润超200亿元",
+                "上市公司业绩预告属于财报强触发。",
+                "https://example.com/broker-earnings",
+                source="财联社",
+            ),
+        ],
+        HoldingsConfig(holdings=(), source_path=None),
+    )
+    important_items = relevance_analysis.market_events
+    assert len(important_items) <= 5
+    assert sum(item.source == "36氪" for item in important_items) <= 2
+    assert sum(item.news_type == "公司融资 / IPO" for item in important_items) <= 2
+    assert any(item.source == "证券时报" for item in important_items)
+    assert any(item.source == "财联社" for item in important_items)
+
+    def classified_news_type(item: ArticleFixture) -> str:
+        single_analysis = analyze_market_news([item], HoldingsConfig(holdings=(), source_path=None))
+        candidates = single_analysis.market_events + single_analysis.industry_catalysts
+        return candidates[0].news_type if candidates else "drop"
+
+    assert classified_news_type(
+        article("鄂尔多斯、和达金服共同领投，「贻如科技」完成超亿元A轮融资", "标题主动作是完成融资。", "https://example.com/a-round-financing")
+    ) == "公司融资 / IPO"
+    assert classified_news_type(
+        article("自研焊接具身大脑模型，「昇视唯盛」完成数亿元B轮融资", "标题主动作是完成融资。", "https://example.com/b-round-financing")
+    ) == "公司融资 / IPO"
+    assert classified_news_type(
+        article("完成超亿元A轮融资", "亿元不能单独触发财报分类。", "https://example.com/financing-only")
+    ) == "公司融资 / IPO"
+    assert classified_news_type(
+        article("国泰海通预计上半年归母净利润超200亿元", "预计净利润是财报强触发。", "https://example.com/earnings-strong-trigger")
+    ) == "公司经营 / 财报"
+    assert classified_news_type(
+        article(
+            "2026年度「中国股权投资行业投资机构」系列名册正式发布",
+            "名册和榜单不应被泛投资词归入具体融资事件。",
+            "https://example.com/private-equity-directory",
+            source="36氪",
+        )
+    ) != "公司融资 / IPO"
+    assert classified_news_type(
+        article(
+            "文旅部：2026年上半年涉及强迫购物立案同比增长86.9%",
+            "部委披露行业治理和立案数据，监管主动作优先于同比口径。",
+            "https://example.com/culture-tourism-enforcement",
+            source="中国新闻网-要闻导读",
+        )
+    ) == "政策监管"
+
+    noisy_directory_analysis = analyze_market_news(
+        [
+            article(
+                "2026年度「中国股权投资行业投资机构」系列名册正式发布",
+                "名册和榜单不应挤占重要新闻。",
+                "https://example.com/private-equity-directory-ranked",
+                source="36氪",
+            ),
+            article(
+                "中国证监会发布再融资规则征求意见稿",
+                "A 股制度变量需要优先进入重要新闻。",
+                "https://example.com/csrc-policy-ranked",
+                source="证券时报",
+            ),
+            article(
+                "国泰海通预计上半年归母净利润超200亿元",
+                "上市公司业绩预告属于财报强触发。",
+                "https://example.com/broker-earnings-ranked",
+                source="财联社",
+            ),
+        ],
+        HoldingsConfig(holdings=(), source_path=None),
+    )
+    assert not any(
+        "中国股权投资行业投资机构" in item.title and item.news_type == "公司融资 / IPO"
+        for item in noisy_directory_analysis.market_events
+    )
+    assert not any("中国股权投资行业投资机构" in item.title for item in noisy_directory_analysis.market_events[:2])
+
+    ai_application_analysis = analyze_market_news(
+        [
+            article(
+                "APTSell希望成为AI版的首席销售官",
+                "企业软件中的 AI 商业化应用。",
+                "https://example.com/ai-sales-application",
+                role="ai_industry",
+            )
+        ],
+        HoldingsConfig(holdings=(), source_path=None),
+    )
+    assert any("APTSell" in item.title for item in ai_application_analysis.industry_catalysts)
+    assert not any(
+        "算力" in clue or "数据中心电力" in clue or "GPU" in clue or "数据中心基础设施" in clue
+        for clue in ai_application_analysis.theme_clues
+    )
+
+    compute_analysis = analyze_market_news(
+        [
+            article(
+                "GPU服务器和训练集群扩容，算力中心建设提速",
+                "AI 基础设施投入具备直接算力证据。",
+                "https://example.com/compute-direct-evidence",
+            ),
+            article(
+                "数据中心供配电升级，液冷和变压器设备需求增加",
+                "IDC 用电与供配电设备具备直接电力基础设施证据。",
+                "https://example.com/data-center-power-direct-evidence",
+            ),
+        ],
+        HoldingsConfig(holdings=(), source_path=None),
+    )
+    assert any("新闻线索指向：算力" == clue for clue in compute_analysis.theme_clues)
+    assert any("新闻线索指向：数据中心电力" == clue for clue in compute_analysis.theme_clues)
 
     print("offline market news smoke passed")
 

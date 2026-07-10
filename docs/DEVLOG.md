@@ -736,3 +736,25 @@ v0.5-beta.3.1 将本轮真实样例中的排序、分类、低相关主线和风
 ### 结论
 
 v0.5-beta.4 只改善普通 daily digest 的 Markdown 阅读体验，让每条新闻更接近“可直接扫读”的摘要卡片。market_brief 和自动化执行链路保持隔离，后续重点观察真实每日 digest 的 RSS 摘要质量和无摘要 fallback 出现频率。
+
+## v0.5-beta.5 important news relevance and classification polish
+
+### 实际改动
+
+- `market_brief` 重要新闻最多保留 5 条，同一来源最多 2 条，`公司融资 / IPO` 最多 2 条；高相关政策和业绩事件不再被单一来源融资稿挤占。
+- 融资与财报分类按标题主动作处理；`完成融资`、轮次、领投和递表等优先归融资，`亿元`、`上半年`不再单独触发财报。
+- 投资机构名册、榜单、名单等行业资料在没有具体融资 / IPO / 递表 / 招股书等资本事件时不归为 `公司融资 / IPO`，并降低优先级。
+- 政府部门 / 监管部门作为标题主体且主动作是立案、查处、处罚、整治、通报、执法或专项行动时，优先归为 `政策监管`；`上半年`、`同比增长` 和百分比不覆盖监管主动作。
+- AI 应用 / 企业软件不再升级为算力或数据中心电力主题；算力和数据中心电力均要求直接基础设施证据。
+- 风险与反证、今日继续观察优先使用市场强弱和持仓异常，单条普通融资新闻只作为后置补充。
+- 扩展 market news / market brief 离线 smoke，覆盖来源与类型限额、分类冲突、投资机构名册降权、政府监管统计分类、主题直接证据、市场反证和持仓异常优先级。
+
+### 边界与验证
+
+- 未修改普通 daily digest 展示结构、默认 `python3 main.py`、Bark / Obsidian / launchd / pmset 或两个运行脚本。
+- 未接入 AI rerank、新 RSS 或行情源、外部 API、market_brief 自动推送或交易能力。
+- 已通过 Python 编译、market data/news/brief、holdings config、ordinary digest 离线 smoke、脚本语法检查和 `git diff --check`。
+
+### 结论
+
+v0.5-beta.5 已完成，准备随当前 commit/push 收口。后续继续观察真实 `market_brief` 样例中来源限额、类型限额、行业资料降权、政策监管统计分类、主题直接证据和市场 / 持仓异常优先级是否稳定。

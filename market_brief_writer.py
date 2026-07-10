@@ -198,6 +198,56 @@ def market_watch_signals(context: MarketBriefContext) -> tuple[str, ...]:
     return tuple(dict.fromkeys(adjusted))
 
 
+def has_clear_holding_news(context: MarketBriefContext, holding_title: str) -> bool:
+    related = next(
+        (match for match in context.news_analysis.holding_related_news if match.holding_title == holding_title),
+        None,
+    )
+    return bool(
+        related
+        and any(item.holding_relation in ("", HOLDING_RELATION_CLEAR) for item in related.matches)
+    )
+
+
+def prioritized_risk_points(context: MarketBriefContext, news_risk_points: tuple[str, ...]) -> tuple[str, ...]:
+    points: list[str] = []
+    market_observation = market_led_observation(context)
+    average_pct = average_index_pct_change(context)
+    if market_observation:
+        points.append("行情反证：强势是否扩散到更多硬科技板块，还是仅由少数权重或高弹性品种推动。")
+    elif average_pct is not None and average_pct <= -0.6:
+        points.append("风险变量：高弹性成长方向是否继续承压，前一交易日强势是否出现快速反转。")
+    for observation in context.holding_observations:
+        if (
+            holding_anomaly_text(context, observation.quote.pct_change if observation.quote else None)
+            and not has_clear_holding_news(context, observation.title)
+        ):
+            points.append("持仓变量：当前 RSS 尚未解释该异常波动，后续需核验公司公告、板块消息和资金行为。")
+            break
+    points.extend(news_risk_points)
+    return tuple(dict.fromkeys(points))[:3]
+
+
+def prioritized_watch_points(context: MarketBriefContext) -> tuple[str, ...]:
+    points: list[str] = []
+    market_observation = market_led_observation(context)
+    average_pct = average_index_pct_change(context)
+    if market_observation:
+        points.append("观察硬科技风险偏好是否扩散、持续，还是仅由少数高弹性品种推动。")
+    for observation in context.holding_observations:
+        if (
+            holding_anomaly_text(context, observation.quote.pct_change if observation.quote else None)
+            and not has_clear_holding_news(context, observation.title)
+        ):
+            points.append("持仓变量：当前 RSS 尚未解释该异常波动，后续需核验公司公告、板块消息和资金行为。")
+            break
+    if not market_observation and average_pct is not None and average_pct <= -0.6:
+        points.append("观察高弹性成长方向是否继续承压，以及前一交易日强势是否快速反转。")
+    points.extend(context.news_analysis.watch_points)
+    points.extend(market_watch_signals(context))
+    return tuple(dict.fromkeys(points))[:4]
+
+
 def append_market_temperature(lines: list[str], context: MarketBriefContext) -> None:
     snapshot = context.snapshot
     lines.append(f"- 报告日期：{snapshot.data_date.isoformat()}")
@@ -367,13 +417,14 @@ def render_market_brief_markdown(context: MarketBriefContext, generated_at: date
     append_insights(lines, news.market_events)
 
     lines.extend(["## 五、风险与反证", ""])
-    if risk_points:
-        append_bullets(lines, risk_points)
+    prioritized_risks = prioritized_risk_points(context, risk_points)
+    if prioritized_risks:
+        append_bullets(lines, prioritized_risks)
     else:
         lines.extend(["- 暂未从 RSS 候选中提取到明确风险或反证线索。", ""])
 
     lines.extend(["## 六、今日继续观察", ""])
-    append_bullets(lines, news.watch_points or market_watch_signals(context))
+    append_bullets(lines, prioritized_watch_points(context))
 
     lines.extend(["- 数据限制：成交额、行业或行情字段缺失时均标记为数据暂不可用，不做推断。"])
     lines.append(f"- {DISCLAIMER}")

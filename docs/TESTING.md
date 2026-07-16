@@ -38,6 +38,17 @@ PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile scripts/init_holdings_con
 .venv/bin/python tests/offline_holdings_config_smoke.py
 ```
 
+For v0.6.0-alpha AI Curator shadow foundation changes, also compile the curator module and explicit shadow script, then run:
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile ai_curator.py scripts/run_ai_curator_shadow.py
+PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_candidate_smoke.py
+PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_contract_smoke.py
+PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_cli_smoke.py
+```
+
+These tests must remain offline: no real AI provider, no Bark, no Obsidian write, no launchd, and no real holdings config.
+
 如改动涉及脚本调用链、RSS 抓取、Bark、Obsidian 同步或真实输出，再按需运行：
 
 ```bash
@@ -87,6 +98,20 @@ python3 -m json.tool config/holdings.example.json
 5. 回填 `docs/MISSED_CASES.md` 的回归状态。
 
 `docs/MISSED_CASES.md` 是漏报和质量追踪文档，应保留为长期复盘入口。
+
+## AI Curator shadow checklist
+
+v0.6.0-alpha adds only shadow plumbing. When modifying the AI Curator path, confirm:
+
+- Candidate pool is built before legacy keyword filtering.
+- Fully offline shadow CLI validation can use `--candidate-fixture` plus `--fixture-response`; that path must not read real feeds or call RSS.
+- Linkless RSS entries with title, source/feed metadata, and published time may enter the shadow candidate pool, while legacy digest output keeps its link requirement.
+- Legacy daily digest and explicit `market_brief` behavior remain unchanged.
+- `CuratorRequest.articles` does not include holdings, matched keywords, legacy score, legacy category, market data, or holdings price moves.
+- Candidate trace may include legacy diagnostic fields, but must not include cost, position, market value, profit/loss, `.env`, API keys, or secrets.
+- Fixture responses fail loudly on unknown evidence ids, duplicate evidence ids within one event, duplicate event ids, invalid enums, empty required text, overlap between selected and rejected ids, and max event violations.
+- Shadow preview does not contain direct trading advice terms such as 买入、卖出、加仓、减仓、止损、止盈 or 目标价.
+- `scripts/run_daily_digest.sh` and `scripts/run_market_brief.sh` remain unchanged.
 
 ## market_brief smoke checklist
 

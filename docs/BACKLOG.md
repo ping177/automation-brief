@@ -8,6 +8,13 @@
 
 P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推送或 Mac 自动唤醒链路的紧急问题。
 
+### v0.6.0-alpha AI Curator shadow comparison
+
+- 使用 `scripts/run_ai_curator_shadow.py --candidate-fixture ... --fixture-response ...` 进行完全离线 shadow preview，不接 Bark / Obsidian / launchd / pmset；真实 RSS shadow 路径仍只能手动显式运行。
+- 继续确认 `CuratorRequest` 只包含关键词前 RSS 候选池，不包含 holdings、matched keywords、legacy score、legacy category、行情或持仓涨跌。
+- 用 candidate trace 区分 source miss、selection miss、classification miss 和 deduplication miss。
+- 下一步真实 provider 仍必须先走 shadow comparison，不替换普通 daily digest 或显式 `market_brief`。
+
 ### v0.5-beta real A-share market data continuing verification
 
 - 用显式 `market_brief` 样例验证轻量公开行情源是否稳定返回主要指数和 holdings 个股涨跌。
@@ -58,11 +65,12 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 
 ## P2
 
-### AI 筛选 / rerank 方案评估
+### AI Curator provider 接入评估
 
-- 可评估轻量架构：RSS 候选新闻先由现有规则收集，再由 AI rerank 辅助排序和解释。
-- AI 只应做候选新闻重要性判断、section 建议和 reason 草稿，不做全网生成、不编造事实、不替代来源链接。
-- DeepSeek 或其他 AI 服务不可用时，应 fallback 到现有规则版日报。
+- v0.6.0-alpha 已完成 shadow foundation。后续真实 provider 必须实现 `CuratorProvider` 接口，并复用同一 `CuratorRequest` / `CuratorResponse` contract。
+- Global Event Curator 只做全球重大事件选择，不接 holdings、行情、legacy score、legacy category 或 matched keywords。
+- 真实 provider 不可直接替换 daily digest 或 `market_brief`；必须先输出 shadow preview 和 candidate trace，并保留 legacy fallback。
+- AI 不做全网生成、不编造事实、不替代来源链接。
 
 ### missed coverage 闭环
 

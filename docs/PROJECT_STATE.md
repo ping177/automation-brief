@@ -8,15 +8,15 @@
 
 ## Current version
 
-v0.5-beta.5 important news relevance and classification polish, based on `docs/DEVLOG.md`.
+v0.6.0-alpha AI Curator shadow foundation, based on `docs/DEVLOG.md`.
 
 ## Current status
 
-项目已打通本地定时生成、Obsidian 同步和 Bark 推送链路，并开始升级为面向 A 股观察的市场投研晨报。v0.5-beta.5 已完成显式 market_brief 的重要新闻相关度、分类和市场/持仓优先观察 polish；普通 daily digest 展示与自动化链路保持不变，仍保持规则驱动，不调用 AI API。
+项目已打通本地定时生成、Obsidian 同步和 Bark 推送链路，并开始升级为面向 A 股观察的市场投研晨报。v0.6.0-alpha 建立 AI Curator shadow foundation：RSS 候选池在 legacy 关键词筛选前形成，Global Event Curator 数据契约、fixture provider、response validator、candidate trace、完全离线 candidate fixture 和显式 preview 入口已具备。本阶段仍不调用真实 AI API，普通 daily digest、显式 market_brief 和自动化链路保持不变。
 
 ## Latest completed
 
-v0.5-beta.5 已完成 market_brief 新闻层 polish：重要新闻增加来源与融资类型限额，融资/财报按标题主动作处理，AI 应用不再推断为算力或数据中心电力，投资机构名册与政府监管统计误分类已纳入离线 regression，并让风险与今日继续观察优先跟随市场和持仓异常。v0.5-beta.5 修复已纳入本轮收口，准备随当前 commit/push 收口。
+v0.6.0-alpha 已完成 AI Curator shadow foundation：新增关键词前 `CandidateArticle` pool，legacy pipeline 继续按原关键词 gate 和链接要求生成 `NewsItem`；新增 `CuratorRequest` / `CuratorResponse` contract、fixture provider、严格 validator、candidate trace、shadow preview renderer、`--candidate-fixture` 完全离线路径和显式 `scripts/run_ai_curator_shadow.py`。无链接 RSS 条目可进入 shadow pool，重复 evidence id 已作为 contract violation；legacy 新闻判断规则冻结为 fallback，不继续扩张 `_score_article` 或 digest 分类补丁。
 
 ## Deployment
 
@@ -47,6 +47,7 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.5-beta.3.1 — 政策排序和主线阈值 hotfix
 - v0.5-beta.4 — 普通日报阅读体验 polish
 - v0.5-beta.5 — 重要新闻相关度与分类 polish
+- v0.6.0-alpha — AI Curator shadow foundation
 
 ## Last verified
 
@@ -54,11 +55,11 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Next Action
 
-继续观察后续真实 market_brief 样例，重点看来源限额、融资类型限额、AI 主题直接证据、投资机构名册 / 榜单降权、政府监管统计分类，以及市场 / 持仓异常是否优先进入风险与今日继续观察；不把 market_brief 接入 Bark / Obsidian / launchd。
+下一步接入真实 AI provider 时仍只做 shadow comparison：使用同一 `CuratorRequest` schema，与 legacy trace 对照 source / selection / classification / deduplication miss；在质量验证前不替换 daily digest、market_brief 或任何 08:00 自动化链路。
 
 ## Blockers
 
-暂无明确阻塞；`market_brief` 仍只用于显式生成，不并入日常 Bark / Obsidian / launchd 链路。
+暂无明确阻塞；AI Curator 仍只处于 shadow foundation 阶段，不调用真实 provider，不进入日常 Bark / Obsidian / launchd 链路。
 
 ## Important Context
 
@@ -78,13 +79,14 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.5-beta.3.1 changes only explicit `market_brief` news quality rules and rendering around A-share policy ranking, generic regulation classification, reason keyword de-duplication, today-theme relevance threshold, broker earnings ranking, and policy risk wording. Default `python3 main.py` still follows `config.json`, and `scripts/run_daily_digest.sh` remains untouched.
 - v0.5-beta.4 changes only ordinary `digest` Markdown item rendering. It uses existing RSS summary fields and does not add AI summary, new sources, external APIs, or automation-chain changes.
 - v0.5-beta.5 changes only explicit `market_brief` news selection, classification, theme evidence, risk, and watch wording. It also covers investment directory / ranking items and government enforcement statistics with offline regressions. It adds no AI rerank, new data source, external API, or market_brief automation.
+- v0.6.0-alpha adds AI Curator shadow plumbing only: keyword-pre-gate candidates, data contract, fixture provider, validator, trace, fully offline candidate fixtures, and preview. It does not pass holdings, legacy scores, matched keywords, or market data into the Global Event Curator request.
 - `config/holdings.json` is ignored by Git. `config/holdings.example.json` is only an example and must not contain real cost, position size, market value, or loss amounts.
 - Initialize local holdings with `python3 scripts/init_holdings_config.py`; validate with `python3 scripts/validate_holdings_config.py`.
 - `market_brief` now uses RSS news plus a lightweight A-share quote snapshot when explicitly generated. It still does not calculate complex strategy, sector strength, or trading actions.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
-- Further quality improvements may require evaluating AI-based filtering or ranking rather than continuing small rule tweaks.
+- Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.
 - `.env` is used for local Bark / Obsidian configuration and must not be copied into project docs.
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.5-beta.5 by preserving the normal daily digest automation and observing future explicit/manual market_brief samples. Important news now uses source and financing-type caps; financing/earnings classification follows title actions; investment directory / ranking items are downgraded unless they contain concrete capital events; government enforcement statistics classify as policy regulation; compute and data-center-power themes require direct evidence; market and holding anomalies lead risk/watch wording. Keep holdings dynamic via local `config/holdings.json`, keep real holdings and cost/position/value/profit-loss fields out of Git and docs, and do not add AI summaries, new data sources, external APIs, or trading recommendations.
+Continue automation-brief from v0.6.0-alpha by preserving the normal daily digest automation and explicit/manual market_brief behavior. Use the AI Curator shadow foundation only for candidate/request/response/trace experiments: candidates are collected before the legacy keyword gate, linkless RSS entries may enter the shadow pool only with stable fallback ids, `CuratorRequest` excludes holdings, matched keywords, legacy scores/categories, and market data, and fixture responses must pass strict validation. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect real AI providers, AI summaries, new data sources, production automation, or trading recommendations until shadow comparison is reviewed.

@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 import feedparser
 
+from ai_curator import CandidateArticle, normalize_article_link, stable_article_id
 from holdings import load_holdings
 from market_analysis import build_market_brief_context
 from market_brief_writer import write_market_brief_markdown
@@ -374,6 +375,10 @@ def normalize_link(link: str) -> str:
     return link.strip()
 
 
+def candidate_dedupe_key(candidate: CandidateArticle) -> str:
+    return candidate.normalized_link or candidate.article_id
+
+
 def get_entry_datetime(entry: Any) -> Optional[datetime]:
     parsed = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
     if parsed:
@@ -411,6 +416,10 @@ def entry_text(entry: Any) -> str:
         getattr(entry, "description", ""),
     ]
     return clean_text(" ".join(parts)).lower()
+
+
+def candidate_text(candidate: CandidateArticle) -> str:
+    return (candidate.legacy_match_text or clean_text(f"{candidate.title} {candidate.summary}")).lower()
 
 
 def match_keywords(text: str, keywords_by_category: dict[str, list[str]]) -> dict[str, list[str]]:
@@ -475,12 +484,93 @@ def stale_by_url_date(url: str, config: ReportConfig) -> bool:
     return url_date < threshold
 
 
+def candidate_from_entry(
+    feed: dict[str, str],
+    entry: Any,
+    report_date: date,
+    config: ReportConfig,
+    collected_at: datetime,
+) -> Optional[CandidateArticle]:
+    title = clean_text(getattr(entry, "title", ""))
+    link = normalize_link(getattr(entry, "link", ""))
+    if not title and not link:
+        return None
+    if not title:
+        title = "Untitled"
+    if link and stale_by_url_date(link, config):
+        return None
+
+    published_at = get_entry_datetime(entry)
+    if not link and not published_at:
+        return None
+    if config.report_type == "digest":
+        in_time_range = within_lookback_hours(published_at, config.lookback_hours)
+    else:
+        in_time_range = within_days_back(published_at, report_date, config.days_back)
+    if not in_time_range:
+        return None
+
+    summary = clean_text(getattr(entry, "summary", "") or getattr(entry, "description", ""))
+    normalized_link = normalize_article_link(link) if link else ""
+    source = feed["name"]
+    return CandidateArticle(
+        article_id=stable_article_id(normalized_link, source, title, published_at),
+        title=title,
+        summary=summary,
+        source=source,
+        feed_name=feed["name"],
+        feed_role=feed["role"],
+        published_at=published_at,
+        link=link,
+        normalized_link=normalized_link,
+        report_date=report_date,
+        collected_at=collected_at,
+        published=format_published(entry, published_at),
+        author=clean_text(getattr(entry, "author", "")),
+        legacy_match_text=entry_text(entry),
+    )
+
+
+def news_item_from_candidate(
+    candidate: CandidateArticle,
+    matched_keywords: dict[str, list[str]],
+) -> NewsItem:
+    return NewsItem(
+        title=candidate.title,
+        source=candidate.source,
+        feed_name=candidate.feed_name,
+        feed_role=candidate.feed_role,
+        published=candidate.published,
+        published_at=candidate.published_at,
+        link=candidate.link,
+        summary=candidate.summary,
+        matched_keywords=matched_keywords,
+    )
+
+
 def fetch_feed(
     feed: dict[str, str],
     keywords_by_category: dict[str, list[str]],
     report_date: date,
     config: ReportConfig,
 ) -> list[NewsItem]:
+    candidates = fetch_feed_candidates(feed, report_date, config)
+    items: list[NewsItem] = []
+    for candidate in candidates:
+        if not candidate.link:
+            continue
+        matched = match_keywords(candidate_text(candidate), keywords_by_category)
+        if feed["mode"] == "keyword" and not matched:
+            continue
+        items.append(news_item_from_candidate(candidate, matched))
+    return items
+
+
+def fetch_feed_candidates(
+    feed: dict[str, str],
+    report_date: date,
+    config: ReportConfig,
+) -> list[CandidateArticle]:
     parsed_feed = parse_feed_with_retry(feed)
     if parsed_feed.bozo:
         reason = getattr(parsed_feed, "bozo_exception", "Unknown feed parse error")
@@ -493,47 +583,20 @@ def fetch_feed(
             reason,
         )
 
-    items: list[NewsItem] = []
+    candidates: list[CandidateArticle] = []
     stale_count = 0
-    source = feed["name"]
+    collected_at = datetime.now(timezone.utc)
     for entry in parsed_feed.entries:
-        title = clean_text(getattr(entry, "title", "Untitled"))
         link = normalize_link(getattr(entry, "link", ""))
-        if not link:
-            continue
-        if stale_by_url_date(link, config):
+        if link and stale_by_url_date(link, config):
             stale_count += 1
             continue
-
-        published_at = get_entry_datetime(entry)
-        if config.report_type == "digest":
-            in_time_range = within_lookback_hours(published_at, config.lookback_hours)
-        else:
-            in_time_range = within_days_back(published_at, report_date, config.days_back)
-        if not in_time_range:
-            continue
-
-        summary = clean_text(getattr(entry, "summary", "") or getattr(entry, "description", ""))
-        matched = match_keywords(entry_text(entry), keywords_by_category)
-        if feed["mode"] == "keyword" and not matched:
-            continue
-
-        items.append(
-            NewsItem(
-                title=title,
-                source=source,
-                feed_name=feed["name"],
-                feed_role=feed["role"],
-                published=format_published(entry, published_at),
-                published_at=published_at,
-                link=link,
-                summary=summary,
-                matched_keywords=matched,
-            )
-        )
+        candidate = candidate_from_entry(feed, entry, report_date, config, collected_at)
+        if candidate:
+            candidates.append(candidate)
     if stale_count:
         logging.info("Filtered stale RSS items by URL date: %s (%s): %s", feed["name"], feed["url"], stale_count)
-    return items
+    return candidates
 
 
 def parse_feed_with_retry(feed: dict[str, str]) -> Any:
@@ -606,6 +669,34 @@ def collect_news(
                 break
 
     return collected, failures
+
+
+def collect_candidate_articles(
+    feeds: list[dict[str, str]],
+    config: ReportConfig,
+    report_date: date,
+) -> tuple[tuple[CandidateArticle, ...], tuple[tuple[str, str], ...]]:
+    seen_keys: set[str] = set()
+    collected: list[CandidateArticle] = []
+    failures: list[tuple[str, str]] = []
+
+    for feed in feeds:
+        try:
+            logging.info("Fetching RSS candidates: %s (%s)", feed["name"], feed["url"])
+            candidates = fetch_feed_candidates(feed, report_date, config)
+        except Exception as exc:
+            logging.warning("Failed to fetch RSS candidates %s (%s): %s", feed["name"], feed["url"], exc)
+            failures.append((feed["name"], str(exc)))
+            continue
+
+        for candidate in candidates:
+            key = candidate_dedupe_key(candidate)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            collected.append(candidate)
+
+    return tuple(collected), tuple(failures)
 
 
 def group_by_category(

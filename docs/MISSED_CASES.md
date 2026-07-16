@@ -2,6 +2,13 @@
 
 记录 daily digest 漏报事件，用于把单次漏报转化为源、关键词、role、规则或未来 AI rerank 的可追踪改进。
 
+## 2026-07-16 v0.6.0-alpha 新闻判断规则债与 trace gap
+
+- 原始现象：新闻判断层已有明显局部规则债，尤其是 `market_news.py::_score_article`；继续追加单条新闻分类补丁会降低长期可维护性。同时旧关键词 gate 会让未命中关键词但具备全球重要性的 RSS 文章无法进入未来 AI 选择。
+- 漏报 / 误报类型：`rule_debt` / `keyword_gate_blind_spot` / `selection_trace_gap` / `classification_trace_gap` / `deduplication_trace_gap`。
+- 采取动作：新增 AI Curator shadow foundation，候选池位于关键词筛选前；legacy pipeline 继续作为 fallback；新增 `CuratorRequest` / `CuratorResponse` contract、fixture provider、严格 validator、candidate trace 和 shadow preview。
+- 回归状态：新增 `tests/offline_ai_curator_candidate_smoke.py`、`tests/offline_ai_curator_contract_smoke.py` 与 `tests/offline_ai_curator_cli_smoke.py`。已覆盖无链接 RSS 条目进入 shadow pool、legacy 继续跳过无链接 NewsItem、重复 evidence id 拒绝和完全离线 candidate fixture CLI。本阶段未接真实 AI provider，未替换 daily digest 或 `market_brief`，未把 holdings / legacy score / matched keywords 传给 Global Event Curator。
+
 ## 2026-07-10 v0.5-beta.5 重要新闻相关度与观察对象偏移
 
 - 原始现象：重要新闻可能被单一来源创业融资稿占据；`亿元`、`上半年`等弱词会与融资主动作冲突；投资机构名册 / 榜单类行业资料可能被泛“投资 / 募资 / 估值”词误归为具体融资事件；政府部门披露的立案 / 行业治理同比统计可能被误归为公司经营 / 财报；单条 AI 应用新闻被过度扩展为算力 / 数据中心电力；风险和今日继续观察可能优先跟随 IPO / 融资，而非市场和持仓异常。

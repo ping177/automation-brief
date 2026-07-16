@@ -758,3 +758,36 @@ v0.5-beta.4 只改善普通 daily digest 的 Markdown 阅读体验，让每条�
 ### 结论
 
 v0.5-beta.5 已完成，准备随当前 commit/push 收口。后续继续观察真实 `market_brief` 样例中来源限额、类型限额、行业资料降权、政策监管统计分类、主题直接证据和市场 / 持仓异常优先级是否稳定。
+
+## v0.6.0-alpha AI Curator shadow foundation
+
+### 背景
+
+v0.5-beta.5 后的审计结论是：整个项目仍可维护，但新闻判断层已经形成显著局部规则债，尤其是 `market_news.py::_score_article`。后续不应继续向 `_score_article`、digest 分类规则、主题规则或风险规则追加单条新闻补丁，而应建立独立的 AI Curator shadow 路径。
+
+### 实际改动
+
+- 新增 `ai_curator.py`，定义 `CandidateArticle`、`CuratorRequest`、`CuratedEvent`、`CuratorResponse`、`CuratorProvider`、`FixtureCuratorProvider` 和严格 response validator。
+- RSS 候选池移动到 legacy 关键词 gate 之前：RSS entry 先完成字段标准化、时间窗口过滤和 exact deduplication，再分流到 legacy pipeline 与 shadow pipeline。
+- `fetch_feed()` 继续返回旧 `NewsItem`，并保持 legacy 关键词过滤、数量限制、digest 和 `market_brief` 行为不变。
+- 新增 candidate trace，用于记录完整候选池和 legacy 诊断字段，帮助区分 source miss、selection miss、classification miss 和 deduplication miss。
+- 新增 `scripts/run_ai_curator_shadow.py` 作为显式 shadow preview 入口，必须提供本地 fixture response，不调用真实 AI。
+- `scripts/run_ai_curator_shadow.py` 增加 `--candidate-fixture`，可用本地候选文章 fixture 完全离线生成 request、trace 和 preview；提供该参数时不读取 feeds、不调用 RSS。
+- 无链接 RSS 条目在具备标题、feed/source metadata 和发布时间时可进入 shadow `CandidateArticle` pool，并使用 source + normalized title + published_at 的稳定 fallback `article_id`；legacy `NewsItem` / daily digest 路径继续保持链接要求。
+- validator 将同一 event 内重复 `evidence_article_ids` 视为 contract violation，但仍允许同一 article 支持不同 event。
+- 新增 `docs/AI_CURATOR_ARCHITECTURE.md` 记录 Global Event Curator 边界、数据契约、trace 和下一步 provider 接入点。
+- 新增 `tests/offline_ai_curator_candidate_smoke.py`、`tests/offline_ai_curator_contract_smoke.py` 和 `tests/offline_ai_curator_cli_smoke.py`，覆盖候选池绕过关键词 gate、稳定 article id、无链接 candidate、response contract、完全离线 CLI、trace 字段隔离和 preview 安全边界。
+
+### 边界
+
+- 不接 OpenAI、Anthropic、Gemini、DeepSeek、Codex CLI 或任何真实外部 AI API。
+- 不修改默认 `python3 main.py` 行为。
+- 不修改 `scripts/run_daily_digest.sh` 或 `scripts/run_market_brief.sh`。
+- 不改变 Bark / Obsidian / launchd / pmset 自动化链路。
+- Global Event Curator request 不包含 holdings、持仓行业标签、持仓涨跌、指数涨跌、legacy relevance score、legacy category、matched keywords、legacy theme 或 risk/watch 输出。
+- 本阶段不生成投资建议、买卖建议、目标价或个股推荐。
+- 本阶段不验证真实 AI 选闻质量；provider 接入前仍只使用 fixture response。
+
+### 结论
+
+v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被保留并冻结为 fallback；下一步是接入真实 provider 进行 shadow comparison，在质量验证前不替换 ordinary daily digest、显式 `market_brief` 或任何生产自动化链路。

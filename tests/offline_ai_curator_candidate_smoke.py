@@ -19,6 +19,9 @@ from main import ReportConfig, collect_candidate_articles, collect_news  # noqa:
 class FakeResponse:
     headers = {"Content-Type": "application/rss+xml; charset=utf-8"}
 
+    def __init__(self, fresh_published_at: datetime) -> None:
+        self.fresh_published_at = fresh_published_at
+
     def __enter__(self) -> "FakeResponse":
         return self
 
@@ -26,7 +29,7 @@ class FakeResponse:
         return False
 
     def read(self) -> bytes:
-        fresh = format_datetime(datetime.now(timezone.utc), usegmt=True)
+        fresh = format_datetime(self.fresh_published_at, usegmt=True)
         stale = format_datetime(datetime(2020, 1, 1, tzinfo=timezone.utc), usegmt=True)
         return f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -69,11 +72,12 @@ class FakeResponse:
         return "https://example.com/feed.xml"
 
 
-def fake_parse_feed(_feed):  # noqa: ANN001
-    return main_module.feedparser.parse(FakeResponse().read())
+def fake_parse_feed(_feed, fresh_published_at: datetime):  # noqa: ANN001
+    return main_module.feedparser.parse(FakeResponse(fresh_published_at).read())
 
 
 def main() -> None:
+    fresh_published_at = datetime.now(timezone.utc).replace(microsecond=0)
     original_parse_feed = main_module.parse_feed_with_retry
     feed = {
         "name": "Fixture Feed",
@@ -82,8 +86,12 @@ def main() -> None:
         "role": "global_tech_business",
     }
     config = ReportConfig(report_type="digest", max_items_per_feed=10)
+
+    def fixed_fake_parse_feed(current_feed):  # noqa: ANN001
+        return fake_parse_feed(current_feed, fresh_published_at)
+
     try:
-        main_module.parse_feed_with_retry = fake_parse_feed
+        main_module.parse_feed_with_retry = fixed_fake_parse_feed
         candidates, failures = collect_candidate_articles([feed], config, date.today())
         legacy_items, legacy_failures = collect_news(
             [feed],
@@ -111,6 +119,8 @@ def main() -> None:
     assert linkless.link == ""
     assert linkless.normalized_link == ""
     assert linkless.article_id.startswith("art_")
+    repeated_linkless = next(item for item in repeated_candidates if "without link" in item.title)
+    assert linkless.published_at == repeated_linkless.published_at
 
     assert len(legacy_items) == 1
     assert legacy_items[0].title == "OpenAI launches enterprise payment workflow"

@@ -38,6 +38,8 @@ Do not update `PROJECT_STATE.md` for trivial formatting-only changes unless the 
 - Current version
 - Current status
 - Latest completed
+- Deployment
+- Version Index
 - Next Action
 - Blockers
 - Important Context
@@ -83,6 +85,10 @@ Do not put commercial API keys in frontend code. Do not commit `node_modules`, `
 ## Git workflow
 
 Do not commit or push unless the user explicitly asks.
+
+Before every `git push`, review `docs/PROJECT_STATE.md` and update stale facts: `Current version`, `Current status`, `Next Action`, `Blockers`, `Version Index`, and `Deployment` when the work affects it. Replace completed Next Action entries, remove resolved blockers, write `暂无明确阻塞。` exactly when there is no blocker, and add a Version Index item only for a new version or formal milestone. If review confirms that no text change is needed, do not create a meaningless document edit; use `Project-State-Review: verified-current`.
+
+When this repository's Project State Push Gate is installed, the final commit of every pushed branch must contain exactly one `Project-State-Review: updated` or `Project-State-Review: verified-current` trailer. `updated` means the final tree differs from the remote branch tree at `docs/PROJECT_STATE.md`; `verified-current` means it does not. The gate does not validate document content. A pushed tag only needs to peel to a commit with one legal trailer and is not classified by tree diff. This local gate does not replace the rule that only an explicit user request permits a commit or push.
 
 Before finishing a task, run or request the appropriate status checks:
 

@@ -13,6 +13,26 @@ git status --short
 
 `git diff --check` 用于检查尾随空格、空白错误和 patch 格式问题。docs-only 改动不需要跑 Python 编译、RSS 健康检查或真实日报生成，除非文档改动同时暴露出需要验证的运行假设。
 
+## Project State Push Gate 验证
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_project_state_push_gate
+sh -n .githooks/pre-push
+sh -n scripts/check-project-state-push.sh
+sh -n scripts/install-git-hooks.sh
+git diff --check
+```
+
+`tests.test_project_state_push_gate` 仅使用 Python 标准库、临时 Git 仓库、临时 bare remote 和临时 Git identity，覆盖 branch、tag、首次 push、多 ref、真实 pre-push 接线、路径空格/非 ASCII 与安装脚本。测试通过 `GIT_CONFIG_GLOBAL` 临时文件和 `GIT_CONFIG_NOSYSTEM=1` 隔离用户 global/system config；不访问网络，不运行 RSS、Bark、Obsidian、launchd、pmset、生产晨报或 AI provider。
+
+## Project State Push Gate checklist
+
+- [ ] push 前已复核 Current version、Current status、Next Action、Blockers、Version Index，以及受影响时的 Deployment。
+- [ ] 无明确 blocker 时 Blockers 精确为 `暂无明确阻塞。`。
+- [ ] 最终 branch commit 只有一个合法 `Project-State-Review` trailer，且与最终 tree diff 一致；tag 只检查其 commit 上的合法声明。
+- [ ] 不以 `git push --no-verify` 作为常规绕过手段。
+- [ ] 知道此 gate 可被本地绕过，且不会验证 PROJECT_STATE 内容真实性或自动执行 commit / push。
+
 ## Python 改动验证
 
 修改 Python 运行逻辑时，建议至少运行：

@@ -2,6 +2,15 @@
 
 本文记录 automation-brief 从 v0.2 到 v0.3.3-beta 的主要开发节点、验证结果和阶段结论。
 
+## 2026-07-30
+
+### Project State Push Gate 正在接入与待验收
+
+- 已新增本地 `pre-push` 检查、安装脚本和 Python 标准库的临时 Git/bare remote 离线测试；合同限定为 `docs/PROJECT_STATE.md` 最终 tree 净差异与 `Project-State-Review` trailer 对应。
+- 同步补齐 AGENTS、README 与 TESTING 的 push 前复核、安装、手动检查和本地可绕过边界说明。
+- 当前尚未在真实仓库安装 hook，未修改 `core.hooksPath`，未 commit、未 push；rollout 尚待后续单独验收。
+- 不修改每日晨报生产脚本、RSS、Bark、Obsidian、launchd、pmset、AI provider 或业务实现，也未读取 `.env` 或 secrets。
+
 ## 当前最终链路
 
 ```text

@@ -16,6 +16,40 @@ v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 �
 - `docs/DECISIONS.md`：长期产品、架构和工作流决策。
 - `docs/MISSED_CASES.md`：missed coverage、漏报案例和质量追踪。
 
+## Project State Push Gate
+
+仓库提供可选的本地 `pre-push` gate，用于确认每次 branch push 的最终 commit 已复核 `docs/PROJECT_STATE.md`。先人工复核 `Current version`、`Current status`、`Next Action`、`Blockers`、`Version Index`，以及受影响时的 `Deployment`；然后在最终 commit 中只保留一个 trailer：
+
+```text
+Project-State-Review: updated
+```
+
+当最终 tree 相对远端 branch tree 的 `docs/PROJECT_STATE.md` 有净差异时使用 `updated`；没有净差异时使用：
+
+```text
+Project-State-Review: verified-current
+```
+
+安装前脚本会拒绝覆盖已有 `core.hooksPath` 或默认自定义 hook：
+
+```bash
+sh scripts/install-git-hooks.sh
+```
+
+可在 Git work tree 中手动检查 Git 传入的 ref 行；以下仅示意已有 branch 的无文档差异情形：
+
+```bash
+printf '%s\n' "refs/heads/main <local-commit> refs/heads/main <remote-commit>" | sh scripts/check-project-state-push.sh
+```
+
+本项目 gate 测试仅使用 Python 标准库、临时本地 Git 仓库和 bare remote：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_project_state_push_gate
+```
+
+Tag 不做 remote tree 分类：轻量或 annotated tag 必须最终指向带一个合法 trailer 的 commit。常见失败表示 trailer 缺失、重复、值错误、与最终 tree 差异不符，或 remote commit 不在本地对象库；最后一种情况需要先自行同步本地 Git 对象再重试，gate 不会 fetch。`git push --no-verify` 可以绕过客户端 hook，hook 也可被本地删除或修改；因此它是本地治理 gate，不是不可绕过的安全边界。它不验证 PROJECT_STATE 内容真实性，也不会自动执行 commit 或 push。
+
 ## 功能
 
 - 从多个 RSS 源抓取文章

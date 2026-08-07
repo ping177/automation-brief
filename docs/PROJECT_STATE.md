@@ -59,7 +59,7 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Blockers
 
-暂无明确阻塞；AI Curator 仍只处于 shadow foundation 阶段，不调用真实 provider，不进入日常 Bark / Obsidian / launchd 链路。
+暂无明确阻塞。
 
 ## Important Context
 

@@ -15,6 +15,17 @@ Before starting a task, read the relevant project context when available:
 
 If a file is missing, state that it is missing. Do not invent project state.
 
+## Local persistent data governance
+
+- 本项目稳定 `projectId` 为：`automation-brief`。
+- Filesystem-level persistent runtime/user data 的 canonical root 为：`/Users/wp/Projects/_project-data/automation-brief/`。
+- Canonical data directories：`reports/` 保存正式 Daily / Market reports；`runs/` 保存 runtime logs / AI Curator shadow artifacts；`manual-inputs/` 保存敏感人工输入（例如 holdings）；`migration-records/` 保存 filesystem migration provenance。
+- 未经明确治理审查，不得把长期数据重新默认写回 repo 内的 `output/`、`data/` 等目录。新增长期 filesystem data 时，应优先纳入 canonical data root，并通过统一 resolver `project_paths.py` 获取路径；业务代码中不得散落 `/Users/wp/...` absolute paths。
+- tests 必须使用 temp / injected data root，不得写入真实 `/Users/wp/Projects/_project-data/automation-brief/`，也不得读取真实 holdings。
+- Obsidian / iCloud 是 downstream export，不是 canonical data source。
+- legacy repo copies 当前仍属于 rollback retained data；不得因为发现重复文件就擅自删除。
+- 项目自身仍拥有业务 schema 和 AI Curator 语义；Project Command Center 统一的只是 filesystem-level data location/governance。
+
 ## Project State Maintenance
 
 After any meaningful code, documentation, configuration, planning, testing, or deployment change, check whether `docs/PROJECT_STATE.md` needs updating.

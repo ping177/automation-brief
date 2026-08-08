@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import argparse
 import shutil
 import sys
 from datetime import date
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from project_paths import get_project_paths  # noqa: E402
+
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = PROJECT_DIR / ".env"
-OUTPUT_DIR = PROJECT_DIR / "output"
 
 
 def load_env_value(path: Path, key: str) -> str:
@@ -32,13 +36,15 @@ def load_env_value(path: Path, key: str) -> str:
     return ""
 
 
-def main() -> int:
-    mobile_digest_dir = load_env_value(ENV_FILE, "MOBILE_DIGEST_DIR")
+def main(*, data_root: Path | None = None, env_file: Path | None = None) -> int:
+    paths = get_project_paths(repo_root=PROJECT_DIR, data_root=data_root)
+    resolved_env_file = Path(env_file) if env_file is not None else ENV_FILE
+    mobile_digest_dir = load_env_value(resolved_env_file, "MOBILE_DIGEST_DIR")
     if not mobile_digest_dir:
         print("MOBILE_DIGEST_DIR is not set; skip mobile digest sync.")
         return 0
 
-    report_path = OUTPUT_DIR / f"daily-news-{date.today().isoformat()}.md"
+    report_path = paths.reports_dir / f"daily-news-{date.today().isoformat()}.md"
     if not report_path.exists():
         print(f"Daily report not found: {report_path}", file=sys.stderr)
         return 1
@@ -58,4 +64,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser(description="Sync the canonical daily report to a mobile directory.")
+    parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
+    parser.add_argument("--env-file", type=Path, help="Override local environment file")
+    cli_args = parser.parse_args()
+    raise SystemExit(main(data_root=cli_args.data_root, env_file=cli_args.env_file))

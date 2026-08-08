@@ -12,4 +12,4 @@ if [ ! -x "$PYTHON_BIN" ]; then
 fi
 
 cd "$PROJECT_DIR"
-exec "$PYTHON_BIN" "$PROJECT_DIR/main.py" --report-type market_brief --output "$PROJECT_DIR/output" "$@"
+exec "$PYTHON_BIN" "$PROJECT_DIR/main.py" --report-type market_brief "$@"

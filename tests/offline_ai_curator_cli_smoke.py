@@ -14,28 +14,37 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
 
-def run_shadow_cli(candidate_path: Path, response_path: Path, output_dir: Path) -> subprocess.CompletedProcess[str]:
+def run_shadow_cli(
+    candidate_path: Path,
+    response_path: Path,
+    output_dir: Path | None,
+    data_root: Path,
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["PATH"] = f"{PROJECT_ROOT / '.venv' / 'bin'}:{env.get('PATH', '')}"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["CODEX_SANDBOX_NETWORK_DISABLED"] = "1"
+    output_base = output_dir or data_root / "default-shadow-output"
+    args = [
+        "python3",
+        str(PROJECT_ROOT / "scripts" / "run_ai_curator_shadow.py"),
+        "--candidate-fixture",
+        str(candidate_path),
+        "--fixture-response",
+        str(response_path),
+        "--data-root",
+        str(data_root),
+        "--feeds",
+        str(output_base.parent / "missing-feeds.json"),
+        "--keywords",
+        str(output_base.parent / "missing-keywords.json"),
+        "--config",
+        str(output_base.parent / "missing-config.json"),
+    ]
+    if output_dir is not None:
+        args.extend(["--output-dir", str(output_dir)])
     return subprocess.run(
-        [
-            "python3",
-            str(PROJECT_ROOT / "scripts" / "run_ai_curator_shadow.py"),
-            "--candidate-fixture",
-            str(candidate_path),
-            "--fixture-response",
-            str(response_path),
-            "--output-dir",
-            str(output_dir),
-            "--feeds",
-            str(output_dir.parent / "missing-feeds.json"),
-            "--keywords",
-            str(output_dir.parent / "missing-keywords.json"),
-            "--config",
-            str(output_dir.parent / "missing-config.json"),
-        ],
+        args,
         cwd=PROJECT_ROOT,
         env=env,
         text=True,
@@ -105,10 +114,11 @@ def main() -> None:
         candidate_path = temp_path / "candidates.json"
         response_path = temp_path / "response.json"
         output_dir = temp_path / "shadow-output"
+        data_root = temp_path / "data-root"
         write_json(candidate_path, valid_candidate_fixture())
         write_json(response_path, valid_response_fixture())
 
-        result = run_shadow_cli(candidate_path, response_path, output_dir)
+        result = run_shadow_cli(candidate_path, response_path, output_dir, data_root)
         assert result.returncode == 0, result.stderr
 
         preview_path = output_dir / "ai-curator-shadow-2026-07-16.md"
@@ -132,9 +142,15 @@ def main() -> None:
         trace_payload = json.loads(trace_path.read_text(encoding="utf-8"))
         assert any(record["title"] == "Fixture linkless emergency policy statement" for record in trace_payload)
 
+        default_result = run_shadow_cli(candidate_path, response_path, None, data_root)
+        assert default_result.returncode == 0, default_result.stderr
+        default_shadow_dir = data_root / "runs" / "ai-curator-shadow"
+        assert (default_shadow_dir / "ai-curator-shadow-2026-07-16.md").exists()
+        assert not (PROJECT_ROOT / "output" / "ai-curator-shadow").exists()
+
         bad_candidate_path = temp_path / "bad-candidates.json"
         bad_candidate_path.write_text("{not json", encoding="utf-8")
-        bad_result = run_shadow_cli(bad_candidate_path, response_path, temp_path / "bad-output")
+        bad_result = run_shadow_cli(bad_candidate_path, response_path, temp_path / "bad-output", data_root)
         assert bad_result.returncode != 0
         assert "candidate fixture" in bad_result.stderr.lower()
 
@@ -142,11 +158,21 @@ def main() -> None:
         forbidden_payload = valid_candidate_fixture()
         forbidden_payload["articles"][0]["matched_keywords"] = {"forbidden": ["field"]}  # type: ignore[index]
         write_json(forbidden_candidate_path, forbidden_payload)
-        forbidden_result = run_shadow_cli(forbidden_candidate_path, response_path, temp_path / "forbidden-output")
+        forbidden_result = run_shadow_cli(
+            forbidden_candidate_path,
+            response_path,
+            temp_path / "forbidden-output",
+            data_root,
+        )
         assert forbidden_result.returncode != 0
         assert "forbidden fields" in forbidden_result.stderr.lower()
 
-        missing_result = run_shadow_cli(temp_path / "missing-candidates.json", response_path, temp_path / "missing-output")
+        missing_result = run_shadow_cli(
+            temp_path / "missing-candidates.json",
+            response_path,
+            temp_path / "missing-output",
+            data_root,
+        )
         assert missing_result.returncode != 0
         assert "candidate fixture" in missing_result.stderr.lower()
 

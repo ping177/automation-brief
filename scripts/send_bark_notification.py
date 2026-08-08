@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -10,10 +11,13 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from project_paths import get_project_paths  # noqa: E402
+
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = PROJECT_DIR / ".env"
-OUTPUT_DIR = PROJECT_DIR / "output"
 TITLE = "每日早间回顾已生成"
 MAX_ATTEMPTS = 3
 RETRY_DELAYS_SECONDS = (10, 20)
@@ -83,26 +87,28 @@ def format_notification_error(exc: BaseException) -> str:
     return str(exc)
 
 
-def main() -> int:
-    bark_url = load_env_value(ENV_FILE, "BARK_URL")
+def main(*, data_root: Path | None = None, env_file: Path | None = None) -> int:
+    paths = get_project_paths(repo_root=PROJECT_DIR, data_root=data_root)
+    resolved_env_file = Path(env_file) if env_file is not None else ENV_FILE
+    bark_url = load_env_value(resolved_env_file, "BARK_URL")
     if not bark_url:
         print("BARK_URL is not set; skip Bark notification.")
         return 0
 
-    report_path = OUTPUT_DIR / f"daily-news-{date.today().isoformat()}.md"
+    report_path = paths.reports_dir / f"daily-news-{date.today().isoformat()}.md"
     if not report_path.exists():
         print(f"Daily report not found: {report_path}", file=sys.stderr)
         return 1
 
-    relative_report_path = report_path.relative_to(PROJECT_DIR)
+    relative_report_path = Path("reports") / report_path.name
     body_parts = [str(relative_report_path)]
     displayed_items = find_displayed_items(report_path)
     if displayed_items:
         body_parts.append(f"Displayed items: {displayed_items}")
 
     obsidian_uri = ""
-    vault_name = load_env_value(ENV_FILE, "OBSIDIAN_VAULT_NAME")
-    mobile_digest_relative_path = load_env_value(ENV_FILE, "MOBILE_DIGEST_RELATIVE_PATH")
+    vault_name = load_env_value(resolved_env_file, "OBSIDIAN_VAULT_NAME")
+    mobile_digest_relative_path = load_env_value(resolved_env_file, "MOBILE_DIGEST_RELATIVE_PATH")
     if vault_name and mobile_digest_relative_path:
         obsidian_uri = build_obsidian_uri(vault_name, mobile_digest_relative_path, report_path.name)
 
@@ -136,4 +142,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser(description="Send the canonical daily report through Bark.")
+    parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
+    parser.add_argument("--env-file", type=Path, help="Override local environment file")
+    cli_args = parser.parse_args()
+    raise SystemExit(main(data_root=cli_args.data_root, env_file=cli_args.env_file))

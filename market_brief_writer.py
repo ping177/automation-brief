@@ -374,7 +374,7 @@ def render_holding_observations(context: MarketBriefContext) -> list[str]:
             append_insights(lines, match.matches)
         return lines
 
-    return ["- 暂无持仓配置，请创建 config/holdings.json。", ""]
+    return ["- 暂无持仓配置，请创建 `manual-inputs/holdings.json`。", ""]
 
 
 def render_market_brief_markdown(context: MarketBriefContext, generated_at: datetime | None = None) -> str:
@@ -429,7 +429,9 @@ def render_market_brief_markdown(context: MarketBriefContext, generated_at: date
     lines.extend(["- 数据限制：成交额、行业或行情字段缺失时均标记为数据暂不可用，不做推断。"])
     lines.append(f"- {DISCLAIMER}")
     if context.holdings_config.used_example:
-        lines.append("- 当前使用 config/holdings.example.json 示例持仓；真实关注列表请创建 config/holdings.json。")
+        lines.append(
+            "- 当前使用 config/holdings.example.json 示例持仓；真实关注列表请创建 `manual-inputs/holdings.json`。"
+        )
     elif context.holdings_config.source_path:
         lines.append(f"- 持仓观察来自 {context.holdings_config.source_path.name}。")
     else:

@@ -21,7 +21,6 @@ from main import (  # noqa: E402
     DEFAULT_CONFIG_FILE,
     DEFAULT_FEEDS_FILE,
     DEFAULT_KEYWORDS_FILE,
-    DEFAULT_OUTPUT_DIR,
     candidate_text,
     collect_candidate_articles,
     load_json,
@@ -33,6 +32,7 @@ from main import (  # noqa: E402
     normalize_keywords,
     parse_report_date,
 )
+from project_paths import get_project_paths  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,7 +42,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--feeds", type=Path, default=DEFAULT_FEEDS_FILE, help="Path to feeds.json")
     parser.add_argument("--keywords", type=Path, default=DEFAULT_KEYWORDS_FILE, help="Path to keywords.json")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_FILE, help="Path to config.json")
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR / "ai-curator-shadow")
+    parser.add_argument("--output-dir", type=Path, help="Override shadow artifact directory")
+    parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
     parser.add_argument("--date", help="Report date, defaults to today. Example: 2026-07-16")
     parser.add_argument("--max-events", type=int, default=5)
     return parser.parse_args()
@@ -50,6 +51,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    paths = get_project_paths(repo_root=PROJECT_ROOT, data_root=args.data_root)
     report_date = parse_report_date(args.date) if args.date else date.today()
     if args.candidate_fixture:
         fixture_report_date, candidates = load_candidate_fixture(args.candidate_fixture)
@@ -79,7 +81,7 @@ def main() -> None:
         )
 
     preview = render_shadow_preview(response, request, trace_records)
-    output_dir = args.output_dir
+    output_dir = args.output_dir or paths.ai_curator_shadow_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     preview_path = output_dir / f"ai-curator-shadow-{report_date.isoformat()}.md"
     trace_path = output_dir / f"ai-curator-shadow-trace-{report_date.isoformat()}.json"

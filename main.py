@@ -21,14 +21,16 @@ from holdings import load_holdings
 from market_analysis import build_market_brief_context
 from market_brief_writer import write_market_brief_markdown
 from market_data import fetch_market_snapshot
+from project_paths import ProjectPaths, get_project_paths
 
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_FEEDS_FILE = BASE_DIR / "feeds.json"
 DEFAULT_KEYWORDS_FILE = BASE_DIR / "keywords.json"
 DEFAULT_CONFIG_FILE = BASE_DIR / "config.json"
-DEFAULT_OUTPUT_DIR = BASE_DIR / "output"
-LOG_FILE = BASE_DIR / "daily-news.log"
+DEFAULT_PROJECT_PATHS = get_project_paths(repo_root=BASE_DIR)
+DEFAULT_OUTPUT_DIR = DEFAULT_PROJECT_PATHS.reports_dir
+LOG_FILE = DEFAULT_PROJECT_PATHS.log_file
 FEED_FETCH_ATTEMPTS = 2
 FEED_FETCH_RETRY_DELAY_SECONDS = 3
 FEED_FETCH_TIMEOUT_SECONDS = 15
@@ -140,12 +142,18 @@ class NewsItem:
     matched_keywords: dict[str, list[str]]
 
 
-def setup_logging() -> None:
+def setup_logging(log_file: Path | None = None) -> None:
+    resolved_log_file = (
+        Path(log_file)
+        if log_file is not None
+        else get_project_paths(repo_root=BASE_DIR).log_file
+    )
+    resolved_log_file.parent.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
         handlers=[
-            logging.FileHandler(LOG_FILE, encoding="utf-8"),
+            logging.FileHandler(resolved_log_file, encoding="utf-8"),
             logging.StreamHandler(),
         ],
     )
@@ -2392,9 +2400,13 @@ def write_markdown(
     report_date: date,
     config: ReportConfig,
     failures: list[tuple[str, str]],
+    *,
+    paths: ProjectPaths | None = None,
+    holdings_path: Path | None = None,
 ) -> Path:
+    resolved_paths = paths or get_project_paths(repo_root=BASE_DIR)
     if config.report_type == "market_brief":
-        holdings_config = load_holdings()
+        holdings_config = load_holdings(path=holdings_path, paths=resolved_paths)
         market_snapshot = fetch_market_snapshot(report_date, holdings_config)
         market_context = build_market_brief_context(
             market_snapshot,
@@ -2425,6 +2437,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_FILE, help="Path to config.json")
     parser.add_argument("--output", type=Path, help="Override output directory")
+    parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
+    parser.add_argument("--holdings", type=Path, help="Override holdings.json path")
     parser.add_argument("--date", help="Report date, defaults to today. Example: 2026-06-11")
     parser.add_argument(
         "--report-type",
@@ -2435,8 +2449,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    setup_logging()
     args = parse_args()
+    paths = get_project_paths(repo_root=BASE_DIR, data_root=args.data_root)
+    setup_logging(paths.log_file)
 
     raw_config = load_optional_json(args.config)
     if args.report_type:
@@ -2444,12 +2459,21 @@ def main() -> None:
         raw_config["report_type"] = args.report_type
     config = normalize_config(raw_config)
     report_date = parse_report_date(args.date)
-    output_dir = args.output if args.output else BASE_DIR / config.output_dir
+    output_dir = paths.resolve_report_dir(config.output_dir, explicit_output=args.output)
 
     feeds = normalize_feeds(load_json(args.feeds))
     keywords = normalize_keywords(load_json(args.keywords))
     items, failures = collect_news(feeds, keywords, config, report_date)
-    output_file = write_markdown(items, keywords, output_dir, report_date, config, failures)
+    output_file = write_markdown(
+        items,
+        keywords,
+        output_dir,
+        report_date,
+        config,
+        failures,
+        paths=paths,
+        holdings_path=args.holdings,
+    )
     logging.info("Generated report: %s", output_file)
 
 

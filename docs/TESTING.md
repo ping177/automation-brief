@@ -54,20 +54,36 @@ PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile holdings.py market_brief_
 For v0.5.1-alpha holdings local config changes, also compile the holdings scripts and run:
 
 ```bash
-PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile scripts/init_holdings_config.py scripts/validate_holdings_config.py
+PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile project_paths.py scripts/init_holdings_config.py scripts/validate_holdings_config.py
 .venv/bin/python tests/offline_holdings_config_smoke.py
 ```
 
 For v0.6.0-alpha AI Curator shadow foundation changes, also compile the curator module and explicit shadow script, then run:
 
 ```bash
-PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile ai_curator.py scripts/run_ai_curator_shadow.py
+PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile ai_curator.py project_paths.py scripts/run_ai_curator_shadow.py scripts/publish_mobile_digest.py scripts/send_bark_notification.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_candidate_smoke.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_contract_smoke.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_cli_smoke.py
+.venv/bin/python tests/offline_project_paths_smoke.py
 ```
 
-These tests must remain offline: no real AI provider, no Bark, no Obsidian write, no launchd, and no real holdings config.
+这些测试必须保持离线：不接真实 AI provider，不调用 Bark，不写入 Obsidian，不运行 launchd / pmset；真实 holdings 只允许由 validator 做不打印值的校验，其他 smoke 一律使用临时 fixture。
+
+## Canonical runtime data migration verification
+
+路径迁移先运行全部离线 smoke，再复制真实数据。迁移记录只包含文件名、大小、SHA-256、UTF-8 和来源/目标元数据，不包含 holdings 内容、报告正文、secrets 或 provider payload。canonical 默认树为：
+
+```text
+~/Projects/_project-data/automation-brief/
+├── reports/
+├── runs/daily-news.log
+├── runs/ai-curator-shadow/
+├── manual-inputs/holdings.json
+└── migration-records/<migration-id>/
+```
+
+迁移后可使用仓库 validator 检查 canonical holdings（输出不得出现具体值），并使用临时 env 文件、临时 mobile 目录和 monkeypatch 进行下游读取 smoke。不要运行真实 RSS、AI provider、Bark、Obsidian、launchd 或 pmset。
 
 如改动涉及脚本调用链、RSS 抓取、Bark、Obsidian 同步或真实输出，再按需运行：
 
@@ -99,8 +115,8 @@ python3 -m json.tool config/holdings.example.json
 
 当改动影响真实运行链路，或需要确认早报闭环时，按以下顺序检查：
 
-- 生成每日简报：运行 `scripts/run_daily_digest.sh` 或 `.venv/bin/python main.py`，确认 `output/daily-news-YYYY-MM-DD.md` 生成。
-- 输出到 Obsidian iCloud：确认 Obsidian iCloud 目标目录出现同名日报，且内容与 `output/` 中文件一致。
+- 生成每日简报：运行 `scripts/run_daily_digest.sh` 或 `.venv/bin/python main.py`，确认 `~/Projects/_project-data/automation-brief/reports/daily-news-YYYY-MM-DD.md` 生成。
+- 输出到 Obsidian iCloud：确认 Obsidian iCloud 目标目录出现同名日报，且内容与 canonical `reports/` 中文件一致。
 - Bark 推送：确认 iPhone 收到 Bark 通知；如配置了 Obsidian URI，点击后应打开当天日报。
 - launchd 定时：使用 `launchctl print gui/$(id -u)/com.ping.automation-brief.daily` 检查任务状态、运行次数和退出码。
 - Mac 自动唤醒链路：使用 `pmset -g sched` 检查计划，必要时结合 `pmset -g log` 判断 07:58 唤醒和 08:00 运行是否按预期发生。
@@ -131,7 +147,7 @@ v0.6.0-alpha adds only shadow plumbing. When modifying the AI Curator path, conf
 - Candidate trace may include legacy diagnostic fields, but must not include cost, position, market value, profit/loss, `.env`, API keys, or secrets.
 - Fixture responses fail loudly on unknown evidence ids, duplicate evidence ids within one event, duplicate event ids, invalid enums, empty required text, overlap between selected and rejected ids, and max event violations.
 - Shadow preview does not contain direct trading advice terms such as 买入、卖出、加仓、减仓、止损、止盈 or 目标价.
-- `scripts/run_daily_digest.sh` and `scripts/run_market_brief.sh` remain unchanged.
+- `scripts/run_daily_digest.sh` 仍只生成普通 digest；`scripts/run_market_brief.sh` 不再硬编码仓库 `output/`，由 resolver 选择 canonical `reports/`。
 
 ## market_brief smoke checklist
 
@@ -153,7 +169,7 @@ v0.5-beta first stage 的显式 `market_brief` 会复用 RSS 候选新闻，并�
 - `tests/offline_digest_smoke.py` 仍通过，确保普通 daily digest 不回退。
 - `scripts/init_holdings_config.py` 不覆盖已有本地 holdings。
 - `scripts/validate_holdings_config.py` 对合法配置通过、对 JSON/字段错误失败、对成本/仓位/市值/盈亏字段 warning 且不输出具体值。
-- `python3 main.py --report-type market_brief` 或 `scripts/run_market_brief.sh` 能显式生成 `output/market-brief-YYYY-MM-DD.md`。
+- `python3 main.py --report-type market_brief` 或 `scripts/run_market_brief.sh` 能显式生成 canonical `reports/market-brief-YYYY-MM-DD.md`。
 - `scripts/run_daily_digest.sh` 不增加 `--report-type market_brief`，默认每日普通 digest 链路不变。
 
 当前不要求 AKShare、TuShare、AI rerank、Bark、Obsidian、launchd 或 pmset 级联 smoke。真实行情网络只在手动显式 market brief 样例中观察，不作为离线测试前置条件。

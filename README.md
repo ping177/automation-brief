@@ -62,7 +62,7 @@ Tag 不做 remote tree 分类：轻量或 annotated tag 必须最终指向带一
 - 支持摘要长度截断
 - 支持按配置控制分类输出顺序
 - 单个 RSS 抓取失败不会中断整体流程，会记录到日志，并在文末统一展示
-- 输出到 `output/daily-news-YYYY-MM-DD.md`
+- 默认输出到 canonical data root 的 `reports/daily-news-YYYY-MM-DD.md`
 
 `list` 模式每条新闻包含：
 
@@ -126,10 +126,10 @@ AI 和科技产业词也不再单独触发“昨日市场信号”。标题或�
 `market_brief` 模式是显式触发的市场投研晨报，不改变每日自动运行的默认 digest 链路。输出文件为：
 
 ```text
-output/market-brief-YYYY-MM-DD.md
+~/Projects/_project-data/automation-brief/reports/market-brief-YYYY-MM-DD.md
 ```
 
-显式 `market_brief` 会复用 `feeds.json` / `keywords.json` 抓取到的 RSS 候选新闻，提取重要市场事件、产业催化、风险/反证、今日观察点，并用 `config/holdings.json` 中的 `code`、`name`、`sector`、`watch_tags` 做相关新闻匹配。v0.5-beta 第一阶段会尝试用轻量公开行情接口获取主要指数和 holdings 个股涨跌；行情源失败或字段缺失时显示“数据暂不可用”，不编造。当前不接 AKShare、TuShare，不计算复杂相对强弱、板块强度或产业催化强度，不输出交易动作。持仓观察来自 `config/holdings.json`；如果真实文件不存在，会回退读取 `config/holdings.example.json`。真实 `config/holdings.json` 已加入 `.gitignore`，不要提交成本、仓位、市值、亏损金额或其他敏感持仓信息。
+显式 `market_brief` 会复用 `feeds.json` / `keywords.json` 抓取到的 RSS 候选新闻，提取重要市场事件、产业催化、风险/反证、今日观察点，并用 canonical `manual-inputs/holdings.json` 中的 `code`、`name`、`sector`、`watch_tags` 做相关新闻匹配。v0.5-beta 第一阶段会尝试用轻量公开行情接口获取主要指数和 holdings 个股涨跌；行情源失败或字段缺失时显示“数据暂不可用”，不编造。当前不接 AKShare、TuShare，不计算复杂相对强弱、板块强度或产业催化强度，不输出交易动作。canonical holdings 不存在时回退读取仓库内的 `config/holdings.example.json`，两者都不存在时使用空配置。旧的 `config/holdings.json` 仅作为迁移前 legacy 文件保留，不再作为默认运行时来源；不要提交成本、仓位、市值、亏损金额或其他敏感持仓信息。
 
 `market_brief` 输出结构：
 
@@ -150,9 +150,9 @@ output/market-brief-YYYY-MM-DD.md
 python3 scripts/init_holdings_config.py
 ```
 
-脚本会从 `config/holdings.example.json` 创建本地 `config/holdings.json`。如果文件已经存在，脚本不会覆盖。`config/holdings.json` 已被 `.gitignore` 忽略，应只保留在本机。
+脚本会从 `config/holdings.example.json` 创建 canonical data root 下的 `manual-inputs/holdings.json`。如果文件已经存在，脚本不会覆盖。旧的 `config/holdings.json` 仍被 `.gitignore` 忽略，但不再是默认运行时来源。
 
-编辑 `config/holdings.json` 时，每个条目只建议填写这些字段：
+编辑 `manual-inputs/holdings.json` 时，每个条目只建议填写这些字段：
 
 ```json
 {
@@ -165,7 +165,7 @@ python3 scripts/init_holdings_config.py
 }
 ```
 
-不要在 `config/holdings.json` 保存成本、仓位、持股数量、市值、盈亏金额、账户金额等真实敏感信息。调仓或调整关注对象后，直接编辑本地 `config/holdings.json`，然后运行校验：
+不要在 `manual-inputs/holdings.json` 保存成本、仓位、持股数量、市值、盈亏金额、账户金额等真实敏感信息。调仓或调整关注对象后，直接编辑本地 `manual-inputs/holdings.json`，然后运行校验：
 
 ```bash
 python3 scripts/validate_holdings_config.py
@@ -174,6 +174,23 @@ python3 scripts/validate_holdings_config.py
 校验脚本只输出字段级错误或 warning，不输出成本、仓位、市值、盈亏金额等具体值。
 
 ## 本地运行
+
+### Runtime data root
+
+运行时数据默认位于：
+
+```text
+~/Projects/_project-data/automation-brief/
+├── reports/
+├── runs/
+│   ├── daily-news.log
+│   └── ai-curator-shadow/
+├── manual-inputs/
+│   └── holdings.json
+└── migration-records/
+```
+
+路径解析优先级为：显式 CLI / 函数参数、`AUTOMATION_BRIEF_DATA_ROOT`、`~/Projects/_project-data/automation-brief`。`--output`、`--output-dir` 和 `--holdings` 仍可显式覆盖默认位置；配置中的 `output_dir: "output"` 是兼容 token，会解析到 canonical `reports/`，不会把绝对路径写进 tracked config。Obsidian iCloud 和 Bark 仍是下游消费者，不属于 canonical data root。
 
 创建虚拟环境：
 
@@ -205,19 +222,19 @@ python main.py
 生成结果会保存到：
 
 ```text
-output/daily-news-YYYY-MM-DD.md
+~/Projects/_project-data/automation-brief/reports/daily-news-YYYY-MM-DD.md
 ```
 
 日志文件：
 
 ```text
-daily-news.log
+~/Projects/_project-data/automation-brief/runs/daily-news.log
 ```
 
-也可以指定配置、输出目录和日期：
+也可以指定配置、输出目录和日期；显式 `--output` 仍然优先：
 
 ```bash
-python main.py --feeds feeds.json --keywords keywords.json --config config.json --output output --date 2026-06-11
+python main.py --feeds feeds.json --keywords keywords.json --config config.json --output /tmp/automation-brief-report --date 2026-06-11
 ```
 
 如需手动生成 v0.5-beta 市场投研晨报，先确认 holdings 配置有效：
@@ -235,7 +252,7 @@ scripts/run_market_brief.sh
 也可以直接使用显式 CLI 覆盖：
 
 ```bash
-python3 main.py --report-type market_brief --output output --date 2026-06-11
+python3 main.py --report-type market_brief --date 2026-06-11
 ```
 
 `python3 main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief`。`scripts/run_daily_digest.sh` 也不受影响，仍服务每天 08:00 的普通 digest、Obsidian 同步和 Bark 推送链路。
@@ -516,7 +533,7 @@ python main.py
 
 ## v0.3.1 本地定时运行
 
-v0.3.1 只做本地定时自动运行：每天早上调用 `main.py` 生成 `output/daily-news-YYYY-MM-DD.md`。这一版不接推送、不接 AI，也不改变日报筛选规则。
+v0.3.1 只做本地定时自动运行：每天早上调用 `main.py` 生成 canonical `reports/daily-news-YYYY-MM-DD.md`。这一版不接推送、不接 AI，也不改变日报筛选规则。
 
 当前验证状态：LaunchAgent 已验证可在 08:00 自动触发，并成功生成当日 Markdown 简报。
 
@@ -545,13 +562,13 @@ scripts/run_daily_digest.sh
 生成结果会写入：
 
 ```text
-output/daily-news-YYYY-MM-DD.md
+~/Projects/_project-data/automation-brief/reports/daily-news-YYYY-MM-DD.md
 ```
 
 程序日志仍写入：
 
 ```text
-daily-news.log
+~/Projects/_project-data/automation-brief/runs/daily-news.log
 ```
 
 ### 配置 Bark 推送
@@ -702,8 +719,8 @@ launchctl kickstart -k gui/$(id -u)/com.ping.automation-brief.daily
 查看程序日志和 launchd 的 stdout/stderr：
 
 ```bash
-ls output
-tail -n 50 daily-news.log
+ls ~/Projects/_project-data/automation-brief/reports
+tail -n 50 ~/Projects/_project-data/automation-brief/runs/daily-news.log
 tail -n 50 daily-digest.launchd.out.log
 tail -n 50 daily-digest.launchd.err.log
 ```

@@ -67,7 +67,7 @@ def main() -> None:
     assert init_result.returncode == 0, init_result.stderr
     assert holdings_path.exists()
     assert "Created local holdings config" in init_result.stdout
-    assert "ignored by Git" in init_result.stdout
+    assert "local data" in init_result.stdout
 
     first_content = holdings_path.read_text(encoding="utf-8")
     holdings_path.write_text(first_content.replace("测试标的", "已保留标的"), encoding="utf-8")
@@ -151,6 +151,10 @@ def main() -> None:
             str(empty_keywords_path),
             "--report-type",
             "market_brief",
+            "--data-root",
+            str(fixture_dir / "data-root"),
+            "--holdings",
+            str(holdings_path),
             "--output",
             str(output_dir),
             "--date",

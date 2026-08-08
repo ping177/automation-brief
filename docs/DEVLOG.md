@@ -800,3 +800,25 @@ v0.5-beta.5 后的审计结论是：整个项目仍可维护，但新闻判断�
 ### 结论
 
 v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被保留并冻结为 fallback；下一步是接入真实 provider 进行 shadow comparison，在质量验证前不替换 ordinary daily digest、显式 `market_brief` 或任何生产自动化链路。
+
+## 2026-08-08 canonical runtime data root migration
+
+### 实际改动
+
+- 新增 `project_paths.py`，统一解析 `~/Projects/_project-data/automation-brief/`；优先级为显式 CLI / 函数参数、`AUTOMATION_BRIEF_DATA_ROOT`、home 默认值。
+- 默认报告写入 `reports/`，日志写入 `runs/daily-news.log`，AI Curator shadow 写入 `runs/ai-curator-shadow/`，本地 holdings 使用 `manual-inputs/holdings.json`；显式 `--output`、`--output-dir`、`--holdings` 保持可用。
+- downstream mobile digest 和 Bark reader 改为读取 canonical reports；Obsidian / iCloud 仍由下游 `.env` 配置决定。
+- `config.json` 保留 `output_dir: "output"` 兼容 token，由 resolver 映射到 canonical reports；没有写入绝对路径。
+
+### 数据迁移与验证
+
+- migration id：`migration-20260808T095613Z`。
+- 从 legacy `output/` 复制 68 份 daily / market Markdown，从仓库根复制 `daily-news.log` 和 `config/holdings.json`，共 70 个文件；逐文件验证字节数、SHA-256 和 UTF-8 可读性。
+- legacy `output/ai-curator-shadow/` 不存在，因此没有伪造历史 shadow artifacts；仅创建 canonical shadow 目录。`output/.DS_Store` 明确排除。
+- 迁移记录位于 canonical `migration-records/<migration-id>/`，只含路径、大小、哈希和校验元数据，不含 holdings 值、报告正文、`.env`、secrets 或 provider payload。legacy 文件原样保留。
+- 新增 `tests/offline_project_paths_smoke.py`，覆盖 resolver precedence、temp reports / market brief / shadow / log、holdings canonical/example/empty/explicit 和 downstream canonical reader；所有离线 smoke 均通过，AI Curator candidate smoke 连续 5 次通过。
+
+### 边界
+
+- 未调用真实 RSS、AI provider、Bark、Obsidian、launchd 或 pmset；未读取或打印 `.env` 内容；未创建 commit 或执行 push。
+- 不删除 legacy 文件，不清理 audit worktree；后续清理另行评估。

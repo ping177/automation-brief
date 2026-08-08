@@ -9,18 +9,21 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from holdings import DEFAULT_HOLDINGS_FILE, validate_holdings_payload  # noqa: E402
+from holdings import validate_holdings_payload  # noqa: E402
+from project_paths import get_project_paths  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate local config/holdings.json without printing holdings values.")
-    parser.add_argument("--holdings", type=Path, default=DEFAULT_HOLDINGS_FILE, help="Path to holdings.json")
+    parser = argparse.ArgumentParser(description="Validate local holdings.json without printing holdings values.")
+    parser.add_argument("--holdings", type=Path, help="Path to holdings.json")
+    parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    holdings_path = args.holdings
+    paths = get_project_paths(repo_root=PROJECT_ROOT, data_root=args.data_root)
+    holdings_path = args.holdings or paths.holdings_file
 
     if not holdings_path.exists():
         print(f"Holdings config not found: {holdings_path}")

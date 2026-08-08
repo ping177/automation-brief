@@ -42,6 +42,21 @@
 - 理由：2026-06-19 已验证 07:58 唤醒和 08:00 启动成功，但 Mac 在 RSS 请求期间重新睡眠，导致日报接近 09:00 才完成。
 - 影响：不建议单纯提前 `pmset` 到 07:45 或 07:30；核心是保证任务已启动后不会在链路完成前睡眠。
 
+## 运行数据与迁移
+
+### Canonical runtime data root
+
+- 决策：运行时报告、日志、AI Curator shadow artifacts 和本地 holdings 统一放在 `~/Projects/_project-data/automation-brief/`；仓库只保存代码、配置模板和文档。
+- 理由：把可增长、可变且可能含本地信息的运行数据与 Git 工作树分离，同时让默认路径在不同机器上通过 `Path.home()` 保持可移植。
+- 影响：路径解析优先使用显式 CLI / 函数注入，其次读取 `AUTOMATION_BRIEF_DATA_ROOT`，最后使用 home 下 canonical 默认值。`--output`、`--output-dir` 和 `--holdings` 仍可覆盖默认值；tracked `config.json` 的 `output_dir: "output"` 仅作为兼容 token 映射到 `reports/`。
+- Canonical tree：`reports/`、`runs/daily-news.log`、`runs/ai-curator-shadow/`、`manual-inputs/holdings.json` 和 metadata-only `migration-records/`。
+
+### Legacy runtime data retention
+
+- 决策：迁移后的 `output/`、仓库根 `daily-news.log` 和 `config/holdings.json` 暂不删除、不覆盖，保留为 legacy 证据和回滚参考，但不再作为默认运行时来源。
+- 理由：先完成路径切换、下游读取验证和一段观察期，再单独评估清理，避免把迁移和不可逆删除绑定在一起。
+- 影响：未来清理必须是独立任务，先核对 Obsidian / mobile / Bark 下游、launchd 运行记录和 audit worktree 状态；迁移记录只保留元数据，不记录 holdings 内容、报告正文、secrets 或 provider payload。
+
 ## 信息筛选
 
 ### RSS + 规则筛选是当前基础

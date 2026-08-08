@@ -8,6 +8,12 @@
 
 P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推送或 Mac 自动唤醒链路的紧急问题。
 
+### Canonical runtime data migration follow-up
+
+- canonical runtime data 已迁移到 `~/Projects/_project-data/automation-brief/`；`reports/`、`runs/`、`manual-inputs/` 和 metadata-only `migration-records/` 已完成离线校验。
+- 迁移前的 `output/`、仓库根 `daily-news.log` 和 `config/holdings.json` 保留且不再是默认来源。不要在本任务之外删除、覆盖或暂存这些 legacy 文件。
+- 单独观察一段时间后，评估 legacy 文件清理、下游引用确认和审计 worktree 清理；清理必须是另一个明确任务，并先完成可回滚性检查。
+
 ### v0.6.0-alpha AI Curator shadow comparison
 
 - 使用 `scripts/run_ai_curator_shadow.py --candidate-fixture ... --fixture-response ...` 进行完全离线 shadow preview，不接 Bark / Obsidian / launchd / pmset；真实 RSS shadow 路径仍只能手动显式运行。
@@ -19,7 +25,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 
 - 用显式 `market_brief` 样例验证轻量公开行情源是否稳定返回主要指数和 holdings 个股涨跌。
 - 检查成交额字段口径是否稳定；在口径确认前必须显示“数据暂不可用”，不能硬凑。
-- 检查 holdings 行业 / 板块只来自 `config/holdings.json` 的 `sector` 字段或示例配置，不引入硬编码真实持仓。
+- 检查 holdings 行业 / 板块只来自 canonical `manual-inputs/holdings.json` 的 `sector` 字段或仓库示例配置，不引入硬编码真实持仓。
 - 检查周末或非交易日生成时，报告日期和行情交易日是否分开显示。
 - 检查 v0.5-beta.5 后重要新闻的来源限额和融资类型限额是否仍保留足够的高相关政策、业绩与产业事件。
 - 检查 v0.5-beta.5 后投资机构名册、榜单、名单等行业资料是否持续降权，政府部门立案 / 查处 / 整治 / 通报等统计是否持续优先归为政策监管。
@@ -50,7 +56,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - v0.5-beta.5 已完成重要新闻相关度和分类 polish：重要新闻增加同源与融资类型限额，融资/财报按标题主动作处理，投资机构名册 / 榜单降权，政府监管统计优先归政策监管，算力/数据中心电力需要直接证据，风险与今日继续观察优先使用市场和持仓异常。
 - 明确早报的投研定位：先服务每日宏观、市场信号、AI 商业化、支付基础设施、全球科技商业和持仓相关观察。
 - 保持规则输出克制，不把普通科技动态、泛访谈、benchmark 争议和活动宣传误升格为市场信号。
-- 持仓观察必须来自 `config/holdings.json` 或示例文件，不能把具体持仓硬编码进业务代码。
+- 持仓观察必须来自 canonical `manual-inputs/holdings.json` 或仓库示例文件，不能把具体持仓硬编码进业务代码。
 
 ### Later: deeper market data validation
 

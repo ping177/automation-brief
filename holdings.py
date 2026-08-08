@@ -5,10 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from project_paths import ProjectPaths, get_project_paths
+
 
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_HOLDINGS_FILE = BASE_DIR / "config" / "holdings.json"
-DEFAULT_HOLDINGS_EXAMPLE_FILE = BASE_DIR / "config" / "holdings.example.json"
+DEFAULT_HOLDINGS_FILE = get_project_paths(repo_root=BASE_DIR).holdings_file
+DEFAULT_HOLDINGS_EXAMPLE_FILE = get_project_paths(repo_root=BASE_DIR).example_holdings_file
 ALLOWED_HOLDING_FIELDS = frozenset(
     {
         "code",
@@ -181,11 +183,22 @@ def validate_holdings_payload(payload: Any) -> HoldingsValidationResult:
 
 
 def load_holdings(
-    path: Path = DEFAULT_HOLDINGS_FILE,
-    example_path: Path = DEFAULT_HOLDINGS_EXAMPLE_FILE,
+    path: Path | None = None,
+    example_path: Path | None = None,
+    *,
+    paths: ProjectPaths | None = None,
 ) -> HoldingsConfig:
-    if path.exists():
-        return normalize_holdings(_load_json_object(path), path, used_example=False)
-    if example_path.exists():
-        return normalize_holdings(_load_json_object(example_path), example_path, used_example=True)
+    resolved_paths = paths or get_project_paths(repo_root=BASE_DIR)
+    resolved_path = Path(path) if path is not None else resolved_paths.holdings_file
+    resolved_example_path = (
+        Path(example_path) if example_path is not None else resolved_paths.example_holdings_file
+    )
+    if resolved_path.exists():
+        return normalize_holdings(_load_json_object(resolved_path), resolved_path, used_example=False)
+    if resolved_example_path.exists():
+        return normalize_holdings(
+            _load_json_object(resolved_example_path),
+            resolved_example_path,
+            used_example=True,
+        )
     return HoldingsConfig(holdings=(), source_path=None, used_example=False)

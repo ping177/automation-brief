@@ -2,30 +2,34 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import sys
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_HOLDINGS_PATH = PROJECT_ROOT / "config" / "holdings.json"
-DEFAULT_EXAMPLE_PATH = PROJECT_ROOT / "config" / "holdings.example.json"
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import get_project_paths  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Create local config/holdings.json from the safe example.")
-    parser.add_argument("--holdings", type=Path, default=DEFAULT_HOLDINGS_PATH, help="Target holdings.json path")
-    parser.add_argument("--example", type=Path, default=DEFAULT_EXAMPLE_PATH, help="Source example holdings path")
+    parser = argparse.ArgumentParser(description="Create canonical local holdings.json from the safe example.")
+    parser.add_argument("--holdings", type=Path, help="Target holdings.json path")
+    parser.add_argument("--example", type=Path, help="Source example holdings path")
+    parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    holdings_path = args.holdings
-    example_path = args.example
+    paths = get_project_paths(repo_root=PROJECT_ROOT, data_root=args.data_root)
+    holdings_path = args.holdings or paths.holdings_file
+    example_path = args.example or paths.example_holdings_file
 
     if holdings_path.exists():
         print(f"config already exists: {holdings_path}")
         print("No changes made. Existing holdings config was not overwritten.")
-        print("config/holdings.json is ignored by Git and should stay local.")
+        print("Canonical holdings.json is local data and should stay outside the repository.")
         return 0
 
     if not example_path.exists():
@@ -35,7 +39,7 @@ def main() -> int:
     holdings_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(example_path, holdings_path)
     print(f"Created local holdings config: {holdings_path}")
-    print("config/holdings.json is ignored by Git and should not be committed.")
+    print("Canonical holdings.json is local data and should not be committed.")
     print("Allowed fields: code, name, market, sector, watch_tags, notes.")
     print("Do not save cost, position, shares, amount, market value, profit/loss, or account amount.")
     return 0

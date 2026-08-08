@@ -12,11 +12,11 @@ v0.6.0-alpha AI Curator shadow foundation, based on `docs/DEVLOG.md`.
 
 ## Current status
 
-项目已打通本地定时生成、Obsidian 同步和 Bark 推送链路，并开始升级为面向 A 股观察的市场投研晨报。v0.6.0-alpha 建立 AI Curator shadow foundation：RSS 候选池在 legacy 关键词筛选前形成，Global Event Curator 数据契约、fixture provider、response validator、candidate trace、完全离线 candidate fixture 和显式 preview 入口已具备。本阶段仍不调用真实 AI API，普通 daily digest、显式 market_brief 和自动化链路保持不变。
+项目已打通本地定时生成、Obsidian 同步和 Bark 推送链路，并开始升级为面向 A 股观察的市场投研晨报。v0.6.0-alpha 建立 AI Curator shadow foundation：RSS 候选池在 legacy 关键词筛选前形成，Global Event Curator 数据契约、fixture provider、response validator、candidate trace、完全离线 candidate fixture 和显式 preview 入口已具备。2026-08-08 已完成 runtime data root 迁移：默认报告、日志、shadow artifacts 和 holdings 解析到 `~/Projects/_project-data/automation-brief/`，旧 `output/`、`daily-news.log`、`config/holdings.json` 保留但不再作为默认来源。本阶段仍不调用真实 AI API，普通 daily digest、显式 market_brief 和自动化链路保持不变。
 
 ## Latest completed
 
-v0.6.0-alpha 已完成 AI Curator shadow foundation：新增关键词前 `CandidateArticle` pool，legacy pipeline 继续按原关键词 gate 和链接要求生成 `NewsItem`；新增 `CuratorRequest` / `CuratorResponse` contract、fixture provider、严格 validator、candidate trace、shadow preview renderer、`--candidate-fixture` 完全离线路径和显式 `scripts/run_ai_curator_shadow.py`。无链接 RSS 条目可进入 shadow pool，重复 evidence id 已作为 contract violation；legacy 新闻判断规则冻结为 fallback，不继续扩张 `_score_article` 或 digest 分类补丁。
+v0.6.0-alpha 已完成 AI Curator shadow foundation：新增关键词前 `CandidateArticle` pool，legacy pipeline 继续按原关键词 gate 和链接要求生成 `NewsItem`；新增 `CuratorRequest` / `CuratorResponse` contract、fixture provider、严格 validator、candidate trace、shadow preview renderer、`--candidate-fixture` 完全离线路径和显式 `scripts/run_ai_curator_shadow.py`。无链接 RSS 条目可进入 shadow pool，重复 evidence id 已作为 contract violation；legacy 新闻判断规则冻结为 fallback，不继续扩张 `_score_article` 或 digest 分类补丁。另已完成 canonical runtime data root 迁移与只读复核：68 份报告、1 份日志和 1 份 holdings 共 70 个文件完成字节数、SHA-256、UTF-8 校验；legacy shadow 源不存在，canonical shadow 目录按路径契约创建为空；`.DS_Store` 未迁移。
 
 ## Deployment
 
@@ -51,11 +51,11 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Last verified
 
-2026-07-10
+2026-08-08
 
 ## Next Action
 
-下一步接入真实 AI provider 时仍只做 shadow comparison：使用同一 `CuratorRequest` schema，与 legacy trace 对照 source / selection / classification / deduplication miss；在质量验证前不替换 daily digest、market_brief 或任何 08:00 自动化链路。
+先保留 legacy 输出、日志和旧 holdings 文件，单独完成 audit worktree 的后续清理评估；随后接入真实 AI provider 时仍只做 shadow comparison：使用同一 `CuratorRequest` schema，与 legacy trace 对照 source / selection / classification / deduplication miss；在质量验证前不替换 daily digest、market_brief 或任何 08:00 自动化链路。
 
 ## Blockers
 
@@ -80,7 +80,8 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.5-beta.4 changes only ordinary `digest` Markdown item rendering. It uses existing RSS summary fields and does not add AI summary, new sources, external APIs, or automation-chain changes.
 - v0.5-beta.5 changes only explicit `market_brief` news selection, classification, theme evidence, risk, and watch wording. It also covers investment directory / ranking items and government enforcement statistics with offline regressions. It adds no AI rerank, new data source, external API, or market_brief automation.
 - v0.6.0-alpha adds AI Curator shadow plumbing only: keyword-pre-gate candidates, data contract, fixture provider, validator, trace, fully offline candidate fixtures, and preview. It does not pass holdings, legacy scores, matched keywords, or market data into the Global Event Curator request.
-- `config/holdings.json` is ignored by Git. `config/holdings.example.json` is only an example and must not contain real cost, position size, market value, or loss amounts.
+- Runtime data root is `~/Projects/_project-data/automation-brief/` with `reports/`, `runs/daily-news.log`, `runs/ai-curator-shadow/`, `manual-inputs/holdings.json`, and metadata-only `migration-records/`. Migration `migration-20260808T095613Z` copied 68 reports plus the log and holdings; legacy sources remain unchanged.
+- `config/holdings.json` is ignored by Git and retained only as legacy source data. Runtime lookup uses canonical `manual-inputs/holdings.json`, then `config/holdings.example.json`, then an empty config. The example must not contain real cost, position size, market value, or loss amounts.
 - Initialize local holdings with `python3 scripts/init_holdings_config.py`; validate with `python3 scripts/validate_holdings_config.py`.
 - `market_brief` now uses RSS news plus a lightweight A-share quote snapshot when explicitly generated. It still does not calculate complex strategy, sector strength, or trading actions.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
@@ -89,4 +90,4 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.6.0-alpha by preserving the normal daily digest automation and explicit/manual market_brief behavior. Use the AI Curator shadow foundation only for candidate/request/response/trace experiments: candidates are collected before the legacy keyword gate, linkless RSS entries may enter the shadow pool only with stable fallback ids, `CuratorRequest` excludes holdings, matched keywords, legacy scores/categories, and market data, and fixture responses must pass strict validation. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect real AI providers, AI summaries, new data sources, production automation, or trading recommendations until shadow comparison is reviewed.
+Continue automation-brief from v0.6.0-alpha by preserving the normal daily digest automation and explicit/manual market_brief behavior. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Use the AI Curator shadow foundation only for candidate/request/response/trace experiments: candidates are collected before the legacy keyword gate, linkless RSS entries may enter the shadow pool only with stable fallback ids, `CuratorRequest` excludes holdings, matched keywords, legacy scores/categories, and market data, and fixture responses must pass strict validation. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect real AI providers, AI summaries, new data sources, production automation, or trading recommendations until shadow comparison is reviewed; do not delete retained legacy files or the audit worktree without a separate follow-up.

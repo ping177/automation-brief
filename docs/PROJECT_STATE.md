@@ -12,7 +12,7 @@ v0.6.0-alpha AI Curator shadow foundation, based on `docs/DEVLOG.md`.
 
 ## Current status
 
-项目已打通本地定时生成、Obsidian 同步和 Bark 推送链路，并开始升级为面向 A 股观察的市场投研晨报。v0.6.0-alpha 建立 AI Curator shadow foundation：RSS 候选池在 legacy 关键词筛选前形成，Global Event Curator 数据契约、fixture provider、response validator、candidate trace、完全离线 candidate fixture 和显式 preview 入口已具备。2026-08-08 已完成 runtime data root 迁移：默认报告、日志、shadow artifacts 和 holdings 解析到 `~/Projects/_project-data/automation-brief/`，旧 `output/`、`daily-news.log`、`config/holdings.json` 保留但不再作为默认来源。本阶段仍不调用真实 AI API，普通 daily digest、显式 market_brief 和自动化链路保持不变。
+项目已打通本地定时生成、Obsidian 同步和 Bark 推送链路。当前产品定位收敛为个人隔夜全球要闻晨报（Overnight Brief），普通 daily digest、显式 `market_brief` 和现有自动化链路保持不变。v0.6.0-alpha 已完成 AI Curator shadow foundation，基础设施与 canonical runtime data governance 已稳定；当前准备进入 v0.6.1-alpha Product Reset + Language Boundary，尚未开始真实 AI provider 接入，也不切换生产输出。
 
 ## Latest completed
 
@@ -55,7 +55,7 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Next Action
 
-先保留 legacy 输出、日志和旧 holdings 文件，单独完成 audit worktree 的后续清理评估；随后接入真实 AI provider 时仍只做 shadow comparison：使用同一 `CuratorRequest` schema，与 legacy trace 对照 source / selection / classification / deduplication miss；在质量验证前不替换 daily digest、market_brief 或任何 08:00 自动化链路。
+开始 v0.6.1-alpha Product Reset + Language Boundary：先冻结 Overnight Brief 产品合同、多语言输入/简体中文输出边界、feed language metadata，以及 legacy / candidate path 隔离；不接真实 AI provider，不切换生产输出。
 
 ## Blockers
 
@@ -90,4 +90,4 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.6.0-alpha by preserving the normal daily digest automation and explicit/manual market_brief behavior. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Use the AI Curator shadow foundation only for candidate/request/response/trace experiments: candidates are collected before the legacy keyword gate, linkless RSS entries may enter the shadow pool only with stable fallback ids, `CuratorRequest` excludes holdings, matched keywords, legacy scores/categories, and market data, and fixture responses must pass strict validation. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect real AI providers, AI summaries, new data sources, production automation, or trading recommendations until shadow comparison is reviewed; do not delete retained legacy files or the audit worktree without a separate follow-up.
+Continue automation-brief from v0.6.0-alpha with the product positioning as a personal overnight global news brief (Overnight Brief), preserving the normal daily digest automation and explicit/manual market_brief behavior. The next task is v0.6.1-alpha Product Reset + Language Boundary: freeze the Overnight Brief product contract, multilingual input / Simplified Chinese output boundary, feed language metadata, and legacy / candidate path isolation. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Keep the existing AI Curator shadow foundation available for later evaluation: candidates are collected before the legacy keyword gate, linkless RSS entries may enter the shadow pool only with stable fallback ids, `CuratorRequest` excludes holdings, matched keywords, legacy scores/categories, and market data, and fixture responses must pass strict validation. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect real AI providers, AI summaries, new data sources, production automation, or trading recommendations, and do not delete retained legacy files or the audit worktree without a separate follow-up.

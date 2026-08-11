@@ -16,7 +16,12 @@ from typing import Any, Optional
 
 import feedparser
 
-from ai_curator import CandidateArticle, normalize_article_link, stable_article_id
+from ai_curator import (
+    CandidateArticle,
+    normalize_article_link,
+    normalize_language,
+    stable_article_id,
+)
 from holdings import load_holdings
 from market_analysis import build_market_brief_context
 from market_brief_writer import write_market_brief_markdown
@@ -350,7 +355,15 @@ def normalize_feeds(raw_feeds: Any) -> list[dict[str, str]]:
                 f"Feed #{index} role must be one of {', '.join(sorted(valid_roles))}"
             )
 
-        feeds.append({"name": name, "url": url, "mode": mode, "role": role})
+        feeds.append(
+            {
+                "name": name,
+                "url": url,
+                "mode": mode,
+                "role": role,
+                "language": normalize_language(feed.get("language")),
+            }
+        )
     return feeds
 
 
@@ -535,6 +548,7 @@ def candidate_from_entry(
         collected_at=collected_at,
         published=format_published(entry, published_at),
         author=clean_text(getattr(entry, "author", "")),
+        language=normalize_language(feed.get("language")),
         legacy_match_text=entry_text(entry),
     )
 

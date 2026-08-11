@@ -1,10 +1,10 @@
 # AI Curator Architecture
 
-This document describes the v0.6.0-alpha shadow foundation. It is not a production AI integration.
+This document describes the v0.6.0-alpha shadow foundation and the v0.6.1 product/language contract. It is not a production AI integration.
 
 ## Scope
 
-v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator.
+v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator. v0.6.1 freezes the Overnight Brief product boundary, source-language metadata, Simplified Chinese reader output, and legacy/candidate isolation, then wires feed language into the candidate contract without changing production output behavior.
 
 It does not:
 
@@ -14,18 +14,45 @@ It does not:
 - modify Bark, Obsidian, launchd, or pmset automation
 - send holdings, positions, costs, profit/loss, or market quotes to the curator
 
+## Product Reset
+
+The product is a personal overnight global news brief (Overnight Brief), not an AI investment assistant, stock-opportunity finder, stock recommendation tool, news-to-stock mapper, or daily investment-opinion generator.
+
+The future unified reader-facing structure is:
+
+```text
+一、隔夜全球要闻
+二、隔夜市场
+三、今日观察
+四、我的持仓（仅异常时出现）
+```
+
+The global-news section should favor roughly 10–18 high-value events, factual summaries, cross-source consolidation, and evidence traceability. “今日观察” is limited to at most three variables to keep watching, not a market forecast. “我的持仓” is conditional and must not expose cost, position size, profit/loss, or trading advice. v0.6.1 defines this contract and the minimal feed/candidate wiring; it does not generate `overnight_brief.md`, delete daily or market brief outputs, or switch production behavior.
+
+## Language Boundary
+
+The input pool may contain multiple languages, while all reader-facing Curator text is Simplified Chinese.
+
+- A feed may declare an optional top-level `language` value: `zh-CN`, `en`, or `und`.
+- Missing, blank, or unsupported feed language normalizes to `und`; no automatic language-detection dependency or entry-level language framework is introduced.
+- `CandidateArticle.language` is the source-language snapshot copied from the feed metadata.
+- `CuratorRequest.target_language` is the requested reader-facing language and is fixed by the product contract to `zh-CN`.
+- Source language is metadata only: it does not enter `stable_article_id()`, canonical URL, deduplication identity, or the legacy keyword gate.
+
+Phase 1 documents this contract. Phase 2 implements feed normalization and candidate propagation while remaining backward compatible with configurations that omit `language`.
+
 ## Pipeline Boundary
 
 The curator candidate boundary sits before the legacy keyword gate:
 
 ```text
 RSS entry
--> field extraction and normalization
+-> field extraction and normalization, including optional feed language
 -> time window filtering
 -> exact candidate deduplication
 -> CandidateArticle pool
    -> legacy pipeline: keyword matching -> NewsItem -> existing digest / market_brief
-   -> shadow pipeline: CandidateArticle -> CuratorRequest -> fixture CuratorResponse
+   -> shadow pipeline: CandidateArticle.language -> CuratorRequest.target_language -> fixture CuratorResponse
 ```
 
 This keeps the legacy rule output stable while allowing the future curator to see major RSS items that do not match current keywords.
@@ -47,11 +74,34 @@ The Global Event Curator only selects globally important events from RSS candida
 
 Market explanation and holdings interpretation belong to a later Market Impact Interpreter stage.
 
+## Curator Responsibility Boundary
+
+The Curator is an editorial layer for the candidate news pool. It is responsible for:
+
+- candidate news selection
+- duplicate-event aggregation
+- importance ordering
+- multilingual understanding
+- Simplified Chinese titles and summaries
+- source traceability
+- rejection of low-value candidates
+
+It is not responsible for:
+
+- fetching or calculating market data
+- calculating holding returns
+- investment advice or target prices
+- predicting market direction
+- inferring missing facts
+- procedural time or numeric calculations
+
+Reader-facing Curator text must be grounded in candidate evidence, use Simplified Chinese, avoid trading advice, and preserve evidence article ids.
+
 ## Data Contract
 
-`CandidateArticle` includes stable article metadata such as `article_id`, title, summary, source, feed role, timestamps, link, normalized link, report date, and collection time.
+`CandidateArticle` includes stable article metadata such as `article_id`, title, summary, source, feed role, source-language snapshot in `language`, timestamps, link, normalized link, report date, and collection time. The language snapshot is not part of article identity.
 
-`CuratorRequest` includes schema version, report date, window start/end, target language, selection goal, max events, and articles.
+`CuratorRequest` includes schema version, report date, window start/end, `target_language` fixed to `zh-CN`, selection goal, max events, and articles.
 
 `CuratorResponse` includes curated events, rejected article ids, and warnings. Events use controlled enums for importance, novelty, confidence, and category.
 
@@ -95,7 +145,7 @@ The manual entry is:
 python3 scripts/run_ai_curator_shadow.py --fixture-response path/to/response.json
 ```
 
-It writes preview, request, and trace files under `output/ai-curator-shadow/` by default. Those generated files are local artifacts and should not be committed.
+It writes preview, request, and trace files under the canonical `runs/ai-curator-shadow/` data directory by default. Those generated files are local artifacts and should not be committed.
 
 For fully offline validation, provide a local candidate fixture:
 
@@ -108,6 +158,14 @@ python3 scripts/run_ai_curator_shadow.py \
 
 When `--candidate-fixture` is present, the shadow CLI loads candidates from that file and does not load `feeds.json` or call RSS collection.
 
-## Next Step
+## Version Route and Next Step
 
-The next v0.6 step is a real provider behind the `CuratorProvider` interface, run in shadow mode against the same request schema and compared against legacy trace output before any production behavior changes.
+The formal route is:
+
+```text
+v0.6.1 — Product Reset + Language Boundary
+v0.6.2 — AI Curator Shadow Evaluation
+v0.7 — Unified Overnight Brief
+```
+
+v0.6.1 Phase 1 documentation and Phase 2 feed-language normalization / candidate contract wiring are complete. Real-provider shadow evaluation belongs to v0.6.2, must use the same `CuratorProvider` / `CuratorRequest` / `CuratorResponse` contracts, and must not replace daily digest, `market_brief`, or production automation.

@@ -3,36 +3,42 @@
     "name": "财经快讯",
     "url": "https://example.com/breaking-news.rss",
     "mode": "all",
-    "role": "breaking_news"
+    "role": "breaking_news",
+    "language": "und"
   },
   {
     "name": "市场源",
     "url": "https://example.com/market.rss",
     "mode": "all",
-    "role": "market"
+    "role": "market",
+    "language": "und"
   },
   {
     "name": "科技产业",
     "url": "https://example.com/tech-industry.rss",
     "mode": "keyword",
-    "role": "tech_industry"
+    "role": "tech_industry",
+    "language": "und"
   },
   {
     "name": "全球科技商业",
     "url": "https://example.com/global-tech-business.rss",
     "mode": "keyword",
-    "role": "global_tech_business"
+    "role": "global_tech_business",
+    "language": "und"
   },
   {
     "name": "AI产业",
     "url": "https://example.com/ai-industry.rss",
     "mode": "keyword",
-    "role": "ai_industry"
+    "role": "ai_industry",
+    "language": "und"
   },
   {
     "name": "GitHub Trending Python Daily",
     "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml",
     "mode": "keyword",
-    "role": "ai_tools"
+    "role": "ai_tools",
+    "language": "en"
   }
 ]

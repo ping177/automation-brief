@@ -2,6 +2,18 @@
 
 本文记录 automation-brief 的后续任务和优先级。这里只描述未来方向，不替代 `docs/PROJECT_STATE.md` 的当前状态，也不记录 Git 快照。
 
+## Numeric version route
+
+新的正式 machine version token 统一使用 numeric 形式：
+
+```text
+v0.6.1 — Product Reset + Language Boundary
+v0.6.2 — AI Curator Shadow Evaluation
+v0.7 — Unified Overnight Brief
+```
+
+历史条目中的既有 `-alpha` / `-beta` token 是 legacy 事实，保留原样，不回写历史。
+
 ## P0 / Next
 
 当前无已知 P0 阻塞。
@@ -14,14 +26,24 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 迁移前的 `output/`、仓库根 `daily-news.log` 和 `config/holdings.json` 保留且不再是默认来源。不要在本任务之外删除、覆盖或暂存这些 legacy 文件。
 - 单独观察一段时间后，评估 legacy 文件清理、下游引用确认和审计 worktree 清理；清理必须是另一个明确任务，并先完成可回滚性检查。
 
-### v0.6.0-alpha AI Curator shadow comparison
+### v0.6.1 Product Reset + Language Boundary
+
+- Phase 1（本轮已完成）落地 Overnight Brief 产品合同、未来统一输出结构、多语言输入 / 简体中文 reader-facing 输出边界、AI Curator 职责边界和 legacy / candidate 隔离合同；不修改业务代码、feed 配置、测试或生产入口。
+- Phase 2（本轮已完成）实现可选顶层 feed `language` metadata：正式语义为 `zh-CN`、`en`、`und`，缺失、空值或非法值归一化为 `und`；旧配置继续可加载。
+- v0.6.1 已正式完成；下一阶段是 v0.6.2 AI Curator Shadow Evaluation，仍只做 real-provider shadow evaluation，不替换生产输出。
+- candidate path 读取 `language` 并写入现有 `CandidateArticle.language`；`CuratorRequest.target_language` 固定为 `zh-CN`。语言不进入 `stable_article_id()`、canonical URL、dedup identity 或 legacy keyword gate。
+- 当前 16 个 active feed 全部保持启用，不删除、不改变 `mode` / `role`、不新增 `priority`，也不实现 `candidate_only` 配置。英文来源不因语言被删除。
+- `keep`、`keep_but_lower_priority`、`candidate_only`、`needs_review` 仅作为未来 source policy 的设计建议，不是本版本 runtime config；当前没有真实 feed health / 重复率验证，因此不改变运行行为。
+- v0.6.1 不接真实 AI provider、不切换 daily digest 或 `market_brief` 生产输出、不正式生成 `overnight_brief.md`，不删除 legacy runtime data，也不修改 launchd / pmset / Bark / Obsidian 路径。
+
+### v0.6.0-alpha AI Curator shadow foundation — retained constraints
 
 - 使用 `scripts/run_ai_curator_shadow.py --candidate-fixture ... --fixture-response ...` 进行完全离线 shadow preview，不接 Bark / Obsidian / launchd / pmset；真实 RSS shadow 路径仍只能手动显式运行。
 - 继续确认 `CuratorRequest` 只包含关键词前 RSS 候选池，不包含 holdings、matched keywords、legacy score、legacy category、行情或持仓涨跌。
 - 用 candidate trace 区分 source miss、selection miss、classification miss 和 deduplication miss。
-- 下一步真实 provider 仍必须先走 shadow comparison，不替换普通 daily digest 或显式 `market_brief`。
+- 真实 provider 的 shadow evaluation 顺延至 v0.6.2，必须先复用现有 contract 和 trace，不替换普通 daily digest 或显式 `market_brief`。
 
-### v0.5-beta real A-share market data continuing verification
+### Legacy v0.5-beta market data verification（不属于 v0.6.1）
 
 - 用显式 `market_brief` 样例验证轻量公开行情源是否稳定返回主要指数和 holdings 个股涨跌。
 - 检查成交额字段口径是否稳定；在口径确认前必须显示“数据暂不可用”，不能硬凑。
@@ -41,7 +63,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 若再次出现延迟，优先查看 launchd stdout/stderr、`daily-news.log`、`pmset -g log` 和输出文件时间。
 - 不优先通过单纯提前 `pmset` 唤醒时间解决运行中睡眠问题。
 
-### 市场投研晨报方向
+### Legacy `market_brief` 能力（保留、不扩展）
 
 - v0.5-alpha 已完成最小骨架：显式 `market_brief` report type、稳定 Markdown section、可配置 holdings 读取、离线 sample 数据和 smoke test。
 - v0.5.1-alpha 已补齐 holdings 本地配置体验：初始化本地 `config/holdings.json`、字段校验、敏感字段 warning 和手动 market brief 生成入口。
@@ -54,7 +76,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - v0.5-beta.3 已完成新闻事件排序和合并 polish：政策监管新闻优先级提高，同主题证监会再融资 / 定增政策合并展示，IPO / 融资分类更严格，holdings 相关新闻区分明确相关新闻 / 弱相关变量，风险与反证优先覆盖政策监管变量。
 - v0.5-beta.3.1 已完成真实样例 hotfix：A 股再融资 / 定增制度变量继续提权，泛“监管”分类收紧，观察理由关键词去重，今日主线增加 `relevance >= 70` 渲染阈值，券商业绩预告排序提高，风险与反证明确覆盖再融资和定增储架发行变量。
 - v0.5-beta.5 已完成重要新闻相关度和分类 polish：重要新闻增加同源与融资类型限额，融资/财报按标题主动作处理，投资机构名册 / 榜单降权，政府监管统计优先归政策监管，算力/数据中心电力需要直接证据，风险与今日继续观察优先使用市场和持仓异常。
-- 明确早报的投研定位：先服务每日宏观、市场信号、AI 商业化、支付基础设施、全球科技商业和持仓相关观察。
+- 以上 v0.5 系列条目是已完成的显式 `market_brief` 历史能力；它继续作为独立、手动或显式触发的旧入口保留，不代表 Overnight Brief 的最终产品定位，也不在 v0.6.1 中继续优化。
 - 保持规则输出克制，不把普通科技动态、泛访谈、benchmark 争议和活动宣传误升格为市场信号。
 - 持仓观察必须来自 canonical `manual-inputs/holdings.json` 或仓库示例文件，不能把具体持仓硬编码进业务代码。
 
@@ -71,7 +93,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 
 ## P2
 
-### AI Curator provider 接入评估
+### v0.6.2 AI Curator Shadow Evaluation
 
 - v0.6.0-alpha 已完成 shadow foundation。后续真实 provider 必须实现 `CuratorProvider` 接口，并复用同一 `CuratorRequest` / `CuratorResponse` contract。
 - Global Event Curator 只做全球重大事件选择，不接 holdings、行情、legacy score、legacy category 或 matched keywords。

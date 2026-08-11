@@ -8,15 +8,15 @@
 
 ## Current version
 
-v0.6.0-alpha AI Curator shadow foundation, based on `docs/DEVLOG.md`.
+v0.6.1 Product Reset + Language Boundary.
 
 ## Current status
 
-项目已打通本地定时生成、Obsidian 同步和 Bark 推送链路。当前产品定位收敛为个人隔夜全球要闻晨报（Overnight Brief），普通 daily digest、显式 `market_brief` 和现有自动化链路保持不变。v0.6.0-alpha 已完成 AI Curator shadow foundation，基础设施与 canonical runtime data governance 已稳定；当前准备进入 v0.6.1-alpha Product Reset + Language Boundary，尚未开始真实 AI provider 接入，也不切换生产输出。
+v0.6.1 Product Reset + Language Boundary 已完成。产品定位为个人隔夜全球要闻晨报（Overnight Brief）；feed language metadata / normalization 已落地，`CandidateArticle.language` 已接通 source-language metadata，`CuratorRequest.target_language` 固定为 `zh-CN`。article identity 与 legacy production behavior 保持不变；尚未接真实 AI provider，daily digest / `market_brief` 生产输出未切换。
 
 ## Latest completed
 
-v0.6.0-alpha 已完成 AI Curator shadow foundation：新增关键词前 `CandidateArticle` pool，legacy pipeline 继续按原关键词 gate 和链接要求生成 `NewsItem`；新增 `CuratorRequest` / `CuratorResponse` contract、fixture provider、严格 validator、candidate trace、shadow preview renderer、`--candidate-fixture` 完全离线路径和显式 `scripts/run_ai_curator_shadow.py`。无链接 RSS 条目可进入 shadow pool，重复 evidence id 已作为 contract violation；legacy 新闻判断规则冻结为 fallback，不继续扩张 `_score_article` 或 digest 分类补丁。另已完成 canonical runtime data root 迁移与只读复核：68 份报告、1 份日志和 1 份 holdings 共 70 个文件完成字节数、SHA-256、UTF-8 校验；legacy shadow 源不存在，canonical shadow 目录按路径契约创建为空；`.DS_Store` 未迁移。
+v0.6.1 — Product Reset + Language Boundary：完成 Overnight Brief 产品与语言合同、16 个 active feed metadata、language normalization、candidate wiring、`target_language = zh-CN` boundary，以及 article identity / legacy isolation 回归。未接真实 provider，未切换生产输出。
 
 ## Deployment
 
@@ -48,14 +48,15 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.5-beta.4 — 普通日报阅读体验 polish
 - v0.5-beta.5 — 重要新闻相关度与分类 polish
 - v0.6.0-alpha — AI Curator shadow foundation
+- v0.6.1 — Product Reset + Language Boundary
 
 ## Last verified
 
-2026-08-08
+2026-08-12
 
 ## Next Action
 
-开始 v0.6.1-alpha Product Reset + Language Boundary：先冻结 Overnight Brief 产品合同、多语言输入/简体中文输出边界、feed language metadata，以及 legacy / candidate path 隔离；不接真实 AI provider，不切换生产输出。
+开始 v0.6.2 — AI Curator Shadow Evaluation：接入真实 AI Provider，但仅用于 shadow evaluation；与 legacy 结果并行比较重要事件覆盖、噪声过滤、事件聚合和简体中文阅读质量，不替换当前生产晨报。
 
 ## Blockers
 
@@ -64,7 +65,7 @@ Notes: 暂无人工维护的公网部署信息。
 ## Important Context
 
 - Git branch、latest commit、working tree 由 project-command-center 实时 Git 扫描读取；PROJECT_STATE.md 不作为这些字段的权威来源。
-- README states the current version does not call DeepSeek, Tavily, or any paid search API.
+- README states the current v0.6.1 release does not call DeepSeek、Tavily 或任何真实 AI provider / paid search API。
 - v0.3.5 verified the Mac sleep -> pmset wake -> launchd -> digest -> Obsidian iCloud -> Bark -> iPhone Obsidian loop.
 - v0.4.1 expanded source roles for `global_tech_business`, `ai_industry`, and `ai_tools`.
 - v0.4.1.2 addressed delayed morning reports caused by the Mac sleeping during task execution.
@@ -86,8 +87,11 @@ Notes: 暂无人工维护的公网部署信息。
 - `market_brief` now uses RSS news plus a lightweight A-share quote snapshot when explicitly generated. It still does not calculate complex strategy, sector strength, or trading actions.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
 - Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.
+- v0.6.1 产品与语言合同已完成：输入可为 `zh-CN` / `en` / `und`，最终 Curator 输出为 `zh-CN`；语言不进入 article identity，也不进入 legacy path。
+- v0.6.1 已为 `feeds.json` / `feeds.example.json` 增加可选 language metadata；旧配置缺失、空或非法 language 时归一化为 `und`，所有 16 个 active feed 的 name / url / mode / role / 顺序保持不变。
+- v0.6.2 尚未开始；下一步仅评估真实 AI provider 的 shadow evaluation，不替换当前生产晨报。
 - `.env` is used for local Bark / Obsidian configuration and must not be copied into project docs.
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.6.0-alpha with the product positioning as a personal overnight global news brief (Overnight Brief), preserving the normal daily digest automation and explicit/manual market_brief behavior. The next task is v0.6.1-alpha Product Reset + Language Boundary: freeze the Overnight Brief product contract, multilingual input / Simplified Chinese output boundary, feed language metadata, and legacy / candidate path isolation. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Keep the existing AI Curator shadow foundation available for later evaluation: candidates are collected before the legacy keyword gate, linkless RSS entries may enter the shadow pool only with stable fallback ids, `CuratorRequest` excludes holdings, matched keywords, legacy scores/categories, and market data, and fixture responses must pass strict validation. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect real AI providers, AI summaries, new data sources, production automation, or trading recommendations, and do not delete retained legacy files or the audit worktree without a separate follow-up.
+Continue automation-brief from v0.6.1 — Product Reset + Language Boundary. The product is a personal overnight global news brief (Overnight Brief); preserve the normal daily digest automation and explicit/manual `market_brief` behavior. The next task is v0.6.2 — AI Curator Shadow Evaluation: connect a real AI provider only for shadow evaluation, compare it in parallel with legacy results for event coverage, noise filtering, event aggregation, and Simplified Chinese reading quality, and do not replace the current production brief. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect provider output to production automation or make trading recommendations.

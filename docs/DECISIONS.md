@@ -2,6 +2,39 @@
 
 本文记录 automation-brief 的长期产品、架构和工作流决策。只记录相对稳定的判断；短期任务放在 `docs/BACKLOG.md`，过程记录放在 `docs/DEVLOG.md`。
 
+## Overnight Brief 产品合同
+
+### 个人隔夜全球要闻晨报定位
+
+- 决策：automation-brief 的最终产品定位是个人隔夜全球要闻晨报（Overnight Brief）。目标是让读者每天早上约 5 分钟了解昨晚世界发生了什么、全球市场发生了什么、今天哪些变量值得继续关注。
+- 不定位为 AI 投研助手、A 股机会发现系统、股票推荐工具、新闻到股票机会映射器或每日投资观点生成器。
+- 未来统一结构为“隔夜全球要闻 / 隔夜市场 / 今日观察 / 我的持仓（仅异常时出现）”。“今日观察”最多 3 条，不是市场预测；“我的持仓”不得输出成本、仓位、盈亏或买卖建议。
+- 影响：v0.6.1 冻结产品与语言合同并完成最小 candidate wiring，不正式生成 `overnight_brief.md`，不删除 daily digest 或 `market_brief`，不切换生产输出。
+
+### Numeric version route
+
+- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation、`v0.7` Unified Overnight Brief。
+- 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token。
+
+### 多语言输入与简体中文输出
+
+- 决策：RSS 输入允许多语言，最终 reader-facing Curator 文本统一使用简体中文。
+- feed 对象可有可选顶层 `language`：`zh-CN` 表示简体中文，`en` 表示英文，`und` 表示未知或未声明；缺失、空值或非法值归一化为 `und`。
+- `CandidateArticle.language` 表示 source language snapshot；`CuratorRequest.target_language` 表示最终读者语言，产品合同固定为 `zh-CN`。不新增重复的 `source_language` 或 `output_language` 字段。
+- 语言只属于候选元数据，不进入 `stable_article_id()`、canonical URL、dedup identity，也不改变 legacy keyword gate。
+
+### Legacy / Candidate 隔离
+
+- 决策：RSS 先进入共享的字段标准化、时间窗口和去重边界，再分流为 legacy pipeline 与 candidate pipeline。
+- 语言 metadata 只沿 `feed -> normalize -> CandidateArticle.language -> CuratorRequest` 传播，不进入 `NewsItem`、legacy keyword gate、legacy sorting、daily digest Markdown、`market_news.py` 或 market brief renderer。
+- 影响：v0.6.1 及后续 candidate contract 改动必须以 legacy production behavior unchanged 为回归硬要求。
+
+### AI Curator 职责边界
+
+- 决策：Curator 只负责候选新闻筛选、重复事件聚合、重要性排序、多语言理解、简体中文标题与摘要、来源追踪和低价值候选拒绝。
+- Curator 不负责行情获取或计算、持仓收益计算、投资建议、目标价、市场方向预测、缺失事实推断或程序性的时间 / 数值计算。
+- 所有 reader-facing Curator 文本必须基于 evidence、使用简体中文、不生成交易建议，并保留 evidence article id 可追溯性。
+
 ## 输出与使用入口
 
 ### 每日 08:00 生成早间回顾
@@ -10,9 +43,9 @@
 - 理由：早上阅读场景稳定，适合在用户开始一天前完成 RSS 抓取、简报生成、Obsidian 同步和 Bark 推送。
 - 影响：`launchd` 定时任务保持 08:00；`pmset` 自动唤醒用于提前唤醒 Mac，但不替代运行期间的防睡眠保护。
 
-### 使用简体中文输出
+### Reader-facing 使用简体中文输出
 
-- 决策：日报面向个人阅读，默认使用简体中文组织标题、栏目和说明。
+- 决策：面向个人阅读的日报和未来 Curator 输出默认使用简体中文组织标题、栏目和说明。
 - 理由：减少早晨扫读成本，并保持中文财经、科技和全球新闻在同一阅读语境中。
 - 影响：即使 RSS 原文为英文，栏目和 reason 仍应尽量使用简体中文表达。
 
@@ -65,9 +98,9 @@
 - 理由：规则版成本低、稳定、可解释，适合本地自动化先跑通。
 - 影响：重要性判断通过 source role、关键词、section 规则、去重和 missed case 回归持续改进。
 
-### 后续可加入轻量 AI 筛选
+### v0.6.2 再评估 AI shadow provider
 
-- 决策：未来可以评估 RSS 候选新闻 + AI rerank 的轻量架构，但不做全网 AI 生成晨报。
+- 决策：v0.6.2 才评估真实 AI provider 的 shadow evaluation，复用 `CuratorProvider`、`CuratorRequest`、`CuratorResponse` 和 candidate trace；不做全网 AI 生成晨报。
 - 理由：v0.4.1 扩源后，规则对重要性和重复内容的判断成本上升，AI 可作为候选新闻排序和解释辅助。
 - 影响：AI 只能基于已有 RSS 字段和来源链接判断，不编造事实；AI 不可用时必须 fallback 到规则版日报。
 
@@ -77,10 +110,10 @@
 - 理由：工具、仓库和项目热度更适合低频观察，直接进入每日早报容易稀释宏观、市场和商业化信号。
 - 影响：`ai_tools` 默认排除 daily digest，可作为未来 weekly AI tools radar 的来源。
 
-### 市场投研观察对象必须可配置
+### 市场和持仓观察对象必须可配置
 
 - 决策：持仓、关注公司、行业和资产观察对象应从可编辑配置读取，不能硬编码到业务逻辑。
-- 理由：投研关注对象会变化，硬编码会让个人持仓和观察范围难以维护，也增加误提交敏感信息的风险。
+- 理由：市场和持仓观察对象会变化，硬编码会让个人观察范围难以维护，也增加误提交敏感信息的风险。
 - 影响：未来新增持仓观察或 watchlist 时，应设计独立配置或使用现有配置扩展，并避免在代码中写死具体持仓。
 
 ## 文档分工

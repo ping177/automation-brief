@@ -1,11 +1,56 @@
-# Daily News Automation
+# Overnight Brief / Daily News Automation
 
-一个低成本的每日资讯自动化工具：从 `feeds.json` 配置的 RSS 源抓取文章，根据 `keywords.json` 中的关键词分类过滤，去重后生成 Markdown 简报。
+automation-brief 是一个低成本的个人隔夜全球要闻晨报（Overnight Brief）：从 `feeds.json` 配置的 RSS 源抓取多语言文章，根据既有规则和后续 AI Curator 合同整理成适合早晨约 5 分钟扫读的 Markdown 简报。
 
-v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 新增 `market_brief` 市场投研晨报骨架，用离线 mock/sample 数据和可配置 holdings 文件生成“每日市场雷达 + 持仓观察 + 主线发现 + 风险提醒”的基础 Markdown 结构。v0.5.1-alpha 完善 holdings 本地初始化、校验和手动生成体验。v0.5.2-alpha 让显式 `market_brief` 复用 RSS 候选新闻做新闻驱动观察和 holdings 相关新闻匹配。v0.5-beta 第一阶段为显式 `market_brief` 增加轻量 A 股行情验证。v0.5-beta.4 优化普通 daily digest 的新闻条目可读性。当前版本仍不调用 AI。
+v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Overnight Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；当前仍不调用真实 AI provider。
 
-当前版本不接 DeepSeek，不接 Tavily，也不依赖任何付费搜索 API。
-`market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策。
+当前版本为 `v0.6.1 — Product Reset + Language Boundary`。v0.6.0-alpha 的 AI Curator shadow foundation 作为基础能力保留；当前仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。
+显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
+
+## 当前产品合同
+
+产品定位是个人隔夜全球要闻晨报（Overnight Brief），目标是让读者每天早上约 5 分钟内了解：
+
+1. 昨晚世界发生了什么；
+2. 全球市场发生了什么；
+3. 今天哪些变量值得继续关注。
+
+它不是 AI 投研助手、A 股机会发现系统、股票推荐工具、新闻到股票机会映射器或每日投资观点生成器。
+
+未来统一输出结构为：
+
+```text
+一、隔夜全球要闻
+二、隔夜市场
+三、今日观察
+四、我的持仓（仅异常时出现）
+```
+
+其中“隔夜全球要闻”约保留 10–18 个高价值事件，事实优先、跨来源聚合、不机械按发布时间排序；“今日观察”最多 3 条，只描述需要继续关注的变量，不做市场预测；“我的持仓”仅在出现明显异常时展示，不输出成本、仓位、盈亏或买卖建议。隔夜市场继续复用现有可靠 market data 能力，有数据才写，缺失不推测。
+
+v0.6.1 已完成产品与语言合同文档，以及 feed language normalization / candidate wiring；它不正式生成 `overnight_brief.md`，不删除 daily digest 或 market brief，也不切换生产输出。
+
+## 版本路线与语言边界
+
+新的正式 machine version token 使用 numeric 形式：
+
+```text
+v0.6.1 — Product Reset + Language Boundary
+v0.6.2 — AI Curator Shadow Evaluation
+v0.7 — Unified Overnight Brief
+```
+
+历史文档中的既有 legacy version token 保持原样，不回写历史。输入可以是多语言 RSS，最终 reader-facing 输出统一为简体中文：
+
+- `zh-CN`：简体中文来源；
+- `en`：英文来源；
+- `und`：未知或未声明；
+- feed 缺失、空或非法 `language` 时，runtime normalization 统一为 `und`；
+- `CandidateArticle.language` 是 source language snapshot；
+- `CuratorRequest.target_language` 是最终读者语言，产品合同固定为 `zh-CN`；
+- `language` 不进入 `stable_article_id()`、canonical URL、dedup identity 或 legacy keyword gate。
+
+v0.6.1 Phase 1 固定上述合同，Phase 2 已实现 feed metadata normalization 和 candidate wiring；下一阶段是 v0.6.2 的 shadow-only AI Curator evaluation。
 
 ## 项目文档
 
@@ -57,7 +102,7 @@ Tag 不做 remote tree 分类：轻量或 annotated tag 必须最终指向带一
 - 支持 RSS 源按 `mode` 控制收录方式：`keyword` 需要命中关键词，`all` 在时间范围内直接收录
 - 支持 RSS 源按 `role` 控制 digest 分流：快讯、市场、科技产业、全球科技商业、AI 产业、AI 工具和通用源分开处理
 - 同一链接只保留一次
-- 支持三种输出模式：`list` 分类新闻列表，`digest` 早间回顾简报，`market_brief` 市场投研晨报骨架
+- 支持三种输出模式：`list` 分类新闻列表，`digest` 早间回顾简报，`market_brief` 显式独立市场简报骨架
 - 支持每个分类、每个 RSS 源的输出数量控制
 - 支持摘要长度截断
 - 支持按配置控制分类输出顺序
@@ -123,7 +168,7 @@ AI 和科技产业词也不再单独触发“昨日市场信号”。标题或�
 
 “一句话主线”采用保守策略，只根据前三个主栏目实际展示的新闻判断，不读取“快速扫读”或未展示关键词。除非前三个主栏目中至少有多条新闻指向同一主题，否则使用克制兜底，避免硬凑“科技成长方向”“政策预期发酵”或“新能源、电力设备、风电”等行业主线。
 
-`market_brief` 模式是显式触发的市场投研晨报，不改变每日自动运行的默认 digest 链路。输出文件为：
+`market_brief` 模式是显式触发的独立市场简报，不改变每日自动运行的默认 digest 链路。它保留现有市场数据与持仓观察能力，但不是 Overnight Brief 的最终统一输出。输出文件为：
 
 ```text
 ~/Projects/_project-data/automation-brief/reports/market-brief-YYYY-MM-DD.md
@@ -237,7 +282,7 @@ python main.py
 python main.py --feeds feeds.json --keywords keywords.json --config config.json --output /tmp/automation-brief-report --date 2026-06-11
 ```
 
-如需手动生成 v0.5-beta 市场投研晨报，先确认 holdings 配置有效：
+如需手动生成显式 `market_brief` 市场简报，先确认 holdings 配置有效：
 
 ```bash
 python3 scripts/validate_holdings_config.py
@@ -297,9 +342,12 @@ python3 check_feeds.py
   "url": "https://example.com/feed.xml",
   "category": "可选分类",
   "mode": "keyword",
-  "role": "general"
+  "role": "general",
+  "language": "und"
 }
 ```
+
+`language` 是 v0.6.1 冻结的可选顶层 feed metadata。正式语义为 `zh-CN`、`en` 或 `und`；字段缺失、为空或非法时归一化为 `und`。Phase 2 已让 candidate path 读取并传递 source language；legacy runtime 不因该字段改变行为。
 
 字段选择建议：
 

@@ -12,6 +12,7 @@ from typing import Any, Protocol
 SCHEMA_VERSION = "ai_curator_shadow_v1"
 TARGET_LANGUAGE = "zh-CN"
 SELECTION_GOAL = "global_major_events"
+LANGUAGE_VALUES = frozenset({"zh-CN", "en", "und"})
 
 IMPORTANCE_VALUES = frozenset({"must_know", "important", "background"})
 NOVELTY_VALUES = frozenset(
@@ -49,6 +50,12 @@ class CuratorContractError(ValueError):
     pass
 
 
+def normalize_language(value: Any) -> str:
+    normalized = str(value or "").strip().replace("_", "-").lower()
+    canonical = {"zh-cn": "zh-CN", "en": "en", "und": "und"}.get(normalized, "und")
+    return canonical if canonical in LANGUAGE_VALUES else "und"
+
+
 @dataclass(frozen=True)
 class CandidateArticle:
     article_id: str
@@ -64,8 +71,11 @@ class CandidateArticle:
     collected_at: datetime
     published: str = ""
     author: str = ""
-    language: str = ""
+    language: str = "und"
     legacy_match_text: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "language", normalize_language(self.language))
 
     def to_curator_dict(self) -> dict[str, Any]:
         return {
@@ -95,6 +105,12 @@ class CuratorRequest:
     target_language: str = TARGET_LANGUAGE
     selection_goal: str = SELECTION_GOAL
     max_events: int = 5
+
+    def __post_init__(self) -> None:
+        if self.target_language != TARGET_LANGUAGE:
+            raise CuratorContractError(
+                f"CuratorRequest target_language must be {TARGET_LANGUAGE}"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -260,7 +276,7 @@ def _candidate_from_fixture_article(
         report_date=fixture_report_date,
         collected_at=collected_at,
         author=str(raw_article.get("author", "")).strip(),
-        language=str(raw_article.get("language", "")).strip(),
+        language=normalize_language(raw_article.get("language")),
     )
 
 
@@ -349,6 +365,7 @@ def build_curator_request(
         window_start=window_start,
         window_end=window_end,
         articles=article_tuple,
+        target_language=TARGET_LANGUAGE,
         max_events=max_events,
     )
 

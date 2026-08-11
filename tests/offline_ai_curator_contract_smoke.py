@@ -23,7 +23,7 @@ from ai_curator import (  # noqa: E402
 )
 
 
-def candidate(article_id: str, title: str = "Major event") -> CandidateArticle:
+def candidate(article_id: str, title: str = "Major event", language: str = "und") -> CandidateArticle:
     published_at = datetime(2026, 7, 16, 8, 0, tzinfo=timezone.utc)
     return CandidateArticle(
         article_id=article_id,
@@ -37,12 +37,17 @@ def candidate(article_id: str, title: str = "Major event") -> CandidateArticle:
         normalized_link=f"https://example.com/{article_id}",
         report_date=date(2026, 7, 16),
         collected_at=published_at,
+        language=language,
     )
 
 
 def valid_request() -> CuratorRequest:
     return build_curator_request(
-        [candidate("article-a"), candidate("article-b", "Background item")],
+        [
+            candidate("article-a", language="zh-CN"),
+            candidate("article-b", "Background item", "en"),
+            candidate("article-c", "Undeclared source item", "und"),
+        ],
         report_date=date(2026, 7, 16),
         max_events=2,
     )
@@ -83,6 +88,24 @@ def expect_invalid(payload: dict[str, object], request: CuratorRequest) -> None:
 
 def main() -> None:
     request = valid_request()
+    assert request.target_language == "zh-CN"
+    serialized_articles = request.to_dict()["articles"]
+    assert [article["language"] for article in serialized_articles] == ["zh-CN", "en", "und"]
+
+    try:
+        CuratorRequest(
+            schema_version=request.schema_version,
+            report_date=request.report_date,
+            window_start=request.window_start,
+            window_end=request.window_end,
+            articles=request.articles,
+            target_language="en",
+        )
+    except CuratorContractError:
+        pass
+    else:
+        raise AssertionError("CuratorRequest must reject non-zh-CN target_language")
+
     response = validate_curator_response(valid_payload(), request)
     assert response.events[0].event_id == "event-a"
     assert response.rejected_article_ids[0].reject_reason == "low_significance"

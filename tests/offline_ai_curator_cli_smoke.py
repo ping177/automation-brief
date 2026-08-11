@@ -138,6 +138,8 @@ def main() -> None:
             assert forbidden not in request_text
         assert len(request_payload["articles"]) == 2
         assert any(article["link"] == "" for article in request_payload["articles"])
+        assert request_payload["target_language"] == "zh-CN"
+        assert all(article["language"] == "und" for article in request_payload["articles"])
 
         trace_payload = json.loads(trace_path.read_text(encoding="utf-8"))
         assert any(record["title"] == "Fixture linkless emergency policy statement" for record in trace_payload)

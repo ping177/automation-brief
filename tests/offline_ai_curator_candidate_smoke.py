@@ -84,6 +84,7 @@ def main() -> None:
         "url": "https://example.com/feed.xml",
         "mode": "keyword",
         "role": "global_tech_business",
+        "language": "en",
     }
     config = ReportConfig(report_type="digest", max_items_per_feed=10)
 
@@ -93,6 +94,9 @@ def main() -> None:
     try:
         main_module.parse_feed_with_retry = fixed_fake_parse_feed
         candidates, failures = collect_candidate_articles([feed], config, date.today())
+        chinese_candidates, _chinese_failures = collect_candidate_articles(
+            [{**feed, "language": "zh-CN"}], config, date.today()
+        )
         legacy_items, legacy_failures = collect_news(
             [feed],
             {"AI方向": ["OpenAI", "payment"]},
@@ -106,6 +110,8 @@ def main() -> None:
     assert failures == ()
     assert legacy_failures == []
     assert len(candidates) == 3
+    assert {item.language for item in candidates} == {"en"}
+    assert {item.language for item in chinese_candidates} == {"zh-CN"}
     assert any("ceasefire" in item.title for item in candidates)
     assert any("without link" in item.title for item in candidates)
     assert all("Old global event" not in item.title for item in candidates)
@@ -113,8 +119,12 @@ def main() -> None:
     assert len({item.article_id for item in candidates}) == len(candidates)
 
     id_by_key = {item.normalized_link or item.title: item.article_id for item in candidates}
+    chinese_id_by_key = {
+        item.normalized_link or item.title: item.article_id for item in chinese_candidates
+    }
     repeated_id_by_key = {item.normalized_link or item.title: item.article_id for item in repeated_candidates}
     assert id_by_key == repeated_id_by_key
+    assert id_by_key == chinese_id_by_key
     linkless = next(item for item in candidates if "without link" in item.title)
     assert linkless.link == ""
     assert linkless.normalized_link == ""
@@ -125,9 +135,12 @@ def main() -> None:
     assert len(legacy_items) == 1
     assert legacy_items[0].title == "OpenAI launches enterprise payment workflow"
     assert all("without link" not in item.title for item in legacy_items)
+    assert not hasattr(legacy_items[0], "language")
 
     request = build_curator_request(candidates, report_date=date.today(), max_events=3)
+    assert request.target_language == "zh-CN"
     article_payload = request.to_dict()["articles"][0]
+    assert article_payload["language"] == "en"
     forbidden_request_fields = {"matched_keywords", "legacy_score", "legacy_category", "holdings", "watch_tags"}
     assert not forbidden_request_fields.intersection(article_payload)
 

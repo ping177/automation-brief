@@ -4,111 +4,127 @@
     "url": "https://www.chinanews.com.cn/rss/importnews.xml",
     "category": "综合新闻",
     "mode": "all",
-    "role": "breaking_news"
+    "role": "breaking_news",
+    "language": "zh-CN"
   },
   {
     "name": "中国新闻网-时政新闻",
     "url": "https://www.chinanews.com.cn/rss/china.xml",
     "category": "时政新闻",
     "mode": "all",
-    "role": "breaking_news"
+    "role": "breaking_news",
+    "language": "zh-CN"
   },
   {
     "name": "中国新闻网-国际新闻",
     "url": "https://www.chinanews.com.cn/rss/world.xml",
     "category": "国际新闻",
     "mode": "all",
-    "role": "breaking_news"
+    "role": "breaking_news",
+    "language": "zh-CN"
   },
   {
     "name": "中国新闻网-财经新闻",
     "url": "https://www.chinanews.com.cn/rss/finance.xml",
     "category": "财经市场",
     "mode": "all",
-    "role": "market"
+    "role": "market",
+    "language": "zh-CN"
   },
   {
     "name": "新华网-时政频道",
     "url": "http://www.xinhuanet.com/politics/news_politics.xml",
     "category": "时政新闻",
     "mode": "all",
-    "role": "breaking_news"
+    "role": "breaking_news",
+    "language": "zh-CN"
   },
   {
     "name": "新华网-国际频道",
     "url": "http://www.xinhuanet.com/world/news_world.xml",
     "category": "国际新闻",
     "mode": "all",
-    "role": "breaking_news"
+    "role": "breaking_news",
+    "language": "zh-CN"
   },
   {
     "name": "新华网-财经频道",
     "url": "http://www.xinhuanet.com/fortune/news_fortune.xml",
     "category": "财经市场",
     "mode": "all",
-    "role": "market"
+    "role": "market",
+    "language": "zh-CN"
   },
   {
     "name": "新华网-金融频道",
     "url": "http://www.xinhuanet.com/finance/news_finance.xml",
     "category": "财经市场",
     "mode": "all",
-    "role": "market"
+    "role": "market",
+    "language": "zh-CN"
   },
   {
     "name": "新华网-科技频道",
     "url": "http://www.xinhuanet.com/tech/news_tech.xml",
     "category": "科技产业",
     "mode": "keyword",
-    "role": "tech_industry"
+    "role": "tech_industry",
+    "language": "zh-CN"
   },
   {
     "name": "Investing.com 中文财经",
     "url": "https://cn.investing.com/rss/news_25.rss",
     "category": "财经市场",
     "mode": "all",
-    "role": "market"
+    "role": "market",
+    "language": "zh-CN"
   },
   {
     "name": "36氪",
     "url": "https://36kr.com/feed",
     "category": "科技产业",
     "mode": "keyword",
-    "role": "tech_industry"
+    "role": "tech_industry",
+    "language": "zh-CN"
   },
   {
     "name": "OpenAI News",
     "url": "https://openai.com/news/rss.xml",
     "category": "AI产业",
     "mode": "all",
-    "role": "ai_industry"
+    "role": "ai_industry",
+    "language": "en"
   },
   {
     "name": "TechCrunch AI",
     "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
     "category": "AI产业",
     "mode": "keyword",
-    "role": "ai_industry"
+    "role": "ai_industry",
+    "language": "en"
   },
   {
     "name": "VentureBeat AI",
     "url": "https://feeds.feedburner.com/venturebeat/SZYF",
     "category": "AI产业",
     "mode": "keyword",
-    "role": "ai_industry"
+    "role": "ai_industry",
+    "language": "en"
   },
   {
     "name": "CNBC Technology",
     "url": "https://www.cnbc.com/id/19854910/device/rss/rss.html",
     "category": "全球科技商业",
     "mode": "keyword",
-    "role": "global_tech_business"
+    "role": "global_tech_business",
+    "language": "en"
   },
   {
     "name": "GitHub Trending Python Daily",
     "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/python.xml",
     "category": "AI工具",
     "mode": "all",
-    "role": "ai_tools"
+    "role": "ai_tools",
+    "language": "en"
   }
 ]

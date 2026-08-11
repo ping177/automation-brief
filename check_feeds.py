@@ -6,6 +6,8 @@ from typing import Any
 
 import feedparser
 
+from ai_curator import normalize_language
+
 
 BASE_DIR = Path(__file__).resolve().parent
 FEEDS_FILE = BASE_DIR / "feeds.json"
@@ -32,10 +34,20 @@ def normalize_feeds(raw_feeds: Any) -> list[dict[str, str]]:
         category = str(feed.get("category", "")).strip()
         mode = str(feed.get("mode", "keyword")).strip().lower() or "keyword"
         role = str(feed.get("role", "general")).strip().lower() or "general"
+        language = normalize_language(feed.get("language"))
         if not name or not url:
             raise ValueError(f"Feed #{index} must include non-empty name and url")
 
-        feeds.append({"name": name, "url": url, "category": category, "mode": mode, "role": role})
+        feeds.append(
+            {
+                "name": name,
+                "url": url,
+                "category": category,
+                "mode": mode,
+                "role": role,
+                "language": language,
+            }
+        )
     return feeds
 
 

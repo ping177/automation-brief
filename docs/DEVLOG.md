@@ -919,3 +919,23 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - fake provider exact valid response、`title` alias / missing `canonical_title` fail-closed、prompt contract、evidence boundary 和 target-language regressions 已覆盖。
 - 两候选 prompt-aligned baseline fixture 的 DeepSeek request body 为 `3944` bytes，仍低于既有 `4096` Phase 3B gate；`curator_request_bytes=1178`、transport calls 保持 `0`；未执行第三次真实 DeepSeek、RSS 或 holdings 读取，未写 canonical runtime data。
 - 整体 `v0.6.2 — AI Curator Shadow Evaluation` 仍未完成，Blockers 保持 `暂无明确阻塞。`。
+
+## 2026-08-12 v0.6.2 Phase 3B Real Provider Shadow Gate Closeout
+
+### Real-provider gate result
+
+- Fixture-only real-provider one-shot run `20260812T075832.935190Z-ffb3a259aaa6` 使用 DeepSeek `deepseek-v4-flash`，`attempts=1`、`candidate_count=2`、`status=succeeded`、`validation_status=passed`。
+- Exact measurements：`curator_request_bytes=1178`、`provider_request_body_bytes=3944`；AI event count 为 `1`，rejected article count 为 `1`，Legacy comparison 为 `not evaluated`。
+- 成功 shadow artifact 已生成 `run.json`、`request.json`、`response.json`、`trace.json` 和 `review.md`。本记录只保留安全 metadata，不记录 API key、Authorization header、raw HTTP envelope 或 raw provider response。
+
+### Human review observation
+
+- Provider / HTTP / JSON / `finish_reason` / `CuratorResponse` validation / content policy / artifact persistence 全链路通过；canonical title、中文 summary、evidence mapping、reject 行为正常，未出现交易建议。
+- `why_important` 在事实 evidence 之上加入了更强的解释性推断，例如把协调流动性行动进一步解释为系统性压力或政策转向。该问题不阻塞 Phase 3B，但进入 Phase 4 人工 evaluation 维度：fact vs interpretation boundary、unsupported causal inference、unsupported market implication 和 uncertainty handling。
+- 当前不修改 validator、不增加关键词或 content scoring，也不建设复杂 fact-check framework。
+
+### 边界与结论
+
+- Phase 3B 技术 verdict 为 PASS；本次 gate 只使用 two-candidate fixture，未使用真实 RSS，未影响 production daily digest / `market_brief`，Bark、Obsidian、launchd 和 pmset 保持不变。
+- `max_candidate_count=2`、`max_provider_request_body_bytes=4096` 以及对应 request profile 仍只属于 Phase 3B fixture one-shot gate，不是 live RSS / Phase 4 / production limits。
+- 整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成；Next Action 进入 Phase 4 — Live RSS Shadow Evaluation，先重新测量并冻结 live limits，保持 shadow-only。Blockers 保持 `暂无明确阻塞。`。

@@ -85,6 +85,30 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/run_ai_curator_shadow.py \
 
 Phase 3B 离线回归至少锁住：恰好 2 个候选通过；超过 2 个候选 fail closed；body `<=4096` 通过、`>4096` fail closed；不自动截断 candidates/payload；dry-run transport calls 为 0 且不依赖 key；actual real path 缺 key 在 transport 前失败；unknown provider、retry count、`finish_reason == "stop"`、secret、atomic artifact 和 production isolation 回归保持通过。冻结配置仍为 `max_attempts=2`、`max_tokens=8192`、`timeout=90s`；这些仅适用于本次 fixture gate，不是 live RSS / production limits。
 
+## Phase 3B real-provider gate closeout
+
+已成功完成一次 fixture-only DeepSeek shadow gate，artifact 位于 canonical runtime data root 的 run `20260812T075832.935190Z-ffb3a259aaa6`。安全验收 metadata 为：
+
+- provider / model：`deepseek` / `deepseek-v4-flash`
+- `attempts=1`、`candidate_count=2`
+- `curator_request_bytes=1178`
+- `provider_request_body_bytes=3944`，满足 `3944 <= 4096`
+- `status=succeeded`、`validation_status=passed`
+- `ai_event_count=1`、`rejected_article_count=1`
+- Legacy comparison：`not evaluated`
+
+成功 artifact 集合为 `run.json`、`request.json`、`response.json`、`trace.json` 和 `review.md`。本次是 candidate fixture gate，不使用真实 RSS，不接入 production；记录和 review 不应包含 API key、Authorization header、raw HTTP envelope 或 raw provider response。
+
+人工 review 除了确认全链路、evidence mapping、reject 行为和交易建议边界通过，还要把 `why_important` 的 fact / interpretation boundary、unsupported causal inference、unsupported market implication 和 uncertainty handling 纳入 Phase 4 evaluation。该观察当前不触发 validator、关键词或 content scoring 修改。
+
+## Phase 4 boundary checklist
+
+Phase 4 — Live RSS Shadow Evaluation 只作为下一阶段边界记录，不属于本轮实现：
+
+- 使用真实 RSS candidate window + 真实 DeepSeek shadow，先重新测量并冻结 live candidate count、provider request body size 和 Phase 4 hard limits。
+- 保持 shadow-only；不切换 daily digest / `market_brief`，不接入 Bark、Obsidian、launchd 或 pmset，AI failure 不影响 production。
+- 不把 Phase 3B 的 `max_candidate_count=2` 或 `max_provider_request_body_bytes=4096` 直接当作 live RSS / production limits。
+
 ## Canonical runtime data migration verification
 
 路径迁移先运行全部离线 smoke，再复制真实数据。迁移记录只包含文件名、大小、SHA-256、UTF-8 和来源/目标元数据，不包含 holdings 内容、报告正文、secrets 或 provider payload。canonical 默认树为：

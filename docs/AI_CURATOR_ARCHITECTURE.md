@@ -1,10 +1,10 @@
 # AI Curator Architecture
 
-This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/language contract, the v0.6.2 Phase 2 provider/artifact foundation, the v0.6.2 Phase 3A DeepSeek preflight boundary, and the Phase 3B fixture one-shot safety gate. It is not a production AI integration.
+This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/language contract, the v0.6.2 Phase 2 provider/artifact foundation, the v0.6.2 Phase 3A DeepSeek preflight boundary, and the successful Phase 3B fixture-only real-provider gate. It is not a production AI integration.
 
 ## Scope
 
-v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator. v0.6.1 freezes the Overnight Brief product boundary, source-language metadata, Simplified Chinese reader output, and legacy/candidate isolation, then wires feed language into the candidate contract without changing production output behavior. v0.6.2 Phase 2 adds an explicit OpenAI-compatible adapter boundary and filesystem artifacts for offline shadow evaluation. v0.6.2 Phase 3A freezes one DeepSeek one-shot request profile and adds explicit real-provider opt-in plus a no-transport preflight. Phase 3B adds a fixture-only hard-limit gate shared by the explicit dry-run and real-provider paths; the offline preparation path itself remains non-networking, while real-provider attempts remain an explicit separate gate.
+v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator. v0.6.1 freezes the Overnight Brief product boundary, source-language metadata, Simplified Chinese reader output, and legacy/candidate isolation, then wires feed language into the candidate contract without changing production output behavior. v0.6.2 Phase 2 adds an explicit OpenAI-compatible adapter boundary and filesystem artifacts for offline shadow evaluation. v0.6.2 Phase 3A freezes one DeepSeek one-shot request profile and adds explicit real-provider opt-in plus a no-transport preflight. Phase 3B adds a fixture-only hard-limit gate shared by the explicit dry-run and real-provider paths; the offline preparation path itself remains non-networking, and the successful real-provider run remains an explicit fixture-only shadow gate.
 
 It does not:
 
@@ -238,6 +238,14 @@ python3 scripts/run_ai_curator_shadow.py \
 
 When `--candidate-fixture` is present, the shadow CLI loads candidates from that file and does not load `feeds.json` or call RSS collection.
 
+## Phase 3B Real-provider Shadow Result
+
+The fixture-only DeepSeek one-shot gate completed successfully in run `20260812T075832.935190Z-ffb3a259aaa6`. It used provider `deepseek`, model `deepseek-v4-flash`, exactly two candidates, one attempt, and passed the local `CuratorResponse` validation and content policy. Safe measurements were `curator_request_bytes=1178` and `provider_request_body_bytes=3944`, so the provider body remained within the Phase 3B `4096`-byte fixture limit. The run produced the normal successful artifact set: `run.json`, `request.json`, `response.json`, `trace.json`, and `review.md`; Legacy comparison was `not evaluated`.
+
+The run was fixture-only: it did not use the RSS collection path and did not connect Curator output to the daily digest, `market_brief`, Bark, Obsidian, launchd, or pmset. The Phase 3B `2 / 4096` limits remain one-shot fixture-gate limits and must be re-measured before any live RSS evaluation.
+
+Human review found the technical chain and evidence mapping acceptable, with no trading advice. It also identified a Phase 4 evaluation item: `why_important` may add stronger interpretation than the evidence supports. Phase 4 review must distinguish fact from interpretation and check unsupported causal inference, unsupported market implication, and uncertainty handling. This observation does not change the validator, domain schema, provider contract, or content policy in Phase 3B.
+
 ## Version Route and Next Step
 
 The formal route is:
@@ -248,4 +256,4 @@ v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Unified Overnight Brief
 ```
 
-v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, and Phase 3B completes the offline fixture safety preparation plus prompt contract alignment. The full evaluation phase remains incomplete: the explicit real-provider attempts reached local validation but did not produce a successful contract-valid response, no comparator exists, and no production path is changed. Any later provider evaluation must use the same `CuratorProvider` / `CuratorRequest` / `CuratorResponse` contracts and must not replace daily digest, `market_brief`, or production automation.
+v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, and Phase 3B completes the offline fixture safety preparation, prompt contract alignment, and successful fixture-only real-provider gate. The overall v0.6.2 evaluation remains incomplete. The next boundary is Phase 4 — Live RSS Shadow Evaluation: use a real RSS candidate window and real DeepSeek only as shadow, first re-measure and freeze live limits, and keep production paths unchanged. Any later provider evaluation must use the same `CuratorProvider` / `CuratorRequest` / `CuratorResponse` contracts and must not replace daily digest, `market_brief`, or production automation.

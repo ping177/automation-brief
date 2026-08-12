@@ -8,15 +8,15 @@
 
 ## Current version
 
-v0.6.2 — AI Curator Shadow Evaluation（Phase 3B offline safety preparation）
+v0.6.2 — AI Curator Shadow Evaluation（Phase 3B real-provider gate completed）
 
 ## Current status
 
-v0.6.2 Phase 3A 已完成 DeepSeek configuration、OpenAI-compatible response boundary 和 no-transport preflight；Phase 3B offline safety preparation 已完成 fixture one-shot hard-limit gate、离线回归、failed validator diagnostic repair 和 Prompt Contract Alignment。第二次 real-provider one-shot 已到达本地 validation，但因真实输出缺少 `events[].canonical_title` 失败；本轮只补强 system prompt 的 exact CuratorResponse contract，整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成。产品定位为个人隔夜全球要闻晨报（Overnight Brief）；feed language metadata / normalization 已落地，`CandidateArticle.language` 已接通 source-language metadata，`CuratorRequest.target_language` 固定为 `zh-CN`。本轮未再次调用真实 AI/RSS、未读取 holdings，article identity 与 legacy production behavior 保持不变，daily digest / `market_brief` 生产输出未切换。
+v0.6.2 Phase 3A 已完成 DeepSeek configuration、OpenAI-compatible response boundary 和 no-transport preflight；Phase 3B offline safety preparation、failed validator diagnostic repair、Prompt Contract Alignment 及 fixture-only real-provider one-shot gate 均已完成。成功 run `20260812T075832.935190Z-ffb3a259aaa6` 使用 DeepSeek `deepseek-v4-flash`，`attempts=1`、`candidate_count=2`、`validation_status=passed`、`status=succeeded`，技术 verdict 为 PASS。真实样例的人工 review 发现 `why_important` 可能在 evidence 之上加入更强的因果或政策解释，这只进入 Phase 4 evaluation，不阻塞 Phase 3B。整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成；本次 gate 为 fixture-only，未使用真实 RSS，未影响 production，daily digest / `market_brief` 生产输出未切换。
 
 ## Latest completed
 
-v0.6.2 Phase 3B offline safety preparation：显式 `--real-provider deepseek` 必须使用 `--candidate-fixture`，且 dry-run 与 actual path 共享 `max_candidate_count=2`、`max_provider_request_body_bytes=4096` gate；超限在 API key/HTTP transport 前 fail closed，不截断 candidates/payload，也不退回 feeds/RSS。prompt-aligned baseline fixture measurement 为 `candidate_count=2`、`curator_request_bytes=1178`、`provider_request_body_bytes=3944`，仍在 4096 gate 内，dry-run transport calls 保持 `0`。此外，validator/content-policy failure 保留 bounded rule/path diagnostic，仍不保存 raw provider response 或完整模型 payload。未执行第三次真实 provider，未切换生产输出。
+v0.6.2 Phase 3B real-provider one-shot gate 已成功完成：fixture-only run `20260812T075832.935190Z-ffb3a259aaa6` 使用 DeepSeek `deepseek-v4-flash`，`attempts=1`、`candidate_count=2`、`curator_request_bytes=1178`、`provider_request_body_bytes=3944`、`status=succeeded`、`validation_status=passed`、`ai_event_count=1`、`rejected_article_count=1`，Legacy comparison 为 `not evaluated`。成功 artifact 已生成 `run.json`、`request.json`、`response.json`、`trace.json` 和 `review.md`。`3944 <= 4096` 仍只证明 Phase 3B fixture gate 安全，不构成 live RSS / production limits。下一阶段需要人工评估 evidence 与解释边界，不在本轮修改 validator 或 content scoring。
 
 ## Deployment
 
@@ -49,7 +49,7 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.5-beta.5 — 重要新闻相关度与分类 polish
 - v0.6.0-alpha — AI Curator shadow foundation
 - v0.6.1 — Product Reset + Language Boundary
-- v0.6.2 — AI Curator Shadow Evaluation（进行中；Phase 3B offline safety preparation 已完成）
+- v0.6.2 — AI Curator Shadow Evaluation（进行中；Phase 3B real-provider gate 已完成）
 
 ## Last verified
 
@@ -57,7 +57,7 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Next Action
 
-等待用户明确执行下一次 Phase 3B fixture one-shot real-provider command；当前不调用真实 API/RSS/holdings，不进入下一次 one-shot execution，不替换当前生产晨报。
+Phase 4 — Live RSS Shadow Evaluation（下一阶段边界，当前不实施）：后续使用真实 RSS candidate window + 真实 DeepSeek shadow，重新测量并冻结 live candidate count、provider request body size 和 Phase 4 hard limits；保持 shadow-only，不切换 daily digest / `market_brief` 生产路径。
 
 ## Blockers
 
@@ -90,10 +90,12 @@ Notes: 暂无人工维护的公网部署信息。
 - Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.
 - v0.6.1 产品与语言合同已完成：输入可为 `zh-CN` / `en` / `und`，最终 Curator 输出为 `zh-CN`；语言不进入 article identity，也不进入 legacy path。
 - v0.6.1 已为 `feeds.json` / `feeds.example.json` 增加可选 language metadata；旧配置缺失、空或非法 language 时归一化为 `und`，所有 16 个 active feed 的 name / url / mode / role / 顺序保持不变。
-- v0.6.2 Phase 3A 已完成配置与 preflight boundary；Phase 3B 已完成 offline fixture gate preparation、失败诊断修复与 Prompt Contract Alignment；整体 shadow evaluation 尚未完成，第二次真实 provider 运行失败后未进行下一次质量评估或生产切换。
+- v0.6.2 Phase 3A 已完成配置与 preflight boundary；Phase 3B real-provider one-shot gate 已用 exactly 2-candidate fixture 成功完成，整体 shadow evaluation 尚未完成，也未进行 production 切换。
+- Phase 3B 成功样例的 Phase 4 evaluation item：检查 `why_important` 的 fact / interpretation boundary、unsupported causal inference、unsupported market implication 和 uncertainty handling；当前不修改 validator、关键词或 content scoring。
+- Phase 4 仍保持 shadow-only；Bark、Obsidian、launchd、pmset、daily digest 和 `market_brief` 生产行为不变，AI failure 不得影响 production。Phase 3B 的 `2 / 4096` fixture limits 不得直接复用为 live RSS / production limits。
 - Phase 3B fixture one-shot gate 仅由显式 `--real-provider deepseek` path 使用：`max_candidate_count=2`、`max_provider_request_body_bytes=4096`、`max_attempts=2`、`max_tokens=8192`、`timeout=90s`；这些不是 live RSS / production limits，也不是通用 provider 默认值。
 - `.env` is used for local Bark / Obsidian configuration and must not be copied into project docs.
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.6.2 Phase 3B offline safety preparation. The product is a personal overnight global news brief (Overnight Brief); preserve the normal daily digest automation and explicit/manual `market_brief` behavior. Phase 3A configuration, Phase 3B fixture gate/preflight measurements, safe failed-validator diagnostics, and exact CuratorResponse prompt alignment are complete, but the overall v0.6.2 shadow evaluation is not complete. The next explicit user action may run the next one-shot DeepSeek command against the existing two-candidate fixture; do not call real API/RSS/holdings or replace the current production brief during preparation. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect provider output to production automation or make trading recommendations.
+Continue automation-brief from v0.6.2 Phase 3B real-provider gate completed. The product is a personal overnight global news brief (Overnight Brief); preserve the normal daily digest automation and explicit/manual `market_brief` behavior. The fixture-only DeepSeek `deepseek-v4-flash` one-shot succeeded with validation passed, but the overall v0.6.2 shadow evaluation is not complete. The next bounded step is Phase 4 — Live RSS Shadow Evaluation: use a real RSS candidate window and real DeepSeek only as shadow, first re-measure and freeze live limits, and do not reuse Phase 3B `2 / 4096` limits. Keep Phase 4 separate from production; do not switch daily digest / `market_brief`, Bark, Obsidian, launchd, or pmset, and do not make trading recommendations. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Blockers remain `暂无明确阻塞。`.

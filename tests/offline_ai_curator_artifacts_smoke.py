@@ -26,7 +26,7 @@ from ai_curator_artifacts import (  # noqa: E402
     create_run_id,
     write_shadow_run,
 )
-from ai_curator_provider import serialize_curator_request  # noqa: E402
+from ai_curator_provider import PHASE_4_LIVE_INPUT_MODE, serialize_curator_request  # noqa: E402
 
 
 REPORT_DATE = date(2026, 7, 16)
@@ -85,6 +85,10 @@ def response(request_value: CuratorRequest) -> CuratorResponse:
         "warnings": [],
     }
     return validate_curator_response(payload, request_value)
+
+
+def selected_only_response(request_value: CuratorRequest) -> CuratorResponse:
+    return replace(response(request_value), rejected_article_ids=())
 
 
 def success_info(
@@ -177,6 +181,27 @@ def test_successful_run_and_allowlists() -> None:
         all_bytes = b"".join(path.read_bytes() for path in paths.run_dir.iterdir())
         assert b"unit-test-secret" not in all_bytes
         assert b"Authorization" not in all_bytes
+
+
+def test_phase4_live_artifact_canonicalizes_rejection_semantics() -> None:
+    with TemporaryDirectory(dir="/private/tmp") as temp_dir:
+        root = Path(temp_dir) / "shadow"
+        request_value = request()
+        paths = write_shadow_run(
+            root,
+            report_date=REPORT_DATE,
+            request=request_value,
+            response=selected_only_response(request_value),
+            trace_records=[],
+            run_info=replace(success_info(), input_mode=PHASE_4_LIVE_INPUT_MODE),
+            run_id="20260812T120000.000000Z-selected-only",
+        )
+
+        response_payload = json.loads(paths.response_json.read_text(encoding="utf-8"))  # type: ignore[union-attr]
+        assert response_payload["rejected_article_ids"] == []
+        review = paths.review_md.read_text(encoding="utf-8")
+        assert "Rejection enumeration: not collected in phase4_live" in review
+        assert "No AI-rejected articles returned." not in review
 
 
 def test_invalid_direct_response_cannot_be_persisted_as_success() -> None:
@@ -416,7 +441,7 @@ def test_phase4_artifact_records_policy_and_projected_request() -> None:
                 max_candidate_count=200,
                 max_provider_request_body_bytes=200000,
                 curator_request_bytes=len(serialize_curator_request(projected_request)),
-                provider_request_body_bytes=138631,
+                provider_request_body_bytes=138433,
             ),
             run_id="phase4-projected",
         )
@@ -512,6 +537,7 @@ def main() -> None:
     test_review_escapes_model_markdown_and_html()
     test_legacy_labels_and_fetch_failure_trace_are_explicit_and_allowlisted()
     test_unknown_trace_type_fails_closed()
+    test_phase4_live_artifact_canonicalizes_rejection_semantics()
     test_phase4_artifact_records_policy_and_projected_request()
     test_failed_run_has_no_response_artifact()
     print("offline ai curator artifacts smoke passed")

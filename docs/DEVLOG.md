@@ -1000,3 +1000,23 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - 正式 159-candidate dry-run 仍为 `candidate_count=159`、25 capped、134 unchanged、`curator_request_bytes=127574`、`provider_request_body_bytes=138631`、limits=`200 / 200000`、`transport_calls=0`。provider body 因 prompt alignment 从 `138482` 变为 `138631`，未硬编码旧数字。
 - Phase 3B provider smoke two-candidate body 为 `3964` bytes，CLI candidate fixture body 为 `4093` bytes，均低于既有 `4096` limit；candidate / contract / provider / artifact / CLI regressions 继续通过。
 - 本轮未执行第二次 DeepSeek call、未访问 RSS、未读取真实 API key / `.env` / holdings、未 commit/push。
+
+## 2026-08-12 v0.6.2 Phase 4 Live Selected-only Simplification
+
+### Trigger
+
+- 连续两次 Phase 4 live RSS + DeepSeek shadow 的 input/projection/body/transport 均正常，但 real output 因 `duplicate_rejected_article_id` rejection bookkeeping failure fail closed；本轮不执行第三次真实调用。
+
+### Product decision and provider boundary
+
+- 仅对显式 `--input-mode phase4_live` 采用 selected-only Curator semantics：模型只负责选择/聚合重要 events 及其 evidence，不枚举未选 candidate，也不生成 rejection reason bookkeeping。
+- 保留 `CuratorResponse.rejected_article_ids` 历史字段；phase4_live system instruction 要求固定输出 `[]`，未被任何 event evidence 使用的 candidate 由程序直接推导。
+- 在 `OpenAICompatibleCuratorProvider.curate()` 解析 JSON 后、进入现有 `validate_curator_response()` 前，phase4_live provider boundary 对 payload 做局部产品 canonicalization：只将非权威 `rejected_article_ids` 投影为 `[]`。不 dedupe、不选择 reject reason、不保存 rejection list；default/full 与 Phase 3B 仍直接使用原有严格 rejection validator。
+- event_id、canonical_title、required fields、enum、known/per-event-unique evidence、report_date、schema version、content policy、finish_reason 和 JSON parsing 继续严格 fail closed；production path 未修改。
+
+### Artifact and offline verification
+
+- 成功的 phase4_live `response.json` 保存 canonical `"rejected_article_ids": []`；`review.md` 使用 `Rejection enumeration: not collected in phase4_live`，不写成 AI 没有 reject。
+- 同一 snapshot `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` 离线 replay：`candidate_count=159`、summaries `25 / 134` capped/unchanged、`curator_request_bytes=127574`、phase4_live `provider_request_body_bytes=138433`、limits=`200 / 200000`、`transport_calls=0`。snapshot SHA-256 保持 `2cbb32a286f12c26bd963ea20100463bcce053561376945f5b90bef01a6d9def`。
+- 新增/更新 prompt、provider canonicalization、artifact semantics、contract/provider/CLI regression；Phase 3B provider two-candidate body=`3964`、CLI fixture body=`4093`，既有 `4096` limit 未修改。
+- 本轮完全离线：未调用 DeepSeek、未访问 RSS、未读取 API key / `.env`、未访问 holdings、未修改 production、未 commit/push。

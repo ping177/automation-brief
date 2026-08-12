@@ -113,8 +113,14 @@
 ### Phase 4 real-output collection-invariant prompt alignment
 
 - 决策：沿用现有 `CuratorResponse` validator 的 collection invariants，在 system prompt 中明确 input article membership、event/rejection/evidence uniqueness、selected/rejected disjoint，以及同一 article 多个 reject reason 只输出一条最合适 rejection。
-- 理由：第一次真实 shadow 的输入、projection、body limit 和 transport 均正常，失败发生在模型重复输出同一 `rejected_article_id`；prompt 只描述了 schema 和 ID membership，没有把 validator 的集合约束完整暴露给模型。
+- 理由：连续两次真实 shadow 的输入、projection、body limit 和 transport 均正常，失败都发生在模型的 rejection bookkeeping collection invariant；prompt 只描述了 schema 和 ID membership，没有把 validator 的集合约束完整暴露给模型。
 - 影响：模型输出继续由 validator fail closed；不修改 validator、domain schema、自动 dedupe、Phase 4B limits、provider retry 或 production path。
+
+### Phase 4 live selected-only Curator semantics
+
+- 决策：仅对显式 `--input-mode phase4_live` 采用 selected-only semantics。Provider 只负责选择和聚合重要 events 及 evidence；`rejected_article_ids` 固定 canonicalize 为 `[]`，不要求模型枚举未选 candidate 或 rejection reason。
+- 理由：同一 live snapshot 已连续两次在 rejection bookkeeping 上触发 `duplicate_rejected_article_id`；未被 event evidence 使用的 candidate 可由程序直接推导，LLM 维护大规模 rejection ID list 没有产品价值。
+- 影响：在现有 `CuratorResponse` validator 前的局部 phase4_live provider boundary 丢弃非权威 rejection 字段，不 dedupe、不选择 reason、不保存 rejection list；selected event 的 schema、enum、event/evidence uniqueness、known evidence、report date、content policy、finish_reason 和 JSON parsing 仍严格 fail closed。default/full 与 Phase 3B fixture behavior 保持不变，artifact `response.json` 保存 canonical empty list，`review.md` 明确写明 rejection enumeration 未收集。
 
 ### GitHub Trending 不直接作为每日重点内容
 

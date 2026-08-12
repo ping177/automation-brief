@@ -287,7 +287,11 @@ def main() -> None:
             serialize_curator_request(phase4_projected_request)
         )
         assert phase4_summary["provider_request_body_bytes"] == len(
-            serialize_deepseek_request(phase4_projected_request, DEEPSEEK_PROVIDER_CONFIG)
+            serialize_deepseek_request(
+                phase4_projected_request,
+                DEEPSEEK_PROVIDER_CONFIG,
+                input_mode=PHASE_4_LIVE_INPUT_MODE,
+            )
         )
         assert not run_dirs(temp_path / "phase4-dry-run-output")
 

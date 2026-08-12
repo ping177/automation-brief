@@ -314,6 +314,11 @@ def main() -> None:
     response = validate_curator_response(valid_payload(), request)
     assert response.events[0].event_id == "event-a"
     assert response.rejected_article_ids[0].reject_reason == "low_significance"
+
+    selected_only_payload = valid_payload()
+    selected_only_payload["rejected_article_ids"] = []
+    selected_only_response = validate_curator_response(selected_only_payload, request)
+    assert selected_only_response.rejected_article_ids == ()
     assert_rejection_collection_invariants(request)
 
     with TemporaryDirectory() as temp_dir:

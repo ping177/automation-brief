@@ -22,6 +22,7 @@ import uuid
 from ai_curator import CuratorContractError, CuratorRequest, CuratorResponse, validate_curator_response
 from ai_curator_provider import (
     CuratorContentPolicyError,
+    PHASE_4_LIVE_INPUT_MODE,
     serialize_curator_request,
     validate_curator_content_policy,
 )
@@ -525,15 +526,24 @@ def _render_review(
         else:
             lines.extend(["No AI events returned.", ""])
 
-        lines.extend(["## Rejected Articles", ""])
-        rejected_by_id = {item.article_id: item for item in response.rejected_article_ids}
-        if rejected_by_id:
-            for article_id, rejected in rejected_by_id.items():
-                article = article_by_id.get(article_id)
-                title = article.title if article is not None else article_id
-                lines.append(f"- {_review_text(title)} — `{rejected.reject_reason}`")
+        if run_info.input_mode == PHASE_4_LIVE_INPUT_MODE:
+            lines.extend(
+                [
+                    "## Rejection Enumeration",
+                    "",
+                    "Rejection enumeration: not collected in phase4_live.",
+                ]
+            )
         else:
-            lines.append("No AI-rejected articles returned.")
+            lines.extend(["## Rejected Articles", ""])
+            rejected_by_id = {item.article_id: item for item in response.rejected_article_ids}
+            if rejected_by_id:
+                for article_id, rejected in rejected_by_id.items():
+                    article = article_by_id.get(article_id)
+                    title = article.title if article is not None else article_id
+                    lines.append(f"- {_review_text(title)} — `{rejected.reject_reason}`")
+            else:
+                lines.append("No AI-rejected articles returned.")
         lines.append("")
     else:
         lines.extend(["", "## Result", "", "No validated AI response was written.", ""])
@@ -566,7 +576,9 @@ def _render_review(
             "- [ ] AI event grouping and canonical titles are factually supported.",
             "- [ ] Importance and novelty labels are appropriate.",
             "- [ ] Evidence article ids point to the intended candidate articles.",
-            "- [ ] Rejected articles and rejection reasons are reasonable.",
+            "- [ ] Rejection enumeration is intentionally not collected in phase4_live."
+            if run_info.input_mode == PHASE_4_LIVE_INPUT_MODE
+            else "- [ ] Rejected articles and rejection reasons are reasonable.",
             "- [ ] No investment advice or unsupported claims should enter production.",
             "",
         ]

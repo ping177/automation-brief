@@ -47,7 +47,20 @@ TRADING_ADVICE_TERMS = ("买入", "卖出", "目标价", "加仓", "减仓", "�
 
 
 class CuratorContractError(ValueError):
-    pass
+    """A contract failure with bounded, non-content diagnostic metadata."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        diagnostic_code: str = "contract_error",
+        diagnostic_path: str = "",
+        diagnostic_article_id: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.diagnostic_code = diagnostic_code
+        self.diagnostic_path = diagnostic_path
+        self.diagnostic_article_id = diagnostic_article_id
 
 
 def normalize_language(value: Any) -> str:
@@ -372,32 +385,64 @@ def build_curator_request(
 
 def validate_curator_response(payload: dict[str, Any], request: CuratorRequest) -> CuratorResponse:
     if not isinstance(payload, dict):
-        raise CuratorContractError("Curator response must be an object")
+        raise CuratorContractError(
+            "Curator response must be an object",
+            diagnostic_code="response_not_object",
+            diagnostic_path="response",
+        )
     if payload.get("schema_version") != SCHEMA_VERSION:
-        raise CuratorContractError("Unsupported curator response schema_version")
+        raise CuratorContractError(
+            "Unsupported curator response schema_version",
+            diagnostic_code="schema_version_mismatch",
+            diagnostic_path="schema_version",
+        )
     if payload.get("report_date") != request.report_date.isoformat():
-        raise CuratorContractError("Curator response report_date does not match request")
+        raise CuratorContractError(
+            "Curator response report_date does not match request",
+            diagnostic_code="report_date_mismatch",
+            diagnostic_path="report_date",
+        )
 
     request_article_ids = [article.article_id for article in request.articles]
     if len(request_article_ids) != len(set(request_article_ids)):
-        raise CuratorContractError("CuratorRequest contains duplicate article_id values")
+        raise CuratorContractError(
+            "CuratorRequest contains duplicate article_id values",
+            diagnostic_code="duplicate_request_article_id",
+            diagnostic_path="request.articles.article_id",
+        )
     valid_article_ids = set(request_article_ids)
 
     raw_events = payload.get("events", [])
     if not isinstance(raw_events, list):
-        raise CuratorContractError("Curator response events must be a list")
+        raise CuratorContractError(
+            "Curator response events must be a list",
+            diagnostic_code="events_not_list",
+            diagnostic_path="events",
+        )
     if len(raw_events) > request.max_events:
-        raise CuratorContractError("Curator response exceeds max_events")
+        raise CuratorContractError(
+            "Curator response exceeds max_events",
+            diagnostic_code="max_events_exceeded",
+            diagnostic_path="events",
+        )
 
     events: list[CuratedEvent] = []
     event_ids: set[str] = set()
     selected_article_ids: set[str] = set()
     for raw_event in raw_events:
         if not isinstance(raw_event, dict):
-            raise CuratorContractError("Curator event must be an object")
+            raise CuratorContractError(
+                "Curator event must be an object",
+                diagnostic_code="event_not_object",
+                diagnostic_path="events",
+            )
         event = _parse_event(raw_event, valid_article_ids)
         if event.event_id in event_ids:
-            raise CuratorContractError("Curator response has duplicate event_id")
+            raise CuratorContractError(
+                "Curator response has duplicate event_id",
+                diagnostic_code="duplicate_event_id",
+                diagnostic_path="events.event_id",
+            )
         event_ids.add(event.event_id)
         selected_article_ids.update(event.evidence_article_ids)
         events.append(event)
@@ -406,11 +451,21 @@ def validate_curator_response(payload: dict[str, Any], request: CuratorRequest) 
     rejected_ids = {item.article_id for item in rejected}
     overlap = selected_article_ids.intersection(rejected_ids)
     if overlap:
-        raise CuratorContractError(f"Article cannot be both selected and rejected: {sorted(overlap)[0]}")
+        overlap_article_id = sorted(overlap)[0]
+        raise CuratorContractError(
+            f"Article cannot be both selected and rejected: {overlap_article_id}",
+            diagnostic_code="selected_rejected_overlap",
+            diagnostic_path="selected_rejected_article_ids",
+            diagnostic_article_id=overlap_article_id,
+        )
 
     warnings = payload.get("warnings", [])
     if not isinstance(warnings, list):
-        raise CuratorContractError("Curator warnings must be a list")
+        raise CuratorContractError(
+            "Curator warnings must be a list",
+            diagnostic_code="warnings_not_list",
+            diagnostic_path="warnings",
+        )
     return CuratorResponse(
         schema_version=SCHEMA_VERSION,
         report_date=request.report_date,
@@ -431,15 +486,31 @@ def _parse_event(raw_event: dict[str, Any], valid_article_ids: set[str]) -> Cura
     confidence = _enum_value(raw_event, "confidence", CONFIDENCE_VALUES)
     evidence = raw_event.get("evidence_article_ids", [])
     if not isinstance(evidence, list) or not evidence:
-        raise CuratorContractError("Curator event must include at least one evidence article")
+        raise CuratorContractError(
+            "Curator event must include at least one evidence article",
+            diagnostic_code="evidence_required",
+            diagnostic_path="events.evidence_article_ids",
+        )
     evidence_ids = tuple(str(item).strip() for item in evidence if str(item).strip())
     if len(evidence_ids) != len(evidence) or not set(evidence_ids).issubset(valid_article_ids):
-        raise CuratorContractError("Curator event references unknown evidence_article_ids")
+        raise CuratorContractError(
+            "Curator event references unknown evidence_article_ids",
+            diagnostic_code="unknown_evidence_article_id",
+            diagnostic_path="events.evidence_article_ids",
+        )
     if len(evidence_ids) != len(set(evidence_ids)):
-        raise CuratorContractError(f"Curator event {event_id} has duplicate evidence_article_ids")
+        raise CuratorContractError(
+            f"Curator event {event_id} has duplicate evidence_article_ids",
+            diagnostic_code="duplicate_evidence_article_id",
+            diagnostic_path="events.evidence_article_ids",
+        )
     uncertainties = raw_event.get("uncertainties", [])
     if not isinstance(uncertainties, list):
-        raise CuratorContractError("Curator event uncertainties must be a list")
+        raise CuratorContractError(
+            "Curator event uncertainties must be a list",
+            diagnostic_code="uncertainties_not_list",
+            diagnostic_path="events.uncertainties",
+        )
     return CuratedEvent(
         event_id=event_id,
         canonical_title=canonical_title,
@@ -456,7 +527,11 @@ def _parse_event(raw_event: dict[str, Any], valid_article_ids: set[str]) -> Cura
 
 def _parse_rejected(raw_rejected: Any, valid_article_ids: set[str]) -> tuple[RejectedArticle, ...]:
     if not isinstance(raw_rejected, list):
-        raise CuratorContractError("Curator rejected_article_ids must be a list")
+        raise CuratorContractError(
+            "Curator rejected_article_ids must be a list",
+            diagnostic_code="rejected_article_ids_not_list",
+            diagnostic_path="rejected_article_ids",
+        )
     rejected: list[RejectedArticle] = []
     seen: set[str] = set()
     for item in raw_rejected:
@@ -467,13 +542,29 @@ def _parse_rejected(raw_rejected: Any, valid_article_ids: set[str]) -> tuple[Rej
             article_id = str(item.get("article_id", "")).strip()
             reject_reason = str(item.get("reject_reason", "low_significance")).strip()
         else:
-            raise CuratorContractError("Rejected article must be a string or object")
+            raise CuratorContractError(
+                "Rejected article must be a string or object",
+                diagnostic_code="rejected_article_invalid_type",
+                diagnostic_path="rejected_article_ids",
+            )
         if not article_id or article_id not in valid_article_ids:
-            raise CuratorContractError("Rejected article references unknown article_id")
+            raise CuratorContractError(
+                "Rejected article references unknown article_id",
+                diagnostic_code="unknown_rejected_article_id",
+                diagnostic_path="rejected_article_ids.article_id",
+            )
         if article_id in seen:
-            raise CuratorContractError("Curator response has duplicate rejected article_id")
+            raise CuratorContractError(
+                "Curator response has duplicate rejected article_id",
+                diagnostic_code="duplicate_rejected_article_id",
+                diagnostic_path="rejected_article_ids.article_id",
+            )
         if reject_reason not in REJECT_REASON_VALUES:
-            raise CuratorContractError("Curator response has invalid reject_reason")
+            raise CuratorContractError(
+                "Curator response has invalid reject_reason",
+                diagnostic_code="invalid_reject_reason",
+                diagnostic_path="rejected_article_ids.reject_reason",
+            )
         seen.add(article_id)
         rejected.append(RejectedArticle(article_id=article_id, reject_reason=reject_reason))
     return tuple(rejected)
@@ -482,14 +573,22 @@ def _parse_rejected(raw_rejected: Any, valid_article_ids: set[str]) -> tuple[Rej
 def _required_text(payload: dict[str, Any], field_name: str) -> str:
     value = str(payload.get(field_name, "")).strip()
     if not value:
-        raise CuratorContractError(f"Curator response field is required: {field_name}")
+        raise CuratorContractError(
+            f"Curator response field is required: {field_name}",
+            diagnostic_code="missing_required_field",
+            diagnostic_path=f"events.{field_name}",
+        )
     return value
 
 
 def _enum_value(payload: dict[str, Any], field_name: str, allowed: frozenset[str]) -> str:
     value = _required_text(payload, field_name)
     if value not in allowed:
-        raise CuratorContractError(f"Curator response has invalid {field_name}: {value}")
+        raise CuratorContractError(
+            f"Curator response has invalid {field_name}: {value}",
+            diagnostic_code="invalid_enum_value",
+            diagnostic_path=f"events.{field_name}",
+        )
     return value
 
 

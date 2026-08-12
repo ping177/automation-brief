@@ -39,10 +39,22 @@ _ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 class OpenAICompatibleProviderError(RuntimeError):
     """A secret-safe, classified failure from the provider boundary."""
 
-    def __init__(self, failure_stage: str, failure_code: str, attempts: int) -> None:
+    def __init__(
+        self,
+        failure_stage: str,
+        failure_code: str,
+        attempts: int,
+        *,
+        diagnostic_code: str = "",
+        diagnostic_path: str = "",
+        diagnostic_article_id: str = "",
+    ) -> None:
         self.failure_stage = failure_stage
         self.failure_code = failure_code
         self.attempts = attempts
+        self.diagnostic_code = diagnostic_code
+        self.diagnostic_path = diagnostic_path
+        self.diagnostic_article_id = diagnostic_article_id
         super().__init__(f"{failure_stage}:{failure_code}")
 
 
@@ -278,7 +290,11 @@ def validate_curator_content_policy(response: CuratorResponse) -> None:
         texts.extend(event.uncertainties)
     texts.extend(response.warnings)
     if any(pattern.search(text) for text in texts for pattern in _DIRECT_ACTION_PATTERNS):
-        raise CuratorContentPolicyError("Curator content policy violation")
+        raise CuratorContentPolicyError(
+            "Curator content policy violation",
+            diagnostic_code="direct_trading_advice",
+            diagnostic_path="reader_facing_text",
+        )
 
 
 class OpenAICompatibleCuratorProvider:
@@ -401,23 +417,29 @@ class OpenAICompatibleCuratorProvider:
             )
             try:
                 response = validate_curator_response(payload, request)
-            except CuratorContractError:
+            except CuratorContractError as exc:
                 raise self._failure(
                     "validation",
                     "invalid_curator_response",
                     attempt,
                     curator_request_bytes,
                     provider_request_body_bytes,
+                    diagnostic_code=exc.diagnostic_code,
+                    diagnostic_path=exc.diagnostic_path,
+                    diagnostic_article_id=exc.diagnostic_article_id,
                 ) from None
             try:
                 validate_curator_content_policy(response)
-            except CuratorContentPolicyError:
+            except CuratorContentPolicyError as exc:
                 raise self._failure(
                     "content_policy",
                     "content_policy_violation",
                     attempt,
                     curator_request_bytes,
                     provider_request_body_bytes,
+                    diagnostic_code=exc.diagnostic_code,
+                    diagnostic_path=exc.diagnostic_path,
+                    diagnostic_article_id=exc.diagnostic_article_id,
                 ) from None
 
             self._record_metadata(
@@ -544,6 +566,10 @@ class OpenAICompatibleCuratorProvider:
         attempts: int,
         curator_request_bytes: int,
         provider_request_body_bytes: int | None,
+        *,
+        diagnostic_code: str = "",
+        diagnostic_path: str = "",
+        diagnostic_article_id: str = "",
     ) -> OpenAICompatibleProviderError:
         self._record_metadata(
             attempts,
@@ -551,7 +577,14 @@ class OpenAICompatibleCuratorProvider:
             provider_request_body_bytes,
             "failed",
         )
-        return OpenAICompatibleProviderError(stage, code, attempts)
+        return OpenAICompatibleProviderError(
+            stage,
+            code,
+            attempts,
+            diagnostic_code=diagnostic_code,
+            diagnostic_path=diagnostic_path,
+            diagnostic_article_id=diagnostic_article_id,
+        )
 
     def _http_failure(
         self,

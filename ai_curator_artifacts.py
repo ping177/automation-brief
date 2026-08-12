@@ -41,6 +41,9 @@ class ShadowRunInfo:
     validation_status: str
     failure_stage: str = ""
     failure_code: str = ""
+    failure_diagnostic_code: str = ""
+    failure_diagnostic_path: str = ""
+    failure_diagnostic_article_id: str = ""
     curator_request_bytes: int | None = None
     provider_request_body_bytes: int | None = None
     legacy_evaluation: str = "not_evaluated"
@@ -128,6 +131,10 @@ def write_shadow_run(
         "candidate_window_start": _datetime_text(run_info.candidate_window_start),
         "candidate_window_end": _datetime_text(run_info.candidate_window_end),
     }
+    if not succeeded:
+        failure_diagnostic = _safe_failure_diagnostic(run_info, request)
+        if failure_diagnostic:
+            run_payload["failure_diagnostic"] = failure_diagnostic
 
     staging_dir.mkdir()
     try:
@@ -204,7 +211,13 @@ def _validate_run_info(
     if run_info.status == "succeeded":
         if request is None or response is None:
             raise ValueError("a succeeded run requires request and response")
-        if run_info.failure_stage or run_info.failure_code:
+        if (
+            run_info.failure_stage
+            or run_info.failure_code
+            or run_info.failure_diagnostic_code
+            or run_info.failure_diagnostic_path
+            or run_info.failure_diagnostic_article_id
+        ):
             raise ValueError("a succeeded run cannot contain failure fields")
         if response.report_date != report_date:
             raise ValueError("response report_date does not match artifact report_date")
@@ -415,6 +428,14 @@ def _render_review(
                 f"- Failure code: `{_safe_token(run_info.failure_code)}`",
             ]
         )
+    failure_diagnostic = _safe_failure_diagnostic(run_info, request)
+    if failure_diagnostic:
+        diagnostic_text = [f"code=`{failure_diagnostic['code']}`"]
+        if "path" in failure_diagnostic:
+            diagnostic_text.append(f"path=`{failure_diagnostic['path']}`")
+        if "article_id" in failure_diagnostic:
+            diagnostic_text.append(f"article_id=`{failure_diagnostic['article_id']}`")
+        lines.append(f"- Failure diagnostic: {'; '.join(diagnostic_text)}")
 
     if response is not None and request is not None:
         article_by_id = {article.article_id: article for article in request.articles}
@@ -506,6 +527,38 @@ def _safe_token(value: str) -> str:
     text = str(value or "")
     if not _SAFE_TOKEN_PATTERN.fullmatch(text):
         return "redacted"
+    return text
+
+
+def _safe_failure_diagnostic(
+    run_info: ShadowRunInfo,
+    request: CuratorRequest | None,
+) -> dict[str, str]:
+    """Serialize only bounded rule/path metadata from a failed validation."""
+
+    diagnostic: dict[str, str] = {}
+    code = _safe_diagnostic_token(run_info.failure_diagnostic_code)
+    path = _safe_diagnostic_token(run_info.failure_diagnostic_path)
+    if code:
+        diagnostic["code"] = code
+    if path:
+        diagnostic["path"] = path
+
+    article_id = str(run_info.failure_diagnostic_article_id or "")
+    known_article_ids = (
+        {article.article_id for article in request.articles} if request is not None else set()
+    )
+    if article_id in known_article_ids:
+        safe_article_id = _safe_diagnostic_token(article_id)
+        if safe_article_id:
+            diagnostic["article_id"] = safe_article_id
+    return diagnostic
+
+
+def _safe_diagnostic_token(value: str) -> str:
+    text = str(value or "")
+    if len(text) > 128 or not _SAFE_TOKEN_PATTERN.fullmatch(text):
+        return "redacted" if text else ""
     return text
 
 

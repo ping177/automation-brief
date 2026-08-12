@@ -361,6 +361,13 @@ def main() -> None:
         failed_run_payload = json.loads((failed_run_dir / "run.json").read_text(encoding="utf-8"))
         assert failed_run_payload["status"] == "failed"
         assert failed_run_payload["failure_code"] == "invalid_curator_response"
+        assert failed_run_payload["failure_diagnostic"] == {
+            "code": "unknown_evidence_article_id",
+            "path": "events.evidence_article_ids",
+        }
+        assert "Failure diagnostic: code=`unknown_evidence_article_id`" in (
+            failed_run_dir / "review.md"
+        ).read_text(encoding="utf-8")
         assert (failed_run_dir / "request.json").exists()
         assert (failed_run_dir / "trace.json").exists()
         assert not (failed_run_dir / "response.json").exists()

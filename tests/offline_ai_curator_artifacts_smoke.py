@@ -142,6 +142,7 @@ def test_successful_run_and_allowlists() -> None:
         assert run_payload["legacy_evaluation"] == "not_evaluated"
         assert run_payload["candidate_window_start"] is None
         assert run_payload["candidate_window_end"] is None
+        assert "failure_diagnostic" not in run_payload
 
         request_payload = json.loads(paths.request_json.read_text(encoding="utf-8"))  # type: ignore[union-attr]
         response_payload = json.loads(paths.response_json.read_text(encoding="utf-8"))  # type: ignore[union-attr]
@@ -400,6 +401,9 @@ def test_failed_run_has_no_response_artifact() -> None:
                 validation_status="not_run",
                 failure_stage="provider",
                 failure_code="timeout",
+                failure_diagnostic_code="unknown_evidence_article_id",
+                failure_diagnostic_path="events.evidence_article_ids",
+                failure_diagnostic_article_id="raw-model-response-secret",
             ),
             run_id=create_run_id(datetime(2026, 8, 12, 12, 0, tzinfo=timezone.utc)),
         )
@@ -411,7 +415,42 @@ def test_failed_run_has_no_response_artifact() -> None:
         assert run_payload["status"] == "failed"
         assert run_payload["failure_stage"] == "provider"
         assert run_payload["failure_code"] == "timeout"
-        assert "timeout" in paths.review_md.read_text(encoding="utf-8")
+        assert run_payload["failure_diagnostic"] == {
+            "code": "unknown_evidence_article_id",
+            "path": "events.evidence_article_ids",
+        }
+        review = paths.review_md.read_text(encoding="utf-8")
+        assert "timeout" in review
+        assert "Failure diagnostic: code=`unknown_evidence_article_id`; path=`events.evidence_article_ids`" in review
+        all_bytes = b"".join(path.read_bytes() for path in paths.run_dir.iterdir())
+        assert b"raw-model-response-secret" not in all_bytes
+
+        policy_paths = write_shadow_run(
+            root,
+            report_date=REPORT_DATE,
+            request=request(),
+            response=None,
+            trace_records=[{"article_id": "article-a", "legacy_selected": True}],
+            run_info=ShadowRunInfo(
+                status="failed",
+                provider_id="fixture-provider",
+                model="fixture-model",
+                api_key_env="AUTOMATION_BRIEF_TEST_API_KEY",
+                attempts=1,
+                validation_status="failed",
+                failure_stage="content_policy",
+                failure_code="content_policy_violation",
+                failure_diagnostic_code="direct_trading_advice",
+                failure_diagnostic_path="reader_facing_text",
+            ),
+            run_id="content-policy-failure",
+        )
+        policy_payload = json.loads(policy_paths.run_json.read_text(encoding="utf-8"))
+        assert policy_payload["failure_diagnostic"] == {
+            "code": "direct_trading_advice",
+            "path": "reader_facing_text",
+        }
+        assert "response.json" not in {path.name for path in policy_paths.run_dir.iterdir()}
 
 
 def main() -> None:

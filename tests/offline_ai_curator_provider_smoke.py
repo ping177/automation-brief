@@ -151,9 +151,13 @@ def expect_failure(
     provider_instance: OpenAICompatibleCuratorProvider,
     transport: FakeTransport,
     expected_code: str,
+    request_value: object | None = None,
 ) -> OpenAICompatibleProviderError:
     try:
-        provider_instance.curate(build_curator_request([candidate()], REPORT_DATE, max_events=1))
+        provider_instance.curate(
+            request_value
+            or build_curator_request([candidate()], REPORT_DATE, max_events=1)
+        )  # type: ignore[arg-type]
     except OpenAICompatibleProviderError as exc:
         assert exc.failure_code == expected_code
         assert exc.attempts == len(transport.calls)
@@ -456,12 +460,37 @@ def test_domain_validation_and_invalid_evidence_do_not_retry() -> None:
     invalid_schema = valid_response_payload()
     invalid_schema["events"][0]["importance"] = "critical"  # type: ignore[index]
     invalid_evidence = valid_response_payload()
-    invalid_evidence["events"][0]["evidence_article_ids"] = ["missing"]  # type: ignore[index]
-    for payload in (invalid_schema, invalid_evidence):
+    invalid_evidence["events"][0]["evidence_article_ids"] = ["model-secret-leak"]  # type: ignore[index]
+    missing_required = valid_response_payload()
+    missing_required["events"][0].pop("why_important")  # type: ignore[index]
+    duplicate_evidence = valid_response_payload()
+    duplicate_evidence["events"][0]["evidence_article_ids"] = ["article-a", "article-a"]  # type: ignore[index]
+    overlap = valid_response_payload()
+    overlap["rejected_article_ids"] = [  # type: ignore[index]
+        {"article_id": "article-a", "reject_reason": "duplicate"}
+    ]
+    cases = (
+        (invalid_schema, "invalid_enum_value", "events.importance", ""),
+        (invalid_evidence, "unknown_evidence_article_id", "events.evidence_article_ids", ""),
+        (missing_required, "missing_required_field", "events.why_important", ""),
+        (duplicate_evidence, "duplicate_evidence_article_id", "events.evidence_article_ids", ""),
+        (overlap, "selected_rejected_overlap", "selected_rejected_article_ids", "article-a"),
+    )
+    request_value = build_curator_request([candidate()], REPORT_DATE, max_events=1)
+    for payload, diagnostic_code, diagnostic_path, diagnostic_article_id in cases:
         transport = FakeTransport([(200, envelope(payload))])
         with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
-            error = expect_failure(deepseek_provider(transport), transport, "invalid_curator_response")
+            error = expect_failure(
+                deepseek_provider(transport),
+                transport,
+                "invalid_curator_response",
+                request_value,
+            )
         assert error.attempts == 1
+        assert error.diagnostic_code == diagnostic_code
+        assert error.diagnostic_path == diagnostic_path
+        assert error.diagnostic_article_id == diagnostic_article_id
+        assert "model-secret-leak" not in str(error)
 
 
 def test_content_policy_rejects_direct_advice_but_allows_factual_rating() -> None:
@@ -478,12 +507,16 @@ def test_content_policy_rejects_direct_advice_but_allows_factual_rating() -> Non
             deepseek_provider(rejected_transport), rejected_transport, "content_policy_violation"
         )
         assert rejected_error.attempts == 1
+        assert rejected_error.diagnostic_code == "direct_trading_advice"
+        assert rejected_error.diagnostic_path == "reader_facing_text"
 
         reader_rejected_transport = FakeTransport([(200, envelope(reader_directed_advice))])
         reader_rejected_error = expect_failure(
             deepseek_provider(reader_rejected_transport), reader_rejected_transport, "content_policy_violation"
         )
         assert reader_rejected_error.attempts == 1
+        assert reader_rejected_error.diagnostic_code == "direct_trading_advice"
+        assert reader_rejected_error.diagnostic_path == "reader_facing_text"
 
         accepted_transport = FakeTransport([(200, envelope(factual_rating))])
         accepted = deepseek_provider(accepted_transport).curate(

@@ -880,3 +880,23 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 
 - 本阶段未调用真实 DeepSeek API、真实 RSS、Bark 或 Obsidian，未读取 `.env` 或真实 holdings，未写 canonical runtime data；没有改动 `main.py`、daily/market brief、launchd、pmset 或生产自动化。
 - Phase 3B 只完成 one-shot real-provider gate 的离线 safety preparation；整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成，真实 provider 质量评估仍待用户下一步明确执行。
+
+## 2026-08-12 v0.6.2 Phase 3B Failed Provider Validation Diagnostics
+
+### 问题定位
+
+第一次 DeepSeek one-shot 已经完成 HTTP success、`finish_reason`、assistant content JSON parse，并在本地 `validate_curator_response()` 阶段失败。旧 provider boundary 捕获 `CuratorContractError` / `CuratorContentPolicyError` 时丢弃了 exception，本地只保留 `failure_stage=validation`、`failure_code=invalid_curator_response`，因此 failed artifact 无法区分具体 validator rule。
+
+### 实际改动
+
+- 为现有 `CuratorContractError` 增加最小结构化 metadata：allowlisted diagnostic code、field path 和可选已知 article id；不改变 `CuratorResponse` domain schema。
+- provider error 继续保留 generic `failure_code` 与 secret-safe string，同时向 CLI / artifact writer 传递 bounded diagnostic metadata。
+- failed `run.json` / `review.md` 可记录 `failure_diagnostic` 的 rule/path（必要时 known candidate article id）；成功 artifact 不增加该字段。
+- 不保存 raw provider response、完整模型 payload、raw exception text、API key、Authorization header 或 HTTP envelope；unknown evidence id 不进入 artifact。
+- 增加 invalid evidence、missing required field、duplicate evidence、selected/rejected overlap 和 direct trading advice content-policy regressions。
+
+### 验证与边界
+
+- 全部 AI Curator offline candidate / contract / provider / artifact / CLI smoke 通过；未进行第二次真实 DeepSeek 调用、未调用 RSS、未读取 `.env` 或 holdings、未写 canonical runtime data。
+- 未改变 provider request body、retry policy、Phase 3B limits、production entry 或 success artifact contract。
+- 整体 `v0.6.2 — AI Curator Shadow Evaluation` 仍未完成，Blockers 保持 `暂无明确阻塞。`。

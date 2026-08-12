@@ -960,3 +960,23 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - Phase 4A 未修改 window semantics：`main.py` 的 `within_lookback_hours()` 对每篇文章动态调用 `datetime.now(timezone.utc)`，没有冻结 reference time；`CuratorRequest.window_start/end` 仍由候选最早/最晚 non-null `published_at` 推导。
 - 不改变上述语义，因为 `fetch_feed_candidates()` 同时服务 candidate shadow path 和 legacy `collect_news()` path；后续 window 修复必须单独完成 production-impact review。
 - 未再次访问 RSS、未调用 DeepSeek、未读取 secret/.env/holdings、未修改 production entry、未写 canonical runtime data、未 commit/push。整体 `v0.6.2` 仍未完成，Phase 4 hard limits 尚未冻结。
+
+## 2026-08-12 v0.6.2 Phase 4B Provider-facing Projection + Live Hard Limits
+
+### Provider-facing boundary
+
+- 新增 immutable Provider-facing projection：只对正式 `CandidateArticle.summary` 做一次 Python character cap，`>500` 截至前 500 chars；`<500`、`==500`、空 summary 和现有 null 语义保持不变。所有 article identity、title、source/feed metadata、link、normalized identity、language、published_at 和 request window 保持不变，原始 CandidateArticle / live snapshot 不会被修改。
+- Provider preparation 明确先检查完整 candidate list，再按显式 mode projection、构建 exact request/body、检查 body bytes，最后才允许 API-key lookup / HTTP transport。candidate/body overflow 均 fail closed，0 transport calls，不自动 pruning、truncation、iterative shrinking 或提高 limit。
+- `phase4_live` 只能通过 `--input-mode phase4_live` 显式选择；默认 real-provider CLI 继续使用独立 Phase 3B fixture mode 与 `2 / 4096` limits，不根据 candidate 数量自动推断。
+
+### Frozen Phase 4B limits and replay
+
+- Phase 4B limits：`summary_max_chars=500`、`max_candidate_count=200`、`max_provider_request_body_bytes=200000`。
+- 正式 loader replay `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` 为 `original_candidate_count=159`；projection 后 `summaries_capped_count=25`、`summaries_unchanged_count=134`。
+- Exact offline Phase 4 provider-body construction：`curator_request_bytes=127574`、`provider_request_body_bytes=138482`、`transport_calls=0`。该结果与 Phase 4A 500-character counterfactual 一致，不是硬编码 measurement。
+
+### Artifact and boundaries
+
+- Phase 4 real-provider artifact 的 `request.json` 保存 Provider 实际看到的 projected `CuratorRequest`；run metadata 增加 input mode、summary cap、projection counts、candidate/body limits。原始 snapshot 继续作为独立完整输入事实。
+- 新增 projection/provider/CLI/artifact regressions；Phase 3B one-shot contract、retry、finish_reason、secret handling、artifact validation 保持通过。
+- 本轮完全离线：未调用 DeepSeek、未访问真实 RSS、未读取 `.env` / API key / holdings、未修改 `main.py`、`feeds.json`、daily digest、`market_brief` 或 production automation，未安装依赖、未 commit/push。

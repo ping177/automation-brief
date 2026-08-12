@@ -18,7 +18,14 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
-from ai_curator import CuratorContractError, CuratorRequest, CuratorResponse, validate_curator_response
+from ai_curator import (
+    PHASE_4_PROVIDER_SUMMARY_MAX_CHARS,
+    CuratorContractError,
+    CuratorRequest,
+    CuratorResponse,
+    project_curator_request_for_provider,
+    validate_curator_response,
+)
 
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
@@ -33,6 +40,12 @@ DEEPSEEK_MAX_TOKENS = 8192
 DEEPSEEK_STREAM = False
 DEEPSEEK_THINKING_TYPE = "disabled"
 DEEPSEEK_RESPONSE_FORMAT_TYPE = "json_object"
+FULL_PROVIDER_INPUT_MODE = "full"
+PHASE_3B_FIXTURE_INPUT_MODE = "phase3b_fixture"
+PHASE_4_LIVE_INPUT_MODE = "phase4_live"
+PROVIDER_INPUT_MODES = frozenset(
+    {FULL_PROVIDER_INPUT_MODE, PHASE_3B_FIXTURE_INPUT_MODE, PHASE_4_LIVE_INPUT_MODE}
+)
 _ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -144,6 +157,18 @@ class ProviderCallMetadata:
     curator_request_bytes: int
     provider_request_body_bytes: int | None
     validation_status: str
+    input_mode: str = FULL_PROVIDER_INPUT_MODE
+    summary_max_chars: int | None = None
+    summaries_capped_count: int = 0
+    summaries_unchanged_count: int = 0
+
+
+@dataclass(frozen=True)
+class PreparedProviderRequest:
+    request: CuratorRequest
+    body: bytes
+    curator_request_bytes: int
+    provider_request_body_bytes: int
 
 
 class HTTPTransport(Protocol):
@@ -266,21 +291,32 @@ def validate_provider_request_limits(
 ) -> None:
     """Enforce only explicitly injected limits before any HTTP call.
 
-    Phase 3A intentionally supplies no formal defaults. The named checks are
-    the future Phase 3B enforcement point and fail closed without truncation.
+    The provider supplies no implicit limits. Callers inject the limits for
+    their explicit evaluation mode, and violations fail closed without
+    truncation.
     """
 
-    if max_candidate_count is not None and max_candidate_count < 0:
-        raise ValueError("max_candidate_count must be non-negative")
+    validate_candidate_count_limit(request, max_candidate_count)
     if max_provider_request_body_bytes is not None and max_provider_request_body_bytes < 0:
         raise ValueError("max_provider_request_body_bytes must be non-negative")
-    if max_candidate_count is not None and len(request.articles) > max_candidate_count:
-        raise ProviderRequestLimitError("preflight", "candidate_count_limit", 0)
+
     if (
         max_provider_request_body_bytes is not None
         and len(provider_request_body) > max_provider_request_body_bytes
     ):
         raise ProviderRequestLimitError("preflight", "provider_request_body_limit", 0)
+
+
+def validate_candidate_count_limit(
+    request: CuratorRequest,
+    max_candidate_count: int | None,
+) -> None:
+    """Check candidate count before projection or provider-body construction."""
+
+    if max_candidate_count is not None and max_candidate_count < 0:
+        raise ValueError("max_candidate_count must be non-negative")
+    if max_candidate_count is not None and len(request.articles) > max_candidate_count:
+        raise ProviderRequestLimitError("preflight", "candidate_count_limit", 0)
 
 
 class CuratorContentPolicyError(CuratorContractError):
@@ -320,31 +356,98 @@ class OpenAICompatibleCuratorProvider:
         transport: HTTPTransport | None = None,
         max_candidate_count: int | None = None,
         max_provider_request_body_bytes: int | None = None,
+        input_mode: str = FULL_PROVIDER_INPUT_MODE,
     ) -> None:
+        if input_mode not in PROVIDER_INPUT_MODES:
+            raise ValueError(f"unsupported provider input mode: {input_mode}")
         self.config = config
         self._transport = transport or _urllib_transport
         self._max_candidate_count = max_candidate_count
         self._max_provider_request_body_bytes = max_provider_request_body_bytes
+        self._input_mode = input_mode
         self.last_call_metadata: ProviderCallMetadata | None = None
+        self.last_prepared_request: CuratorRequest | None = None
+        self._summary_max_chars: int | None = None
+        self._summaries_capped_count = 0
+        self._summaries_unchanged_count = 0
 
     def _serialize_request(self, request: CuratorRequest) -> bytes:
         return serialize_openai_compatible_request(request, self.config.model)
 
-    def curate(self, request: CuratorRequest) -> CuratorResponse:
-        curator_request_bytes = len(serialize_curator_request(request))
-        body = self._serialize_request(request)
+    def _project_request(self, request: CuratorRequest) -> CuratorRequest:
+        if self._input_mode == PHASE_4_LIVE_INPUT_MODE:
+            return project_curator_request_for_provider(
+                request,
+                summary_max_chars=PHASE_4_PROVIDER_SUMMARY_MAX_CHARS,
+            )
+        return request
+
+    def _record_projection_counts(
+        self,
+        original_request: CuratorRequest,
+        projected_request: CuratorRequest,
+    ) -> None:
+        if self._input_mode != PHASE_4_LIVE_INPUT_MODE:
+            self._summary_max_chars = None
+            self._summaries_capped_count = 0
+            self._summaries_unchanged_count = 0
+            return
+
+        self._summary_max_chars = PHASE_4_PROVIDER_SUMMARY_MAX_CHARS
+        self._summaries_capped_count = sum(
+            isinstance(original.summary, str)
+            and len(original.summary) > PHASE_4_PROVIDER_SUMMARY_MAX_CHARS
+            and projected.summary == original.summary[:PHASE_4_PROVIDER_SUMMARY_MAX_CHARS]
+            for original, projected in zip(
+                original_request.articles,
+                projected_request.articles,
+            )
+        )
+        self._summaries_unchanged_count = (
+            len(projected_request.articles) - self._summaries_capped_count
+        )
+
+    def prepare_request(self, request: CuratorRequest) -> PreparedProviderRequest:
+        """Build and preflight the exact body without key lookup or transport."""
+
+        self.last_prepared_request = None
+        self._record_projection_counts(request, request)
+        try:
+            validate_candidate_count_limit(request, self._max_candidate_count)
+        except ProviderRequestLimitError:
+            self._record_metadata(0, 0, None, "failed")
+            raise
+
+        projected_request = self._project_request(request)
+        self.last_prepared_request = projected_request
+        self._record_projection_counts(request, projected_request)
+        curator_request_bytes = len(serialize_curator_request(projected_request))
+        body = self._serialize_request(projected_request)
         provider_request_body_bytes = len(body)
         self._record_metadata(0, curator_request_bytes, provider_request_body_bytes, "not_run")
         try:
             validate_provider_request_limits(
-                request,
+                projected_request,
                 body,
-                max_candidate_count=self._max_candidate_count,
+                max_candidate_count=None,
                 max_provider_request_body_bytes=self._max_provider_request_body_bytes,
             )
         except ProviderRequestLimitError:
             self._record_metadata(0, curator_request_bytes, provider_request_body_bytes, "failed")
             raise
+        return PreparedProviderRequest(
+            request=projected_request,
+            body=body,
+            curator_request_bytes=curator_request_bytes,
+            provider_request_body_bytes=provider_request_body_bytes,
+        )
+
+    def curate(self, request: CuratorRequest) -> CuratorResponse:
+        prepared = self.prepare_request(request)
+        effective_request = prepared.request
+        curator_request_bytes = prepared.curator_request_bytes
+        body = prepared.body
+        provider_request_body_bytes = prepared.provider_request_body_bytes
 
         api_key = os.environ.get(self.config.api_key_env, "").strip()
         if not api_key:
@@ -429,7 +532,7 @@ class OpenAICompatibleCuratorProvider:
                 provider_request_body_bytes,
             )
             try:
-                response = validate_curator_response(payload, request)
+                response = validate_curator_response(payload, effective_request)
             except CuratorContractError as exc:
                 raise self._failure(
                     "validation",
@@ -570,6 +673,10 @@ class OpenAICompatibleCuratorProvider:
             curator_request_bytes=curator_request_bytes,
             provider_request_body_bytes=provider_request_body_bytes,
             validation_status=validation_status,
+            input_mode=self._input_mode,
+            summary_max_chars=self._summary_max_chars,
+            summaries_capped_count=self._summaries_capped_count,
+            summaries_unchanged_count=self._summaries_unchanged_count,
         )
 
     def _failure(
@@ -639,6 +746,7 @@ class DeepSeekCuratorProvider(OpenAICompatibleCuratorProvider):
         transport: HTTPTransport | None = None,
         max_candidate_count: int | None = None,
         max_provider_request_body_bytes: int | None = None,
+        input_mode: str = FULL_PROVIDER_INPUT_MODE,
     ) -> None:
         if not isinstance(config, DeepSeekProviderConfig):
             raise TypeError("DeepSeekCuratorProvider requires DeepSeekProviderConfig")
@@ -647,6 +755,7 @@ class DeepSeekCuratorProvider(OpenAICompatibleCuratorProvider):
             transport=transport,
             max_candidate_count=max_candidate_count,
             max_provider_request_body_bytes=max_provider_request_body_bytes,
+            input_mode=input_mode,
         )
 
     def _serialize_request(self, request: CuratorRequest) -> bytes:

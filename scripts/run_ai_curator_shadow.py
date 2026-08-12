@@ -20,11 +20,10 @@ from ai_curator import (  # noqa: E402
 from ai_curator_artifacts import ShadowRunInfo, create_run_id, write_shadow_run  # noqa: E402
 from ai_curator_provider import (  # noqa: E402
     DEEPSEEK_PROVIDER_CONFIG,
+    PHASE_3B_FIXTURE_INPUT_MODE,
+    PHASE_4_LIVE_INPUT_MODE,
     DeepSeekCuratorProvider,
     OpenAICompatibleProviderError,
-    serialize_curator_request,
-    serialize_deepseek_request,
-    validate_provider_request_limits,
 )
 from main import (  # noqa: E402
     DEFAULT_CONFIG_FILE,
@@ -46,6 +45,8 @@ from project_paths import get_project_paths  # noqa: E402
 
 PHASE_3B_MAX_CANDIDATE_COUNT = 2
 PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES = 4096
+PHASE_4_LIVE_MAX_CANDIDATE_COUNT = 200
+PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES = 200000
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,6 +69,12 @@ def parse_args() -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="Build and measure the selected real-provider request without transport.",
+    )
+    parser.add_argument(
+        "--input-mode",
+        choices=(PHASE_3B_FIXTURE_INPUT_MODE, PHASE_4_LIVE_INPUT_MODE),
+        default=PHASE_3B_FIXTURE_INPUT_MODE,
+        help="Explicit provider input policy; phase4_live is never inferred.",
     )
     return parser.parse_args()
 
@@ -110,7 +117,7 @@ def main() -> None:
 
     output_dir = args.output_dir or paths.ai_curator_shadow_dir
     if args.real_provider == "deepseek" and args.dry_run:
-        _print_deepseek_preflight(request)
+        _print_deepseek_preflight(request, input_mode=args.input_mode)
         return
 
     run_id = create_run_id()
@@ -124,6 +131,7 @@ def main() -> None:
             legacy_evaluation=legacy_evaluation,
             candidate_window_start=candidate_window_start,
             candidate_window_end=candidate_window_end,
+            input_mode=args.input_mode,
         )
         return
 
@@ -182,27 +190,44 @@ def _validate_cli_mode(args: argparse.Namespace) -> None:
         raise ValueError("--dry-run requires --real-provider deepseek")
     if args.dry_run and args.candidate_fixture is None:
         raise ValueError("--dry-run requires --candidate-fixture")
+    if args.input_mode == PHASE_4_LIVE_INPUT_MODE and args.real_provider != "deepseek":
+        raise ValueError("--input-mode phase4_live requires --real-provider deepseek")
 
 
-def _print_deepseek_preflight(request) -> None:  # noqa: ANN001
-    curator_request_bytes = len(serialize_curator_request(request))
-    provider_request_body = serialize_deepseek_request(request, DEEPSEEK_PROVIDER_CONFIG)
-    validate_provider_request_limits(
-        request,
-        provider_request_body,
-        max_candidate_count=PHASE_3B_MAX_CANDIDATE_COUNT,
-        max_provider_request_body_bytes=PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES,
+def _provider_limits(input_mode: str) -> tuple[int, int]:
+    if input_mode == PHASE_3B_FIXTURE_INPUT_MODE:
+        return PHASE_3B_MAX_CANDIDATE_COUNT, PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES
+    if input_mode == PHASE_4_LIVE_INPUT_MODE:
+        return PHASE_4_LIVE_MAX_CANDIDATE_COUNT, PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES
+    raise ValueError(f"unsupported provider input mode: {input_mode}")
+
+
+def _print_deepseek_preflight(request, *, input_mode: str) -> None:  # noqa: ANN001
+    max_candidate_count, max_provider_request_body_bytes = _provider_limits(input_mode)
+    provider = DeepSeekCuratorProvider(
+        max_candidate_count=max_candidate_count,
+        max_provider_request_body_bytes=max_provider_request_body_bytes,
+        input_mode=input_mode,
     )
+    prepared = provider.prepare_request(request)
+    metadata = provider.last_call_metadata
+    if metadata is None:
+        raise RuntimeError("DeepSeek provider prepared request without metadata")
     summary = {
         "mode": "dry_run",
         "provider_id": DEEPSEEK_PROVIDER_CONFIG.provider_id,
         "model": DEEPSEEK_PROVIDER_CONFIG.model,
         "endpoint": DEEPSEEK_PROVIDER_CONFIG.endpoint,
-        "candidate_count": len(request.articles),
-        "max_candidate_count": PHASE_3B_MAX_CANDIDATE_COUNT,
-        "curator_request_bytes": curator_request_bytes,
-        "provider_request_body_bytes": len(provider_request_body),
-        "max_provider_request_body_bytes": PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES,
+        "input_mode": input_mode,
+        "original_candidate_count": len(request.articles),
+        "candidate_count": len(prepared.request.articles),
+        "max_candidate_count": max_candidate_count,
+        "summary_max_chars": metadata.summary_max_chars,
+        "summaries_capped_count": metadata.summaries_capped_count,
+        "summaries_unchanged_count": metadata.summaries_unchanged_count,
+        "curator_request_bytes": prepared.curator_request_bytes,
+        "provider_request_body_bytes": prepared.provider_request_body_bytes,
+        "max_provider_request_body_bytes": max_provider_request_body_bytes,
         "max_tokens": DEEPSEEK_PROVIDER_CONFIG.max_tokens,
         "timeout": DEEPSEEK_PROVIDER_CONFIG.timeout,
         "max_attempts": DEEPSEEK_PROVIDER_CONFIG.max_attempts,
@@ -225,19 +250,24 @@ def _run_real_provider(
     legacy_evaluation: str,
     candidate_window_start,
     candidate_window_end,
+    input_mode: str,
 ) -> None:  # noqa: ANN001
+    max_candidate_count, max_provider_request_body_bytes = _provider_limits(input_mode)
     provider = DeepSeekCuratorProvider(
-        max_candidate_count=PHASE_3B_MAX_CANDIDATE_COUNT,
-        max_provider_request_body_bytes=PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES,
+        max_candidate_count=max_candidate_count,
+        max_provider_request_body_bytes=max_provider_request_body_bytes,
+        input_mode=input_mode,
     )
     try:
         response = provider.curate(request)
     except OpenAICompatibleProviderError as exc:
         metadata = provider.last_call_metadata
+        artifact_request = provider.last_prepared_request or request
+        has_prepared_request = provider.last_prepared_request is not None
         paths = write_shadow_run(
             output_dir,
             report_date=report_date,
-            request=request,
+            request=artifact_request,
             response=None,
             trace_records=trace_records,
             run_info=ShadowRunInfo(
@@ -255,9 +285,34 @@ def _run_real_provider(
                 legacy_evaluation=legacy_evaluation,
                 candidate_window_start=candidate_window_start,
                 candidate_window_end=candidate_window_end,
-                curator_request_bytes=metadata.curator_request_bytes if metadata else None,
+                input_mode=input_mode,
+                original_candidate_count=len(request.articles),
+                summary_max_chars=(
+                    metadata.summary_max_chars
+                    if metadata and has_prepared_request and input_mode == PHASE_4_LIVE_INPUT_MODE
+                    else None
+                ),
+                summaries_capped_count=(
+                    metadata.summaries_capped_count
+                    if metadata and has_prepared_request and input_mode == PHASE_4_LIVE_INPUT_MODE
+                    else None
+                ),
+                summaries_unchanged_count=(
+                    metadata.summaries_unchanged_count
+                    if metadata and has_prepared_request and input_mode == PHASE_4_LIVE_INPUT_MODE
+                    else None
+                ),
+                max_candidate_count=max_candidate_count,
+                max_provider_request_body_bytes=max_provider_request_body_bytes,
+                curator_request_bytes=(
+                    metadata.curator_request_bytes
+                    if metadata and has_prepared_request
+                    else None
+                ),
                 provider_request_body_bytes=(
-                    metadata.provider_request_body_bytes if metadata else None
+                    metadata.provider_request_body_bytes
+                    if metadata and has_prepared_request
+                    else None
                 ),
             ),
             run_id=run_id,
@@ -268,10 +323,13 @@ def _run_real_provider(
     metadata = provider.last_call_metadata
     if metadata is None:
         raise RuntimeError("DeepSeek provider completed without call metadata")
+    artifact_request = provider.last_prepared_request
+    if artifact_request is None:
+        raise RuntimeError("DeepSeek provider completed without prepared request")
     paths = write_shadow_run(
         output_dir,
         report_date=report_date,
-        request=request,
+        request=artifact_request,
         response=response,
         trace_records=trace_records,
         run_info=ShadowRunInfo(
@@ -284,6 +342,25 @@ def _run_real_provider(
             legacy_evaluation=legacy_evaluation,
             candidate_window_start=candidate_window_start,
             candidate_window_end=candidate_window_end,
+            input_mode=input_mode,
+            original_candidate_count=len(request.articles),
+            summary_max_chars=(
+                metadata.summary_max_chars
+                if input_mode == PHASE_4_LIVE_INPUT_MODE
+                else None
+            ),
+            summaries_capped_count=(
+                metadata.summaries_capped_count
+                if input_mode == PHASE_4_LIVE_INPUT_MODE
+                else None
+            ),
+            summaries_unchanged_count=(
+                metadata.summaries_unchanged_count
+                if input_mode == PHASE_4_LIVE_INPUT_MODE
+                else None
+            ),
+            max_candidate_count=max_candidate_count,
+            max_provider_request_body_bytes=max_provider_request_body_bytes,
             curator_request_bytes=metadata.curator_request_bytes,
             provider_request_body_bytes=metadata.provider_request_body_bytes,
         ),

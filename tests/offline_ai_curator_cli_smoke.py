@@ -11,9 +11,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from ai_curator import build_curator_request, load_candidate_fixture  # noqa: E402
+from ai_curator import (  # noqa: E402
+    build_curator_request,
+    load_candidate_fixture,
+    project_curator_request_for_provider,
+)
 from ai_curator_provider import (  # noqa: E402
     DEEPSEEK_PROVIDER_CONFIG,
+    PHASE_4_LIVE_INPUT_MODE,
     serialize_curator_request,
     serialize_deepseek_request,
 )
@@ -242,6 +247,88 @@ def main() -> None:
             serialize_deepseek_request(fixture_request, DEEPSEEK_PROVIDER_CONFIG)
         )
 
+        phase4_candidate_path = temp_path / "phase4-candidates.json"
+        phase4_payload = valid_candidate_fixture()
+        phase4_payload["articles"][0]["summary"] = "x" * 600  # type: ignore[index]
+        write_json(phase4_candidate_path, phase4_payload)
+        phase4_snapshot_bytes = phase4_candidate_path.read_bytes()
+        phase4_dry_run = run_shadow_cli(
+            phase4_candidate_path,
+            response_path,
+            temp_path / "phase4-dry-run-output",
+            data_root,
+            include_fixture_response=False,
+            extra_args=[
+                "--real-provider",
+                "deepseek",
+                "--input-mode",
+                PHASE_4_LIVE_INPUT_MODE,
+                "--dry-run",
+            ],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert phase4_dry_run.returncode == 0, phase4_dry_run.stderr
+        phase4_summary = json.loads(phase4_dry_run.stdout)
+        assert phase4_summary["input_mode"] == PHASE_4_LIVE_INPUT_MODE
+        assert phase4_summary["original_candidate_count"] == 2
+        assert phase4_summary["candidate_count"] == 2
+        assert phase4_summary["summary_max_chars"] == 500
+        assert phase4_summary["summaries_capped_count"] == 1
+        assert phase4_summary["summaries_unchanged_count"] == 1
+        assert phase4_summary["max_candidate_count"] == 200
+        assert phase4_summary["max_provider_request_body_bytes"] == 200000
+        assert phase4_summary["transport_calls"] == 0
+        assert phase4_summary["provider_request_body_bytes"] <= 200000
+
+        phase4_report_date, phase4_candidates = load_candidate_fixture(phase4_candidate_path)
+        phase4_request = build_curator_request(phase4_candidates, phase4_report_date, max_events=5)
+        phase4_projected_request = project_curator_request_for_provider(phase4_request)
+        assert phase4_summary["curator_request_bytes"] == len(
+            serialize_curator_request(phase4_projected_request)
+        )
+        assert phase4_summary["provider_request_body_bytes"] == len(
+            serialize_deepseek_request(phase4_projected_request, DEEPSEEK_PROVIDER_CONFIG)
+        )
+        assert not run_dirs(temp_path / "phase4-dry-run-output")
+
+        phase4_real_output = temp_path / "phase4-real-output"
+        phase4_real_result = run_shadow_cli(
+            phase4_candidate_path,
+            response_path,
+            phase4_real_output,
+            data_root,
+            include_fixture_response=False,
+            extra_args=["--real-provider", "deepseek", "--input-mode", PHASE_4_LIVE_INPUT_MODE],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert phase4_real_result.returncode != 0
+        phase4_real_run = run_dirs(phase4_real_output)[0]
+        phase4_real_payload = json.loads((phase4_real_run / "run.json").read_text(encoding="utf-8"))
+        assert phase4_real_payload["input_mode"] == PHASE_4_LIVE_INPUT_MODE
+        assert phase4_real_payload["summary_max_chars"] == 500
+        assert phase4_real_payload["summaries_capped_count"] == 1
+        assert phase4_real_payload["summaries_unchanged_count"] == 1
+        assert phase4_real_payload["max_candidate_count"] == 200
+        assert phase4_real_payload["max_provider_request_body_bytes"] == 200000
+        assert phase4_real_payload["failure_code"] == "missing_api_key"
+        phase4_request_payload = json.loads(
+            (phase4_real_run / "request.json").read_text(encoding="utf-8")
+        )
+        assert phase4_request_payload["articles"][0]["summary"] == "x" * 500
+        assert not (phase4_real_run / "response.json").exists()
+        assert phase4_candidate_path.read_bytes() == phase4_snapshot_bytes
+
+        phase4_without_provider = run_shadow_cli(
+            phase4_candidate_path,
+            response_path,
+            temp_path / "phase4-without-provider-output",
+            data_root,
+            extra_args=["--input-mode", PHASE_4_LIVE_INPUT_MODE],
+        )
+        assert phase4_without_provider.returncode != 0
+        assert "requires --real-provider deepseek" in phase4_without_provider.stderr
+        assert not run_dirs(temp_path / "phase4-without-provider-output")
+
         too_many_candidate_path = temp_path / "too-many-candidates.json"
         too_many_payload = valid_candidate_fixture()
         too_many_payload["articles"].append(  # type: ignore[index]
@@ -270,6 +357,25 @@ def main() -> None:
         assert too_many_dry_run.returncode != 0
         assert "candidate_count_limit" in too_many_dry_run.stderr
         assert not run_dirs(temp_path / "too-many-dry-run-output")
+
+        three_phase4_dry_run = run_shadow_cli(
+            too_many_candidate_path,
+            response_path,
+            temp_path / "three-phase4-dry-run-output",
+            data_root,
+            include_fixture_response=False,
+            extra_args=[
+                "--real-provider",
+                "deepseek",
+                "--input-mode",
+                PHASE_4_LIVE_INPUT_MODE,
+                "--dry-run",
+            ],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert three_phase4_dry_run.returncode == 0, three_phase4_dry_run.stderr
+        assert json.loads(three_phase4_dry_run.stdout)["candidate_count"] == 3
+        assert json.loads(three_phase4_dry_run.stdout)["transport_calls"] == 0
 
         oversized_candidate_path = temp_path / "oversized-candidate.json"
         oversized_payload = valid_candidate_fixture()

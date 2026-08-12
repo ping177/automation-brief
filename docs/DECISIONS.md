@@ -104,6 +104,12 @@
 - 理由：v0.4.1 扩源后，规则对重要性和重复内容的判断成本上升，AI 可作为候选新闻排序和解释辅助。
 - 影响：AI 只能基于已有 RSS 字段和来源链接判断，不编造事实；AI 不可用时必须 fallback 到规则版日报。
 
+### Phase 4B Provider-facing projection uses an explicit input mode
+
+- 决策：Phase 4 live shadow 只能通过显式 `--input-mode phase4_live` 选择；Provider-facing summary cap 和 `200 / 200000` hard limits 不从 candidate 数量或其他运行状态自动推断。Phase 3B fixture gate 保持独立的 `phase3b_fixture` mode 与 `2 / 4096` limits。
+- 理由：不同阶段的 limits 具有不同的安全语义；自动猜 mode 会让 live input 意外落入 fixture gate，或让 fixture contract 悄然改变。
+- 影响：projection 只创建 immutable Provider-facing copy，并在 exact body serialization 后执行 body limit check；`request.json` 保存模型实际看到的 projected request，原始 live snapshot 保持独立完整，不连接 production daily digest / `market_brief`。
+
 ### GitHub Trending 不直接作为每日重点内容
 
 - 决策：GitHub Trending 和 `ai_tools` 不适合直接进入 daily digest 的重点栏目。

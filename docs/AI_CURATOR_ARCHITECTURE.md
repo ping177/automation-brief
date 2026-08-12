@@ -270,6 +270,34 @@ The window semantics were deliberately not changed in Phase 4A. `main.py` calls 
 
 The measurements were offline-only (`transport_calls=0`). They establish that a future Phase 4 hard-limit decision must consider summary-size control and candidate-count control together; they do not select a cap, modify feeds, or authorize a real provider call.
 
+## Phase 4B Provider-facing Projection and Hard Limits
+
+Phase 4B freezes a small provider-facing input policy for the live shadow evaluation. It is selected only by the explicit CLI flag `--input-mode phase4_live`; the runtime never infers this mode from candidate count, summary size, provider choice, or any other condition. The existing Phase 3B fixture path remains a separate explicit `phase3b_fixture` mode with its `2 / 4096` limits.
+
+The Phase 4B projection is a deterministic immutable copy:
+
+```text
+summary_max_chars: 500
+max_candidate_count: 200
+max_provider_request_body_bytes: 200000
+```
+
+Only the formal `CandidateArticle.summary` is capped. A summary longer than 500 characters is sliced once to exactly 500 characters; shorter, boundary-length, empty, and existing null values keep their legal semantics. Article identity, title, source/feed metadata, link, normalized identity, language, publication time, report date, collected time, and request window are copied unchanged. The raw RSS snapshot remains an independent complete input and is never rewritten by projection.
+
+The provider preparation order is fixed:
+
+1. Build the complete candidate list.
+2. Check candidate count against the selected mode limit.
+3. Create the provider-facing projected request.
+4. Build the exact provider request body.
+5. Serialize the exact body.
+6. Check provider body bytes against the selected mode limit.
+7. Only then look up the API key or construct/execute HTTP transport.
+
+Both overflows fail closed with zero transport calls. The implementation never drops candidates, repeatedly shortens summaries, or raises a limit to fit the body. For a Phase 4 real-provider artifact, `request.json` is the projected request actually supplied to the provider serializer; the original live snapshot is not replaced. Allowlisted run metadata records `input_mode`, summary cap, original candidate count, projection counts, and both hard limits without storing raw HTTP envelopes, Authorization, API keys, holdings, or full provider responses.
+
+The formal offline replay of `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` has 159 candidates, 25 capped summaries, and 134 unchanged summaries. With the exact current DeepSeek serializer, the projected request measures `127574` bytes and the provider body measures `138482` bytes; `transport_calls=0`.
+
 ## Version Route and Next Step
 
 The formal route is:
@@ -280,4 +308,4 @@ v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Unified Overnight Brief
 ```
 
-v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, and Phase 3B completes the offline fixture safety preparation, prompt contract alignment, and successful fixture-only real-provider gate. The overall v0.6.2 evaluation remains incomplete. The next boundary is Phase 4 — Live RSS Shadow Evaluation: use a real RSS candidate window and real DeepSeek only as shadow, first re-measure and freeze live limits, and keep production paths unchanged. Any later provider evaluation must use the same `CuratorProvider` / `CuratorRequest` / `CuratorResponse` contracts and must not replace daily digest, `market_brief`, or production automation.
+v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation, prompt contract alignment, and successful fixture-only real-provider gate, and Phase 4B freezes the live shadow projection and hard-limit boundary. The overall v0.6.2 evaluation remains incomplete. The next boundary is a separately authorized real DeepSeek shadow evaluation using the explicit `phase4_live` mode; it must remain shadow-only and must not replace daily digest, `market_brief`, or production automation.

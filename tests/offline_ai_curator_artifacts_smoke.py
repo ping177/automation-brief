@@ -18,6 +18,7 @@ from ai_curator import (  # noqa: E402
     CuratorRequest,
     CuratorResponse,
     build_curator_request,
+    project_curator_request_for_provider,
     validate_curator_response,
 )
 from ai_curator_artifacts import (  # noqa: E402
@@ -383,6 +384,55 @@ def test_unknown_trace_type_fails_closed() -> None:
         assert not (root / "unknown-trace").exists()
 
 
+def test_phase4_artifact_records_policy_and_projected_request() -> None:
+    with TemporaryDirectory(dir="/private/tmp") as temp_dir:
+        root = Path(temp_dir) / "shadow"
+        original_request = request()
+        long_article = replace(original_request.articles[0], summary="x" * 600)
+        original_request = replace(
+            original_request,
+            articles=(long_article, original_request.articles[1]),
+        )
+        projected_request = project_curator_request_for_provider(original_request)
+        response_value = response(projected_request)
+        paths = write_shadow_run(
+            root,
+            report_date=REPORT_DATE,
+            request=projected_request,
+            response=response_value,
+            trace_records=[],
+            run_info=ShadowRunInfo(
+                status="succeeded",
+                provider_id="deepseek",
+                model="deepseek-v4-flash",
+                api_key_env="AUTOMATION_BRIEF_CURATOR_API_KEY",
+                attempts=1,
+                validation_status="passed",
+                input_mode="phase4_live",
+                original_candidate_count=2,
+                summary_max_chars=500,
+                summaries_capped_count=1,
+                summaries_unchanged_count=1,
+                max_candidate_count=200,
+                max_provider_request_body_bytes=200000,
+                curator_request_bytes=len(serialize_curator_request(projected_request)),
+                provider_request_body_bytes=138482,
+            ),
+            run_id="phase4-projected",
+        )
+        run_payload = json.loads(paths.run_json.read_text(encoding="utf-8"))
+        assert run_payload["input_mode"] == "phase4_live"
+        assert run_payload["original_candidate_count"] == 2
+        assert run_payload["summary_max_chars"] == 500
+        assert run_payload["summaries_capped_count"] == 1
+        assert run_payload["summaries_unchanged_count"] == 1
+        assert run_payload["max_candidate_count"] == 200
+        assert run_payload["max_provider_request_body_bytes"] == 200000
+        request_payload = json.loads(paths.request_json.read_text(encoding="utf-8"))  # type: ignore[union-attr]
+        assert request_payload["articles"][0]["summary"] == "x" * 500
+        assert "Input mode: `phase4_live`" in paths.review_md.read_text(encoding="utf-8")
+
+
 def test_failed_run_has_no_response_artifact() -> None:
     with TemporaryDirectory(dir="/private/tmp") as temp_dir:
         root = Path(temp_dir) / "shadow"
@@ -462,6 +512,7 @@ def main() -> None:
     test_review_escapes_model_markdown_and_html()
     test_legacy_labels_and_fetch_failure_trace_are_explicit_and_allowlisted()
     test_unknown_trace_type_fails_closed()
+    test_phase4_artifact_records_policy_and_projected_request()
     test_failed_run_has_no_response_artifact()
     print("offline ai curator artifacts smoke passed")
 

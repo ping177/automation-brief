@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import urllib.parse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timezone
 from pathlib import Path
 from typing import Any, Protocol
@@ -12,6 +12,7 @@ from typing import Any, Protocol
 SCHEMA_VERSION = "ai_curator_shadow_v1"
 TARGET_LANGUAGE = "zh-CN"
 SELECTION_GOAL = "global_major_events"
+PHASE_4_PROVIDER_SUMMARY_MAX_CHARS = 500
 LANGUAGE_VALUES = frozenset({"zh-CN", "en", "und"})
 
 IMPORTANCE_VALUES = frozenset({"must_know", "important", "background"})
@@ -400,6 +401,35 @@ def build_curator_request(
         target_language=TARGET_LANGUAGE,
         max_events=max_events,
     )
+
+
+def project_candidate_for_provider(
+    article: CandidateArticle,
+    *,
+    summary_max_chars: int = PHASE_4_PROVIDER_SUMMARY_MAX_CHARS,
+) -> CandidateArticle:
+    """Create a provider-facing candidate copy without changing the source article."""
+
+    if summary_max_chars < 0:
+        raise ValueError("summary_max_chars must be non-negative")
+    summary = article.summary
+    if isinstance(summary, str) and len(summary) > summary_max_chars:
+        summary = summary[:summary_max_chars]
+    return replace(article, summary=summary)
+
+
+def project_curator_request_for_provider(
+    request: CuratorRequest,
+    *,
+    summary_max_chars: int = PHASE_4_PROVIDER_SUMMARY_MAX_CHARS,
+) -> CuratorRequest:
+    """Create the deterministic provider-facing request projection."""
+
+    projected_articles = tuple(
+        project_candidate_for_provider(article, summary_max_chars=summary_max_chars)
+        for article in request.articles
+    )
+    return replace(request, articles=projected_articles)
 
 
 def validate_curator_response(payload: dict[str, Any], request: CuratorRequest) -> CuratorResponse:

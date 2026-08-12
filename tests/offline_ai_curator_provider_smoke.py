@@ -13,13 +13,20 @@ from typing import Iterator
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from ai_curator import CandidateArticle, build_curator_request  # noqa: E402
+from ai_curator import (  # noqa: E402
+    CandidateArticle,
+    build_curator_request,
+    project_candidate_for_provider,
+    project_curator_request_for_provider,
+)
 from ai_curator_provider import (  # noqa: E402
     DEEPSEEK_PROVIDER_CONFIG,
     DeepSeekCuratorProvider,
     OpenAICompatibleCuratorProvider,
     OpenAICompatibleProviderConfig,
     OpenAICompatibleProviderError,
+    PHASE_3B_FIXTURE_INPUT_MODE,
+    PHASE_4_LIVE_INPUT_MODE,
     serialize_deepseek_request,
     serialize_curator_request,
 )
@@ -139,11 +146,13 @@ def deepseek_provider(
     *,
     max_provider_request_body_bytes: int | None = None,
     max_candidate_count: int | None = None,
+    input_mode: str = "full",
 ) -> DeepSeekCuratorProvider:
     return DeepSeekCuratorProvider(
         transport=transport,
         max_provider_request_body_bytes=max_provider_request_body_bytes,
         max_candidate_count=max_candidate_count,
+        input_mode=input_mode,
     )
 
 
@@ -277,6 +286,185 @@ def test_request_limits_fail_before_transport() -> None:
     assert not transport.calls
 
 
+def test_phase4_projection_is_immutable_and_preserves_identity_fields() -> None:
+    original_articles = [
+        candidate(summary="x" * 499, article_id="article-short"),
+        candidate(summary="y" * 500, article_id="article-boundary"),
+        candidate(summary="z" * 501, article_id="article-long"),
+        candidate(summary="", article_id="article-empty"),
+        candidate(summary=None, article_id="article-null"),  # type: ignore[arg-type]
+    ]
+    request = build_curator_request(original_articles, REPORT_DATE, max_events=5)
+    original_payload = [article.to_curator_dict() for article in request.articles]
+
+    projected = project_curator_request_for_provider(request)
+
+    assert projected is not request
+    assert projected.window_start == request.window_start
+    assert projected.window_end == request.window_end
+    assert projected.report_date == request.report_date
+    assert projected.target_language == request.target_language
+    assert [article.article_id for article in projected.articles] == [
+        article.article_id for article in request.articles
+    ]
+    assert [article.summary for article in projected.articles] == [
+        "x" * 499,
+        "y" * 500,
+        "z" * 500,
+        "",
+        None,
+    ]
+    assert all(
+        projected_article is not original_article
+        for projected_article, original_article in zip(
+            projected.articles, request.articles
+        )
+    )
+    assert [article.to_curator_dict() for article in request.articles] == original_payload
+
+    for projected_article, original_article in zip(projected.articles, request.articles):
+        assert projected_article.title == original_article.title
+        assert projected_article.source == original_article.source
+        assert projected_article.feed_name == original_article.feed_name
+        assert projected_article.feed_role == original_article.feed_role
+        assert projected_article.link == original_article.link
+        assert projected_article.normalized_link == original_article.normalized_link
+        assert projected_article.language == original_article.language
+        assert projected_article.published_at == original_article.published_at
+
+    assert project_candidate_for_provider(original_articles[2]).summary == "z" * 500
+
+
+def test_phase4_provider_projects_once_and_sends_projected_body() -> None:
+    original = candidate(summary="x" * 5000)
+    request = build_curator_request([original], REPORT_DATE, max_events=1)
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    provider_instance = deepseek_provider(
+        transport,
+        max_candidate_count=200,
+        max_provider_request_body_bytes=200000,
+        input_mode=PHASE_4_LIVE_INPUT_MODE,
+    )
+
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        response = provider_instance.curate(request)
+
+    assert response.events
+    assert len(transport.calls) == 1
+    sent_request = transport.calls[0][0]
+    sent_payload = json.loads(sent_request.data.decode("utf-8"))  # type: ignore[attr-defined]
+    sent_articles = json.loads(sent_payload["messages"][1]["content"].split("<curator_request_json>\n", 1)[1].split("\n</curator_request_json>", 1)[0])[
+        "articles"
+    ]
+    assert sent_articles[0]["summary"] == "x" * 500
+    assert original.summary == "x" * 5000
+    assert provider_instance.last_prepared_request is not None
+    assert provider_instance.last_prepared_request.articles[0].summary == "x" * 500
+    assert provider_instance.last_call_metadata is not None
+    assert provider_instance.last_call_metadata.input_mode == PHASE_4_LIVE_INPUT_MODE
+    assert provider_instance.last_call_metadata.summary_max_chars == 500
+    assert provider_instance.last_call_metadata.summaries_capped_count == 1
+    assert provider_instance.last_call_metadata.summaries_unchanged_count == 0
+
+
+def test_phase4_candidate_overflow_fails_before_projection_and_transport() -> None:
+    allowed_request = build_curator_request(
+        [candidate(article_id="article-a")]
+        + [candidate(article_id=f"article-{index}") for index in range(199)],
+        REPORT_DATE,
+        max_events=1,
+    )
+    allowed_transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        allowed_provider = deepseek_provider(
+            allowed_transport,
+            max_candidate_count=200,
+            max_provider_request_body_bytes=200000,
+            input_mode=PHASE_4_LIVE_INPUT_MODE,
+        )
+        allowed_provider.curate(allowed_request)
+    assert len(allowed_request.articles) == 200
+    assert len(allowed_transport.calls) == 1
+
+    request = build_curator_request(
+        [candidate(article_id=f"article-{index}") for index in range(201)],
+        REPORT_DATE,
+        max_events=1,
+    )
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    provider_instance = deepseek_provider(
+        transport,
+        max_candidate_count=200,
+        max_provider_request_body_bytes=200000,
+        input_mode=PHASE_4_LIVE_INPUT_MODE,
+    )
+
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        error = expect_failure(provider_instance, transport, "candidate_count_limit", request)
+
+    assert error.failure_stage == "preflight"
+    assert error.attempts == 0
+    assert len(request.articles) == 201
+    assert provider_instance.last_prepared_request is None
+    assert not transport.calls
+
+
+def test_phase4_body_limit_allows_exact_boundary_and_rejects_overflow_without_reshrinking() -> None:
+    def body_size(title_length: int) -> int:
+        request = build_curator_request(
+            [candidate(title="T" * title_length, summary="S" * 500)],
+            REPORT_DATE,
+            max_events=1,
+        )
+        projected = project_curator_request_for_provider(request)
+        return len(serialize_deepseek_request(projected, DEEPSEEK_PROVIDER_CONFIG))
+
+    exact_title_length = 200000 - body_size(0)
+    assert exact_title_length > 0
+    exact_request = build_curator_request(
+        [candidate(title="T" * exact_title_length, summary="S" * 500)],
+        REPORT_DATE,
+        max_events=1,
+    )
+    assert body_size(exact_title_length) == 200000
+    exact_transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        deepseek_provider(
+            exact_transport,
+            max_candidate_count=200,
+            max_provider_request_body_bytes=200000,
+            input_mode=PHASE_4_LIVE_INPUT_MODE,
+        ).curate(exact_request)
+    assert len(exact_transport.calls) == 1
+
+    oversized_request = build_curator_request(
+        [candidate(title="T" * (exact_title_length + 1), summary="S" * 5000)],
+        REPORT_DATE,
+        max_events=1,
+    )
+    oversized_transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    oversized_provider = deepseek_provider(
+        oversized_transport,
+        max_candidate_count=200,
+        max_provider_request_body_bytes=200000,
+        input_mode=PHASE_4_LIVE_INPUT_MODE,
+    )
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        error = expect_failure(
+            oversized_provider,
+            oversized_transport,
+            "provider_request_body_limit",
+            oversized_request,
+        )
+    assert error.failure_stage == "preflight"
+    assert error.attempts == 0
+    assert oversized_provider.last_prepared_request is not None
+    assert oversized_provider.last_prepared_request.articles[0].summary == "S" * 500
+    assert oversized_provider.last_call_metadata is not None
+    assert oversized_provider.last_call_metadata.provider_request_body_bytes > 200000
+    assert not oversized_transport.calls
+
+
 def test_phase_3b_request_gate_boundaries_and_no_truncation() -> None:
     two_candidates = [
         candidate("First fixture article", article_id="article-a"),
@@ -296,6 +484,7 @@ def test_phase_3b_request_gate_boundaries_and_no_truncation() -> None:
             transport,
             max_candidate_count=2,
             max_provider_request_body_bytes=4096,
+            input_mode=PHASE_3B_FIXTURE_INPUT_MODE,
         ).curate(two_candidate_request)
     assert response.events
     assert len(transport.calls) == 1
@@ -317,6 +506,7 @@ def test_phase_3b_request_gate_boundaries_and_no_truncation() -> None:
             transport,
             max_candidate_count=2,
             max_provider_request_body_bytes=4096,
+            input_mode=PHASE_3B_FIXTURE_INPUT_MODE,
         )
         try:
             too_many_provider.curate(three_candidate_request)
@@ -343,6 +533,7 @@ def test_phase_3b_request_gate_boundaries_and_no_truncation() -> None:
             transport,
             max_candidate_count=2,
             max_provider_request_body_bytes=4096,
+            input_mode=PHASE_3B_FIXTURE_INPUT_MODE,
         )
         try:
             oversized_provider.curate(oversized_request)
@@ -582,6 +773,10 @@ def main() -> None:
     test_deepseek_frozen_config_and_exact_body()
     test_prompt_declares_exact_curator_response_contract()
     test_request_limits_fail_before_transport()
+    test_phase4_projection_is_immutable_and_preserves_identity_fields()
+    test_phase4_provider_projects_once_and_sends_projected_body()
+    test_phase4_candidate_overflow_fails_before_projection_and_transport()
+    test_phase4_body_limit_allows_exact_boundary_and_rejects_overflow_without_reshrinking()
     test_phase_3b_request_gate_boundaries_and_no_truncation()
     test_missing_key_fails_before_transport()
     test_transient_network_error_retries_once()

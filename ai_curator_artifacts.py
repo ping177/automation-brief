@@ -46,6 +46,13 @@ class ShadowRunInfo:
     failure_diagnostic_article_id: str = ""
     curator_request_bytes: int | None = None
     provider_request_body_bytes: int | None = None
+    input_mode: str = ""
+    original_candidate_count: int | None = None
+    summary_max_chars: int | None = None
+    summaries_capped_count: int | None = None
+    summaries_unchanged_count: int | None = None
+    max_candidate_count: int | None = None
+    max_provider_request_body_bytes: int | None = None
     legacy_evaluation: str = "not_evaluated"
     candidate_window_start: datetime | None = None
     candidate_window_end: datetime | None = None
@@ -131,6 +138,18 @@ def write_shadow_run(
         "candidate_window_start": _datetime_text(run_info.candidate_window_start),
         "candidate_window_end": _datetime_text(run_info.candidate_window_end),
     }
+    if run_info.input_mode:
+        run_payload.update(
+            {
+                "input_mode": _input_mode_token(run_info.input_mode),
+                "original_candidate_count": run_info.original_candidate_count,
+                "summary_max_chars": run_info.summary_max_chars,
+                "summaries_capped_count": run_info.summaries_capped_count,
+                "summaries_unchanged_count": run_info.summaries_unchanged_count,
+                "max_candidate_count": run_info.max_candidate_count,
+                "max_provider_request_body_bytes": run_info.max_provider_request_body_bytes,
+            }
+        )
     if not succeeded:
         failure_diagnostic = _safe_failure_diagnostic(run_info, request)
         if failure_diagnostic:
@@ -199,6 +218,29 @@ def _validate_run_info(
         raise ValueError("status must be succeeded or failed")
     if run_info.attempts < 0:
         raise ValueError("attempts must be non-negative")
+    _input_mode_token(run_info.input_mode)
+    for field_name in (
+        "original_candidate_count",
+        "summary_max_chars",
+        "summaries_capped_count",
+        "summaries_unchanged_count",
+        "max_candidate_count",
+        "max_provider_request_body_bytes",
+    ):
+        field_value = getattr(run_info, field_name)
+        if field_value is not None and field_value < 0:
+            raise ValueError(f"{field_name} must be non-negative")
+    if run_info.original_candidate_count is not None and request is not None:
+        if run_info.original_candidate_count != len(request.articles):
+            raise ValueError("original_candidate_count does not match request")
+    if (
+        run_info.summaries_capped_count is not None
+        and run_info.summaries_unchanged_count is not None
+        and request is not None
+        and run_info.summaries_capped_count + run_info.summaries_unchanged_count
+        != len(request.articles)
+    ):
+        raise ValueError("summary projection counts do not match request")
     if run_info.legacy_evaluation not in {"not_evaluated", "keyword_gate_approximation"}:
         raise ValueError("unsupported legacy_evaluation")
     if request is not None and request.report_date != report_date:
@@ -413,6 +455,23 @@ def _render_review(
         f"- Curator request bytes: `{_review_text(str(curator_request_bytes)) if curator_request_bytes is not None else 'not applicable'}`",
         f"- Provider request body bytes: `{run_info.provider_request_body_bytes if run_info.provider_request_body_bytes is not None else 'not applicable'}`",
     ]
+    if run_info.input_mode:
+        lines.append(f"- Input mode: `{_safe_token(run_info.input_mode)}`")
+        if run_info.original_candidate_count is not None:
+            lines.append(f"- Original candidate count: `{run_info.original_candidate_count}`")
+        if run_info.summary_max_chars is not None:
+            lines.append(f"- Provider summary cap: `{run_info.summary_max_chars}`")
+        if run_info.summaries_capped_count is not None:
+            lines.append(f"- Summaries capped: `{run_info.summaries_capped_count}`")
+        if run_info.summaries_unchanged_count is not None:
+            lines.append(f"- Summaries unchanged: `{run_info.summaries_unchanged_count}`")
+        if run_info.max_candidate_count is not None:
+            lines.append(f"- Max candidate count: `{run_info.max_candidate_count}`")
+        if run_info.max_provider_request_body_bytes is not None:
+            lines.append(
+                "- Max provider request body bytes: "
+                f"`{run_info.max_provider_request_body_bytes}`"
+            )
     if run_info.candidate_window_start and run_info.candidate_window_end:
         lines.append(
             "- Candidate collection window: "
@@ -528,6 +587,12 @@ def _safe_token(value: str) -> str:
     if not _SAFE_TOKEN_PATTERN.fullmatch(text):
         return "redacted"
     return text
+
+
+def _input_mode_token(value: str) -> str:
+    if value not in {"", "full", "phase3b_fixture", "phase4_live"}:
+        raise ValueError("unsupported input_mode")
+    return value
 
 
 def _safe_failure_diagnostic(

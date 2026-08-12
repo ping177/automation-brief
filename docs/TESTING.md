@@ -103,9 +103,11 @@ Phase 3B 离线回归至少锁住：恰好 2 个候选通过；超过 2 个候�
 
 ## Phase 4 boundary checklist
 
-Phase 4 — Live RSS Shadow Evaluation 只作为下一阶段边界记录，不属于本轮实现：
+Phase 4 — Live RSS Shadow Evaluation 仍必须显式、shadow-only 地运行：
 
-- 使用真实 RSS candidate window + 真实 DeepSeek shadow，先重新测量并冻结 live candidate count、provider request body size 和 Phase 4 hard limits。
+- `phase4_live` 只能通过 `--input-mode phase4_live` 选择，不能根据 candidate 数量或其他条件自动推断。
+- 本轮已冻结并验证 Provider-facing limits：summary cap=`500` chars、`max_candidate_count=200`、`max_provider_request_body_bytes=200000`。
+- 真实 RSS candidate window + 真实 DeepSeek shadow 仍需另行明确授权；本轮只做 offline replay / body construction，不执行真实 provider call。
 - 保持 shadow-only；不切换 daily digest / `market_brief`，不接入 Bark、Obsidian、launchd 或 pmset，AI failure 不影响 production。
 - 不把 Phase 3B 的 `max_candidate_count=2` 或 `max_provider_request_body_bytes=4096` 直接当作 live RSS / production limits。
 
@@ -116,6 +118,29 @@ Phase 4A 的 snapshot replay 和 payload decomposition 必须保持完全离线�
 本轮正式 loader replay 的验收是 `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` 加载为 exactly `159` candidates。测量使用当前正式 `deepseek-v4-flash` serializer，只在内存中生成 full/title-only/300/500/1000-character summary scenarios，以及 first-25/50/100/all count scenarios；这些不是生产 truncation 或 pruning policy。安全测量结果保存在 `/private/tmp/automation-brief-phase-4a-payload-measurement.json`，只含长度、字节、feed/source/title 等 metadata，不含完整 RSS 正文或 provider body。
 
 Phase 4A 不修改 digest 的动态 lookback cutoff，也不修改 `CuratorRequest.window_start/end` 的 article timestamp 语义；任何 window change 必须单独评估其对 shared legacy `collect_news()` path 的影响。
+
+## Phase 4B provider projection and hard-limit verification
+
+Phase 4B 的正式离线 replay 命令为：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/run_ai_curator_shadow.py \
+  --candidate-fixture /private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json \
+  --real-provider deepseek \
+  --input-mode phase4_live \
+  --dry-run
+```
+
+验收必须同时满足：
+
+- formal loader 的 `original_candidate_count=159`；projection 后仍为 `candidate_count=159`。
+- `summary_max_chars=500`；`summaries_capped_count=25`；`summaries_unchanged_count=134`。
+- projected `curator_request_bytes=127574`；exact provider body `provider_request_body_bytes=138482`；二者均在相应 limits 内。
+- `transport_calls=0`，不读取 API key，不创建 artifact，不访问 RSS / holdings，原始 snapshot 的 SHA-256 不变化。
+- Phase 4 provider preparation 顺序为完整 candidate count check → projection → exact body construction/serialization → body check → API-key lookup/transport；candidate/body overflow 都是 0-call fail-closed。
+- `request.json`（仅未来真实 Phase 4 artifact）必须保存 projected request，而不是原始完整 summary；原始 snapshot 仍保持独立完整输入。
+
+Phase 4B 离线回归还必须锁住：`<500`、`==500`、`>500`、empty/null summary、原始 candidate immutable、identity fields、exact 200 allowed、201 rejected、body `<=200000` allowed、body `>200000` rejected、no candidate pruning、no iterative summary shrinking，以及既有 Phase 3B `2 / 4096` fixture contract。
 
 ## Canonical runtime data migration verification
 

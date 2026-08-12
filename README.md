@@ -4,7 +4,7 @@ automation-brief 是一个低成本的个人隔夜全球要闻晨报（Overnight
 
 v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Overnight Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；当前仍不调用真实 AI provider。
 
-当前版本为 `v0.6.1 — Product Reset + Language Boundary`。v0.6.0-alpha 的 AI Curator shadow foundation 作为基础能力保留；当前仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。
+当前版本为 `v0.6.2 — AI Curator Shadow Evaluation（Phase 4B live policy frozen）`。v0.6.0-alpha 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4B provider-facing projection 作为 shadow-only 基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。Phase 4 live shadow 如需运行，必须显式使用 `--input-mode phase4_live`，不会自动切换生产路径。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## 当前产品合同

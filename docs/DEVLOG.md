@@ -822,3 +822,16 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 
 - 未调用真实 RSS、AI provider、Bark、Obsidian、launchd 或 pmset；未读取或打印 `.env` 内容；未创建 commit 或执行 push。
 - 不删除 legacy 文件，不清理 audit worktree；后续清理另行评估。
+
+## 2026-08-12 v0.6.2 Phase 2 Provider Adapter + Shadow Artifact Foundation
+
+### 实际改动与验证
+
+- 新增 OpenAI-compatible 标准库 HTTP adapter，保留 shadow-only 边界、timeout、有限重试、response validator 和最小 content policy；不接入 production entry。
+- 新增 shadow run artifact writer：validated success persistence、request/response date consistency、atomic staging publish、failure cleanup、byte measurements、safe review rendering、Legacy evaluation labels、candidate context 和 typed fetch-failure trace allowlist。
+- 增加 provider / artifact / CLI targeted regressions，并完成全部 AI Curator、digest/feed、market、holdings fixture、project paths、Project State push-gate、Python compile 和 `git diff --check` 验证。
+
+### 边界与结论
+
+- 未调用真实 RSS、AI provider 或 holdings；未读取 `.env`，未写 canonical runtime data；daily digest、`market_brief`、Bark、Obsidian、launchd、pmset 和 Curator domain schema 保持不变。
+- Final Corrective Audit 结果为 PASS。Phase 2 foundation 完成；整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成，后续阶段另行评估。

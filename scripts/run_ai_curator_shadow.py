@@ -11,12 +11,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from ai_curator import (  # noqa: E402
+    CuratorContractError,
     FixtureCuratorProvider,
     build_curator_request,
     candidate_trace_records,
     load_candidate_fixture,
-    render_shadow_preview,
 )
+from ai_curator_artifacts import ShadowRunInfo, create_run_id, write_shadow_run  # noqa: E402
 from main import (  # noqa: E402
     DEFAULT_CONFIG_FILE,
     DEFAULT_FEEDS_FILE,
@@ -60,6 +61,9 @@ def main() -> None:
         report_date = fixture_report_date
         candidate_failures = ()
         legacy_items = []
+        legacy_evaluation = "not_evaluated"
+        candidate_window_start = None
+        candidate_window_end = None
     else:
         raw_config = load_optional_json(args.config)
         config = normalize_config(raw_config)
@@ -69,8 +73,9 @@ def main() -> None:
         candidates, candidate_failures = collect_candidate_articles(feeds, config, report_date)
         feed_mode_by_name = {feed["name"]: feed["mode"] for feed in feeds}
         legacy_items = legacy_items_from_candidates(candidates, keywords, feed_mode_by_name, config.max_items_per_feed)
+        legacy_evaluation = "keyword_gate_approximation"
+        candidate_window_start, candidate_window_end = candidate_collection_window(candidates)
     request = build_curator_request(candidates, report_date=report_date, max_events=args.max_events)
-    response = FixtureCuratorProvider(args.fixture_response).curate(request)
     trace_records = candidate_trace_records(candidates, legacy_items)
     if candidate_failures:
         trace_records.append(
@@ -80,20 +85,110 @@ def main() -> None:
             }
         )
 
-    preview = render_shadow_preview(response, request, trace_records)
     output_dir = args.output_dir or paths.ai_curator_shadow_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
-    preview_path = output_dir / f"ai-curator-shadow-{report_date.isoformat()}.md"
-    trace_path = output_dir / f"ai-curator-shadow-trace-{report_date.isoformat()}.json"
-    request_path = output_dir / f"ai-curator-shadow-request-{report_date.isoformat()}.json"
+    run_id = create_run_id()
+    try:
+        response = FixtureCuratorProvider(args.fixture_response).curate(request)
+    except Exception as exc:
+        failure_info = _fixture_failure_info(
+            exc,
+            legacy_evaluation=legacy_evaluation,
+            candidate_window_start=candidate_window_start,
+            candidate_window_end=candidate_window_end,
+        )
+        paths = write_shadow_run(
+            output_dir,
+            report_date=report_date,
+            request=request,
+            response=None,
+            trace_records=trace_records,
+            run_info=failure_info,
+            run_id=run_id,
+        )
+        print(f"Shadow run failed: {paths.run_dir}", file=sys.stderr)
+        raise
 
-    preview_path.write_text(preview, encoding="utf-8")
-    trace_path.write_text(json.dumps(trace_records, ensure_ascii=False, indent=2), encoding="utf-8")
-    request_path.write_text(json.dumps(request.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    paths = write_shadow_run(
+        output_dir,
+        report_date=report_date,
+        request=request,
+        response=response,
+        trace_records=trace_records,
+        run_info=ShadowRunInfo(
+            status="succeeded",
+            provider_id="fixture",
+            model="fixture-response",
+            api_key_env="",
+            attempts=1,
+            validation_status="passed",
+            legacy_evaluation=legacy_evaluation,
+            candidate_window_start=candidate_window_start,
+            candidate_window_end=candidate_window_end,
+            provider_request_body_bytes=None,
+        ),
+        run_id=run_id,
+    )
+    print(f"Shadow run written: {paths.run_dir}")
 
-    print(f"Shadow preview written: {preview_path}")
-    print(f"Candidate trace written: {trace_path}")
-    print(f"Curator request written: {request_path}")
+
+def _fixture_failure_info(
+    exc: Exception,
+    *,
+    legacy_evaluation: str,
+    candidate_window_start,
+    candidate_window_end,
+) -> ShadowRunInfo:  # noqa: ANN001
+    if isinstance(exc, json.JSONDecodeError):
+        return ShadowRunInfo(
+            status="failed",
+            provider_id="fixture",
+            model="fixture-response",
+            api_key_env="",
+            attempts=1,
+            validation_status="not_run",
+            failure_stage="response_parse",
+            failure_code="invalid_json",
+            legacy_evaluation=legacy_evaluation,
+            candidate_window_start=candidate_window_start,
+            candidate_window_end=candidate_window_end,
+            provider_request_body_bytes=None,
+        )
+    if isinstance(exc, CuratorContractError):
+        return ShadowRunInfo(
+            status="failed",
+            provider_id="fixture",
+            model="fixture-response",
+            api_key_env="",
+            attempts=1,
+            validation_status="failed",
+            failure_stage="validation",
+            failure_code="invalid_curator_response",
+            legacy_evaluation=legacy_evaluation,
+            candidate_window_start=candidate_window_start,
+            candidate_window_end=candidate_window_end,
+            provider_request_body_bytes=None,
+        )
+    return ShadowRunInfo(
+        status="failed",
+        provider_id="fixture",
+        model="fixture-response",
+        api_key_env="",
+        attempts=1,
+        validation_status="not_run",
+        failure_stage="fixture_provider",
+        failure_code="fixture_provider_error",
+        legacy_evaluation=legacy_evaluation,
+        candidate_window_start=candidate_window_start,
+        candidate_window_end=candidate_window_end,
+        provider_request_body_bytes=None,
+    )
+
+
+def candidate_collection_window(candidates):  # noqa: ANN001
+    collected_at = [candidate.collected_at for candidate in candidates]
+    if not collected_at:
+        return None, None
+    return min(collected_at), max(collected_at)
 
 
 def legacy_items_from_candidates(candidates, keywords, feed_mode_by_name, max_items_per_feed):  # noqa: ANN001

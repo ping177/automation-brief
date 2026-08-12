@@ -108,6 +108,10 @@ def valid_response_fixture() -> dict[str, object]:
     }
 
 
+def run_dirs(root: Path) -> list[Path]:
+    return sorted(path for path in root.iterdir() if path.is_dir()) if root.exists() else []
+
+
 def main() -> None:
     with TemporaryDirectory(dir="/private/tmp") as temp_dir:
         temp_path = Path(temp_dir)
@@ -121,16 +125,27 @@ def main() -> None:
         result = run_shadow_cli(candidate_path, response_path, output_dir, data_root)
         assert result.returncode == 0, result.stderr
 
-        preview_path = output_dir / "ai-curator-shadow-2026-07-16.md"
-        request_path = output_dir / "ai-curator-shadow-request-2026-07-16.json"
-        trace_path = output_dir / "ai-curator-shadow-trace-2026-07-16.json"
+        run_dir = run_dirs(output_dir)[0]
+        preview_path = run_dir / "review.md"
+        request_path = run_dir / "request.json"
+        trace_path = run_dir / "trace.json"
+        response_artifact_path = run_dir / "response.json"
+        assert (run_dir / "run.json").exists()
         assert preview_path.exists()
         assert request_path.exists()
         assert trace_path.exists()
+        assert response_artifact_path.exists()
+        run_payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+        assert run_payload["provider_request_body_bytes"] is None
+        assert run_payload["legacy_evaluation"] == "not_evaluated"
+        assert run_payload["candidate_window_start"] is None
+        assert run_payload["candidate_window_end"] is None
 
         preview = preview_path.read_text(encoding="utf-8")
         assert "Fixture central banks coordinate liquidity support" in preview
         assert "Fixture Source" in preview
+        assert "Legacy comparison: `not evaluated`" in preview
+        assert "Candidate collection window: `not applicable`" in preview
 
         request_payload = json.loads(request_path.read_text(encoding="utf-8"))
         request_text = json.dumps(request_payload, ensure_ascii=False)
@@ -147,8 +162,24 @@ def main() -> None:
         default_result = run_shadow_cli(candidate_path, response_path, None, data_root)
         assert default_result.returncode == 0, default_result.stderr
         default_shadow_dir = data_root / "runs" / "ai-curator-shadow"
-        assert (default_shadow_dir / "ai-curator-shadow-2026-07-16.md").exists()
+        assert len(run_dirs(default_shadow_dir)) == 1
+        assert (run_dirs(default_shadow_dir)[0] / "review.md").exists()
         assert not (PROJECT_ROOT / "output" / "ai-curator-shadow").exists()
+
+        invalid_response_path = temp_path / "invalid-response.json"
+        invalid_response = valid_response_fixture()
+        invalid_response["events"][0]["evidence_article_ids"] = ["missing"]  # type: ignore[index]
+        write_json(invalid_response_path, invalid_response)
+        failed_output = temp_path / "failed-output"
+        failed_result = run_shadow_cli(candidate_path, invalid_response_path, failed_output, data_root)
+        assert failed_result.returncode != 0
+        failed_run_dir = run_dirs(failed_output)[0]
+        failed_run_payload = json.loads((failed_run_dir / "run.json").read_text(encoding="utf-8"))
+        assert failed_run_payload["status"] == "failed"
+        assert failed_run_payload["failure_code"] == "invalid_curator_response"
+        assert (failed_run_dir / "request.json").exists()
+        assert (failed_run_dir / "trace.json").exists()
+        assert not (failed_run_dir / "response.json").exists()
 
         bad_candidate_path = temp_path / "bad-candidates.json"
         bad_candidate_path.write_text("{not json", encoding="utf-8")

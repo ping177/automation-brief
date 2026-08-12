@@ -44,6 +44,10 @@ from main import (  # noqa: E402
 from project_paths import get_project_paths  # noqa: E402
 
 
+PHASE_3B_MAX_CANDIDATE_COUNT = 2
+PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES = 4096
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate an offline AI Curator shadow preview.")
     parser.add_argument("--fixture-response", type=Path, help="Local JSON CuratorResponse fixture")
@@ -170,6 +174,8 @@ def main() -> None:
 def _validate_cli_mode(args: argparse.Namespace) -> None:
     if args.real_provider is None and args.fixture_response is None:
         raise ValueError("--fixture-response is required unless --real-provider is selected")
+    if args.real_provider is not None and args.candidate_fixture is None:
+        raise ValueError("--real-provider requires --candidate-fixture")
     if args.real_provider is not None and args.fixture_response is not None:
         raise ValueError("--fixture-response cannot be combined with --real-provider")
     if args.dry_run and args.real_provider != "deepseek":
@@ -181,15 +187,22 @@ def _validate_cli_mode(args: argparse.Namespace) -> None:
 def _print_deepseek_preflight(request) -> None:  # noqa: ANN001
     curator_request_bytes = len(serialize_curator_request(request))
     provider_request_body = serialize_deepseek_request(request, DEEPSEEK_PROVIDER_CONFIG)
-    validate_provider_request_limits(request, provider_request_body)
+    validate_provider_request_limits(
+        request,
+        provider_request_body,
+        max_candidate_count=PHASE_3B_MAX_CANDIDATE_COUNT,
+        max_provider_request_body_bytes=PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES,
+    )
     summary = {
         "mode": "dry_run",
         "provider_id": DEEPSEEK_PROVIDER_CONFIG.provider_id,
         "model": DEEPSEEK_PROVIDER_CONFIG.model,
         "endpoint": DEEPSEEK_PROVIDER_CONFIG.endpoint,
         "candidate_count": len(request.articles),
+        "max_candidate_count": PHASE_3B_MAX_CANDIDATE_COUNT,
         "curator_request_bytes": curator_request_bytes,
         "provider_request_body_bytes": len(provider_request_body),
+        "max_provider_request_body_bytes": PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES,
         "max_tokens": DEEPSEEK_PROVIDER_CONFIG.max_tokens,
         "timeout": DEEPSEEK_PROVIDER_CONFIG.timeout,
         "max_attempts": DEEPSEEK_PROVIDER_CONFIG.max_attempts,
@@ -213,7 +226,10 @@ def _run_real_provider(
     candidate_window_start,
     candidate_window_end,
 ) -> None:  # noqa: ANN001
-    provider = DeepSeekCuratorProvider()
+    provider = DeepSeekCuratorProvider(
+        max_candidate_count=PHASE_3B_MAX_CANDIDATE_COUNT,
+        max_provider_request_body_bytes=PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES,
+    )
     try:
         response = provider.curate(request)
     except OpenAICompatibleProviderError as exc:

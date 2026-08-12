@@ -29,17 +29,22 @@ REPORT_DATE = date(2026, 7, 16)
 PUBLISHED_AT = datetime(2026, 7, 15, 23, 30, tzinfo=timezone.utc)
 
 
-def candidate(title: str = "Fixture article") -> CandidateArticle:
+def candidate(
+    title: str = "Fixture article",
+    *,
+    article_id: str = "article-a",
+    summary: str = "A concise source summary.",
+) -> CandidateArticle:
     return CandidateArticle(
-        article_id="article-a",
+        article_id=article_id,
         title=title,
-        summary="A concise source summary.",
+        summary=summary,
         source="Fixture Source",
         feed_name="Fixture Feed",
         feed_role="breaking_news",
         published_at=PUBLISHED_AT,
-        link="https://example.com/article-a",
-        normalized_link="https://example.com/article-a",
+        link=f"https://example.com/{article_id}",
+        normalized_link=f"https://example.com/{article_id}",
         report_date=REPORT_DATE,
         collected_at=PUBLISHED_AT,
         language="en",
@@ -236,6 +241,87 @@ def test_request_limits_fail_before_transport() -> None:
     assert error.attempts == 0
     assert not transport.calls
 
+
+def test_phase_3b_request_gate_boundaries_and_no_truncation() -> None:
+    two_candidates = [
+        candidate("First fixture article", article_id="article-a"),
+        candidate("Second fixture article", article_id="article-b"),
+    ]
+    two_candidate_request = build_curator_request(two_candidates, REPORT_DATE, max_events=2)
+    two_candidate_body = serialize_deepseek_request(
+        two_candidate_request,
+        DEEPSEEK_PROVIDER_CONFIG,
+    )
+    assert len(two_candidate_request.articles) == 2
+    assert len(two_candidate_body) <= 4096
+
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        response = deepseek_provider(
+            transport,
+            max_candidate_count=2,
+            max_provider_request_body_bytes=4096,
+        ).curate(two_candidate_request)
+    assert response.events
+    assert len(transport.calls) == 1
+    sent_request = transport.calls[0][0]
+    assert sent_request.data == two_candidate_body  # type: ignore[attr-defined]
+
+    three_candidate_request = build_curator_request(
+        [
+            candidate("First fixture article", article_id="article-a"),
+            candidate("Second fixture article", article_id="article-b"),
+            candidate("Third fixture article", article_id="article-c"),
+        ],
+        REPORT_DATE,
+        max_events=2,
+    )
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        too_many_provider = deepseek_provider(
+            transport,
+            max_candidate_count=2,
+            max_provider_request_body_bytes=4096,
+        )
+        try:
+            too_many_provider.curate(three_candidate_request)
+        except OpenAICompatibleProviderError as exc:
+            error = exc
+        else:
+            raise AssertionError("candidate count limit must fail closed")
+    assert error.failure_code == "candidate_count_limit"
+    assert error.failure_stage == "preflight"
+    assert error.attempts == 0
+    assert len(three_candidate_request.articles) == 3
+    assert not transport.calls
+
+    oversized_request = build_curator_request(
+        [candidate(summary="x" * 5000)],
+        REPORT_DATE,
+        max_events=1,
+    )
+    oversized_body = serialize_deepseek_request(oversized_request, DEEPSEEK_PROVIDER_CONFIG)
+    assert len(oversized_body) > 4096
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        oversized_provider = deepseek_provider(
+            transport,
+            max_candidate_count=2,
+            max_provider_request_body_bytes=4096,
+        )
+        try:
+            oversized_provider.curate(oversized_request)
+        except OpenAICompatibleProviderError as exc:
+            error = exc
+        else:
+            raise AssertionError("provider body limit must fail closed")
+    assert error.failure_code == "provider_request_body_limit"
+    assert error.failure_stage == "preflight"
+    assert error.attempts == 0
+    assert oversized_provider.last_call_metadata is not None
+    assert oversized_provider.last_call_metadata.provider_request_body_bytes == len(oversized_body)
+    assert not transport.calls
+
     transport = FakeTransport([(200, envelope(valid_response_payload()))])
     with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
         error = expect_failure(
@@ -423,6 +509,7 @@ def main() -> None:
     test_success_and_request_boundary()
     test_deepseek_frozen_config_and_exact_body()
     test_request_limits_fail_before_transport()
+    test_phase_3b_request_gate_boundaries_and_no_truncation()
     test_missing_key_fails_before_transport()
     test_transient_network_error_retries_once()
     test_retryable_http_statuses_retry_once()

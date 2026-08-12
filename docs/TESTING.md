@@ -72,7 +72,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_artifacts_smoke.py
 
 这些测试必须保持离线：不接真实 AI provider，不调用真实 RSS，不调用 Bark，不写入 Obsidian，不运行 launchd / pmset；真实 holdings 只允许由 validator 做不打印值的校验，其他 smoke 一律使用临时 fixture。Provider smoke 使用 fake transport，覆盖冻结 DeepSeek 配置与 exact body allowlist（`max_tokens`、disabled thinking、JSON mode、无 stream/tools）、`choices[0].finish_reason == "stop"` 成功边界，以及 `length`、`content_filter`、`tool_calls`、`insufficient_system_resource`、unknown 和缺失值的 fail-closed / no-retry 行为；同时覆盖 API key 缺失、timeout、瞬态网络错误、429、5xx、不可重试 4xx、空 content、invalid JSON、schema/evidence validation、content policy、max attempts、真实 request-body byte measurement、preflight limit 0-call 和 secret 不泄露。Artifact smoke 使用临时目录，覆盖成功/失败 run、atomic publish、same-day 不覆盖、writer success-boundary revalidation、allowlist、content rendering safety、Legacy label、fetch-failure trace、metadata、response.json 只在 validated success 存在和两个 byte measurement 字段语义。
 
-Phase 3A preflight 的离线命令为：
+Phase 3B fixture one-shot gate 的最终离线 dry-run 命令为：
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/run_ai_curator_shadow.py \
@@ -81,9 +81,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/run_ai_curator_shadow.py \
   --dry-run
 ```
 
-它必须输出 `mode: dry_run`、`transport_calls: 0`、fixture candidate count、`curator_request_bytes` 和来自 exact provider body bytes 的 `provider_request_body_bytes`，且不需要真实 key、不输出 API key/Authorization、不写 artifact。默认不带 `--real-provider` 仍使用 fixture provider；未知 provider 必须 fail closed。Phase 3A 不启用正式 candidate/body hard limit，但注入 limit 超限必须在 HTTP 前失败且 0 calls。
+它必须输出 `mode: dry_run`、`provider_id: deepseek`、`model: deepseek-v4-flash`、`candidate_count <= 2`、`provider_request_body_bytes <= 4096` 和 `transport_calls: 0`，并报告 `curator_request_bytes` / exact `provider_request_body_bytes`。当前 baseline fixture measurement 为 `candidate_count=2`、`curator_request_bytes=1178`、`provider_request_body_bytes=2487`。该路径不需要真实 key、不输出 API key/Authorization、不写 artifact。`--real-provider deepseek` 必须同时提供 `--candidate-fixture`，不能退回 feeds/RSS；默认不带 `--real-provider` 仍使用 fixture provider；未知 provider 必须 fail closed。Phase 3A 通用 provider 仍不启用默认 limit，只有 Phase 3B 显式 fixture gate 传入 `2 / 4096`；候选数或 body 超限必须在 HTTP 前失败且 0 calls，不自动截断候选或 payload。
 
-Phase 3B 的 temporary fixture one-shot gate 决策记录为：`max_candidate_count=2`、`max_provider_request_body_bytes=4096`、`max_attempts=2`、`max_tokens=8192`。这些仅用于下一阶段的 fixture gate，不是 live RSS / production limits；本轮不启用。
+Phase 3B 离线回归至少锁住：恰好 2 个候选通过；超过 2 个候选 fail closed；body `<=4096` 通过、`>4096` fail closed；不自动截断 candidates/payload；dry-run transport calls 为 0 且不依赖 key；actual real path 缺 key 在 transport 前失败；unknown provider、retry count、`finish_reason == "stop"`、secret、atomic artifact 和 production isolation 回归保持通过。冻结配置仍为 `max_attempts=2`、`max_tokens=8192`、`timeout=90s`；这些仅适用于本次 fixture gate，不是 live RSS / production limits。
 
 ## Canonical runtime data migration verification
 
@@ -152,7 +152,7 @@ python3 -m json.tool config/holdings.example.json
 
 ## AI Curator shadow checklist
 
-v0.6.0-alpha adds the original shadow plumbing; v0.6.2 Phase 2 adds provider and run-artifact boundaries, while Phase 3A adds an explicit DeepSeek opt-in and no-transport preflight without enabling production. When modifying the AI Curator path, confirm:
+v0.6.0-alpha adds the original shadow plumbing; v0.6.2 Phase 2 adds provider and run-artifact boundaries, Phase 3A adds an explicit DeepSeek opt-in and no-transport preflight, and Phase 3B adds an explicit fixture-only hard-limit gate without enabling production. When modifying the AI Curator path, confirm:
 
 - Candidate pool is built before legacy keyword filtering.
 - Fully offline shadow CLI validation can use `--candidate-fixture` plus `--fixture-response`; that path must not read real feeds or call RSS.
@@ -165,7 +165,7 @@ v0.6.0-alpha adds the original shadow plumbing; v0.6.2 Phase 2 adds provider and
 - The OpenAI-compatible adapter reads the API key only from the configured environment variable, treats candidate text as untrusted, sends no provider-specific strict-schema option, validates parsed JSON with `validate_curator_response()`, and retries only transient transport errors, 429, and 5xx once by default.
 - Failed provider/parser/validator runs record safe `run.json` metadata plus available request/trace artifacts and never write `response.json`; successful `response.json` is an explicit allowlist of validated domain fields.
 - Each run lives under `runs/ai-curator-shadow/<run_id>/`; repeated same-day runs do not overwrite prior runs. Artifacts contain no API key value, Authorization header, holdings, or raw provider envelope.
-- `run.json` records `candidate_count`, `curator_request_bytes`, and `provider_request_body_bytes`; fixture provider body bytes are `null`, and Phase 2 does not impose a candidate hard limit or request byte limit.
+- `run.json` records `candidate_count`, `curator_request_bytes`, and `provider_request_body_bytes`; fixture provider body bytes are `null`, and the Phase 3B candidate/body hard limits apply only to the explicit DeepSeek fixture gate, not the generic provider or production paths.
 - `scripts/run_daily_digest.sh` 仍只生成普通 digest；`scripts/run_market_brief.sh` 不再硬编码仓库 `output/`，由 resolver 选择 canonical `reports/`。
 
 ## market_brief smoke checklist

@@ -859,3 +859,24 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 
 - 本阶段未调用真实 DeepSeek API、真实 RSS、Bark 或 Obsidian，未读取 `.env` 或真实 holdings，未写 canonical runtime data；没有改动 `main.py`、daily/market brief、launchd、pmset 或生产自动化。
 - Phase 3A 的配置与 preflight boundary 已完成，但整体 `v0.6.2 — AI Curator Shadow Evaluation` 仍未完成：尚未进行真实 provider 质量评估、比较器或生产切换。
+
+## 2026-08-12 v0.6.2 Phase 3B Fixture One-shot Gate Offline Safety Preparation
+
+### 实际改动与验证
+
+- 在显式 `--real-provider deepseek` fixture path 中冻结并启用 `max_candidate_count=2`、`max_provider_request_body_bytes=4096`；该模式强制要求 `--candidate-fixture`，不会退回 feeds/RSS；同一组限制同时用于 `--dry-run` 和 actual provider path，通用 Phase 3A provider 默认仍不注入 limit。
+- hard-limit 检查在 exact request-body serialization 后、API key lookup / `urllib.request.Request` / HTTP transport 前执行；超限 fail closed，`attempts=0`、transport calls 为 0，不自动截断、删除或替换 candidates/payload。
+- 保持 DeepSeek `deepseek-v4-flash`、90 秒、最多 2 次、8192 tokens、disabled thinking、JSON mode、`finish_reason == "stop"` 和既有 retryable contract；artifact writer、allowlist、atomic publish、production daily/market paths 未改变。
+- provider/CLI offline smoke 增加恰好 2 个候选、候选超限、body 边界、无截断、dry-run 0 calls、actual 缺 key 前置失败等回归；未新增依赖。
+
+### Final offline dry-run measurement
+
+- `candidate_count=2`
+- `curator_request_bytes=1178`
+- `provider_request_body_bytes=2487`
+- `transport_calls=0`
+
+### 边界与结论
+
+- 本阶段未调用真实 DeepSeek API、真实 RSS、Bark 或 Obsidian，未读取 `.env` 或真实 holdings，未写 canonical runtime data；没有改动 `main.py`、daily/market brief、launchd、pmset 或生产自动化。
+- Phase 3B 只完成 one-shot real-provider gate 的离线 safety preparation；整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成，真实 provider 质量评估仍待用户下一步明确执行。

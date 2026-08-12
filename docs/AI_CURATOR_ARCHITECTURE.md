@@ -1,10 +1,10 @@
 # AI Curator Architecture
 
-This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/language contract, the v0.6.2 Phase 2 provider/artifact foundation, and the v0.6.2 Phase 3A DeepSeek preflight boundary. It is not a production AI integration.
+This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/language contract, the v0.6.2 Phase 2 provider/artifact foundation, the v0.6.2 Phase 3A DeepSeek preflight boundary, and the Phase 3B fixture one-shot safety gate. It is not a production AI integration.
 
 ## Scope
 
-v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator. v0.6.1 freezes the Overnight Brief product boundary, source-language metadata, Simplified Chinese reader output, and legacy/candidate isolation, then wires feed language into the candidate contract without changing production output behavior. v0.6.2 Phase 2 adds an explicit OpenAI-compatible adapter boundary and filesystem artifacts for offline shadow evaluation. v0.6.2 Phase 3A freezes one DeepSeek one-shot request profile and adds explicit real-provider opt-in plus a no-transport preflight; it does not invoke a real provider in this phase.
+v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator. v0.6.1 freezes the Overnight Brief product boundary, source-language metadata, Simplified Chinese reader output, and legacy/candidate isolation, then wires feed language into the candidate contract without changing production output behavior. v0.6.2 Phase 2 adds an explicit OpenAI-compatible adapter boundary and filesystem artifacts for offline shadow evaluation. v0.6.2 Phase 3A freezes one DeepSeek one-shot request profile and adds explicit real-provider opt-in plus a no-transport preflight. Phase 3B adds a fixture-only hard-limit gate shared by the explicit dry-run and real-provider paths; this preparation still does not invoke a real provider.
 
 It does not:
 
@@ -157,9 +157,9 @@ python3 scripts/run_ai_curator_shadow.py \
   --real-provider deepseek
 ```
 
-Only `deepseek` is accepted. The CLI does not infer provider mode from an API key and does not wire this path into `main.py`, the daily or market brief scripts, launchd, Bark, Obsidian, or pmset. The key is read only by the provider call boundary from `AUTOMATION_BRIEF_CURATOR_API_KEY`; no key value, Authorization header, or raw transport object is persisted.
+Only `deepseek` is accepted, and the real-provider path requires `--candidate-fixture`; it cannot fall back to `feeds.json` or RSS collection. The CLI does not infer provider mode from an API key and does not wire this path into `main.py`, the daily or market brief scripts, launchd, Bark, Obsidian, or pmset. The key is read only by the provider call boundary from `AUTOMATION_BRIEF_CURATOR_API_KEY`; no key value, Authorization header, or raw transport object is persisted.
 
-Phase 3A preflight is explicit and safe to run with no key and no fixture response:
+Phase 3A/3B preflight is explicit and safe to run with no key and no fixture response:
 
 ```bash
 python3 scripts/run_ai_curator_shadow.py \
@@ -168,15 +168,15 @@ python3 scripts/run_ai_curator_shadow.py \
   --dry-run
 ```
 
-It builds the same `CuratorRequest` and exact DeepSeek body bytes used by the provider path, then prints a safe JSON summary containing provider/model/endpoint, candidate count, both byte measurements, timeout/retry/token settings, thinking/JSON modes, target language, and `transport_calls: 0`. It writes no shadow run artifact and never calls `urllib` or reads the API key.
+It builds the same `CuratorRequest` and exact DeepSeek body bytes used by the provider path, applies the Phase 3B fixture gate before API-key lookup, then prints a safe JSON summary containing provider/model/endpoint, candidate count and limits, both byte measurements and limits, timeout/retry/token settings, thinking/JSON modes, target language, and `transport_calls: 0`. It writes no shadow run artifact and never calls `urllib` or reads the API key.
 
 ## Payload Limits
 
 Phase 3A does not enable a candidate-count or provider-body-byte default. The explicit `validate_provider_request_limits()` seam accepts only injected limits and runs after exact body serialization but before API-key lookup, `urllib.request.Request`, or any transport call. A violation fails closed with zero HTTP calls; it never truncates or silently drops candidates.
 
-### Phase 3B Temporary Fixture One-shot Gate (Decision Recorded, Not Active)
+### Phase 3B Fixture One-shot Gate (Explicit CLI Path Only)
 
-The next-stage fixture-only one-shot gate is recorded with these temporary limits:
+The explicit `--real-provider deepseek` CLI path now applies these frozen fixture-only limits to both `--dry-run` and the actual provider boundary:
 
 ```text
 max_candidate_count: 2
@@ -185,7 +185,7 @@ max_attempts: 2
 max_tokens: 8192
 ```
 
-These are Phase 3B fixture one-shot gate limits only. They are not live RSS limits, production limits, or Phase 3A runtime defaults, and they are not enabled in this closeout.
+The candidate and body checks run after exact serialization but before API-key lookup, `urllib.request.Request`, or any transport call. A violation fails closed with zero HTTP calls and zero attempts. Candidates and payloads are never truncated, deleted, or silently replaced. These limits are not live RSS limits, production limits, or Phase 3A generic provider defaults. The generic provider keeps its existing retry contract: at most two attempts, with retry only for transient transport errors, HTTP 429, and HTTP 5xx.
 
 ## Shadow Run Artifacts
 
@@ -248,4 +248,4 @@ v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Unified Overnight Brief
 ```
 
-v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, and Phase 3A freezes the DeepSeek request/preflight boundary, but the full evaluation phase remains incomplete: this phase has not invoked a real provider, no comparator exists, and no production path is changed. Any later provider evaluation must use the same `CuratorProvider` / `CuratorRequest` / `CuratorResponse` contracts and must not replace daily digest, `market_brief`, or production automation.
+v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, and Phase 3B completes the offline fixture safety preparation. The full evaluation phase remains incomplete: this phase has not invoked a real provider, no comparator exists, and no production path is changed. Any later provider evaluation must use the same `CuratorProvider` / `CuratorRequest` / `CuratorResponse` contracts and must not replace daily digest, `market_brief`, or production automation.

@@ -24,7 +24,7 @@ def write_json(path: Path, payload: dict[str, object]) -> None:
 
 
 def run_shadow_cli(
-    candidate_path: Path,
+    candidate_path: Path | None,
     response_path: Path,
     output_dir: Path | None,
     data_root: Path,
@@ -47,8 +47,6 @@ def run_shadow_cli(
     args = [
         "python3",
         str(PROJECT_ROOT / "scripts" / "run_ai_curator_shadow.py"),
-        "--candidate-fixture",
-        str(candidate_path),
         "--data-root",
         str(data_root),
         "--feeds",
@@ -58,6 +56,8 @@ def run_shadow_cli(
         "--config",
         str(output_base.parent / "missing-config.json"),
     ]
+    if candidate_path is not None:
+        args.extend(["--candidate-fixture", str(candidate_path)])
     if include_fixture_response:
         args.extend(["--fixture-response", str(response_path)])
     if output_dir is not None:
@@ -226,6 +226,10 @@ def main() -> None:
         assert dry_run_summary["json_mode"] is True
         assert dry_run_summary["target_language"] == "zh-CN"
         assert dry_run_summary["transport_calls"] == 0
+        assert dry_run_summary["max_candidate_count"] == 2
+        assert dry_run_summary["max_provider_request_body_bytes"] == 4096
+        assert dry_run_summary["candidate_count"] <= dry_run_summary["max_candidate_count"]
+        assert dry_run_summary["provider_request_body_bytes"] <= dry_run_summary["max_provider_request_body_bytes"]
         assert dry_run_summary["provider_request_body_bytes"] > dry_run_summary["curator_request_bytes"]
         assert not run_dirs(temp_path / "dry-run-output")
         assert "AUTOMATION_BRIEF_CURATOR_API_KEY" not in dry_run_result.stdout
@@ -237,6 +241,52 @@ def main() -> None:
         assert dry_run_summary["provider_request_body_bytes"] == len(
             serialize_deepseek_request(fixture_request, DEEPSEEK_PROVIDER_CONFIG)
         )
+
+        too_many_candidate_path = temp_path / "too-many-candidates.json"
+        too_many_payload = valid_candidate_fixture()
+        too_many_payload["articles"].append(  # type: ignore[index]
+            {
+                "title": "Fixture third candidate",
+                "summary": "A third candidate must fail closed.",
+                "source": "Fixture Source",
+                "feed_name": "Fixture Feed",
+                "feed_role": "breaking_news",
+                "published_at": "2026-07-15T20:00:00+08:00",
+                "link": "https://example.com/third-candidate",
+                "normalized_link": "https://example.com/third-candidate",
+                "report_date": "2026-07-16",
+            }
+        )
+        write_json(too_many_candidate_path, too_many_payload)
+        too_many_dry_run = run_shadow_cli(
+            too_many_candidate_path,
+            response_path,
+            temp_path / "too-many-dry-run-output",
+            data_root,
+            include_fixture_response=False,
+            extra_args=["--real-provider", "deepseek", "--dry-run"],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert too_many_dry_run.returncode != 0
+        assert "candidate_count_limit" in too_many_dry_run.stderr
+        assert not run_dirs(temp_path / "too-many-dry-run-output")
+
+        oversized_candidate_path = temp_path / "oversized-candidate.json"
+        oversized_payload = valid_candidate_fixture()
+        oversized_payload["articles"][0]["summary"] = "x" * 5000  # type: ignore[index]
+        write_json(oversized_candidate_path, oversized_payload)
+        oversized_dry_run = run_shadow_cli(
+            oversized_candidate_path,
+            response_path,
+            temp_path / "oversized-dry-run-output",
+            data_root,
+            include_fixture_response=False,
+            extra_args=["--real-provider", "deepseek", "--dry-run"],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert oversized_dry_run.returncode != 0
+        assert "provider_request_body_limit" in oversized_dry_run.stderr
+        assert not run_dirs(temp_path / "oversized-dry-run-output")
 
         real_provider_output = temp_path / "real-provider-output"
         real_provider_result = run_shadow_cli(
@@ -254,7 +304,38 @@ def main() -> None:
         assert real_provider_payload["provider_id"] == "deepseek"
         assert real_provider_payload["failure_code"] == "missing_api_key"
         assert real_provider_payload["attempts"] == 0
+        assert real_provider_payload["provider_request_body_bytes"] <= 4096
         assert not (real_provider_run / "response.json").exists()
+
+        too_many_real_output = temp_path / "too-many-real-output"
+        too_many_real_result = run_shadow_cli(
+            too_many_candidate_path,
+            response_path,
+            too_many_real_output,
+            data_root,
+            include_fixture_response=False,
+            extra_args=["--real-provider", "deepseek"],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert too_many_real_result.returncode != 0
+        too_many_real_run = run_dirs(too_many_real_output)[0]
+        too_many_real_payload = json.loads((too_many_real_run / "run.json").read_text(encoding="utf-8"))
+        assert too_many_real_payload["failure_code"] == "candidate_count_limit"
+        assert too_many_real_payload["attempts"] == 0
+        assert not (too_many_real_run / "response.json").exists()
+
+        real_without_fixture = run_shadow_cli(
+            None,
+            response_path,
+            temp_path / "real-without-fixture-output",
+            data_root,
+            include_fixture_response=False,
+            extra_args=["--real-provider", "deepseek"],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert real_without_fixture.returncode != 0
+        assert "--candidate-fixture" in real_without_fixture.stderr
+        assert not run_dirs(temp_path / "real-without-fixture-output")
 
         unknown_provider_result = run_shadow_cli(
             candidate_path,

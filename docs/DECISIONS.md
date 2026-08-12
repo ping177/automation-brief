@@ -122,6 +122,12 @@
 - 理由：同一 live snapshot 已连续两次在 rejection bookkeeping 上触发 `duplicate_rejected_article_id`；未被 event evidence 使用的 candidate 可由程序直接推导，LLM 维护大规模 rejection ID list 没有产品价值。
 - 影响：在现有 `CuratorResponse` validator 前的局部 phase4_live provider boundary 丢弃非权威 rejection 字段，不 dedupe、不选择 reason、不保存 rejection list；selected event 的 schema、enum、event/evidence uniqueness、known evidence、report date、content policy、finish_reason 和 JSON parsing 仍严格 fail closed。default/full 与 Phase 3B fixture behavior 保持不变，artifact `response.json` 保存 canonical empty list，`review.md` 明确写明 rejection enumeration 未收集。
 
+### Phase 4 live exact duplicate evidence canonicalization
+
+- 决策：仅对显式 `--input-mode phase4_live`，在现有 provider canonicalization boundary 中对同一 event 的 `evidence_article_ids` 删除完全相同的重复值，保留首次出现顺序；不同 event 之间复用同一 evidence ID 继续允许。
+- 理由：selected-only evidence references 是 set-like；完全相同的重复值没有语义增量，且已在第二次 selected-only live shadow 触发 `duplicate_evidence_article_id`。这是局部产品 canonicalization，不是通用 parser cleanup 或 validator 放宽。
+- 影响：canonicalization 后仍由现有 validator 严格检查 known evidence、非空 evidence、event ID、schema、enum、report date、content policy、finish reason 和 JSON parsing；unknown ID、不同值、不同 event、空列表均不被修正。default/full 与 Phase 3B fixture 的 duplicate evidence contract 保持 fail closed。
+
 ### GitHub Trending 不直接作为每日重点内容
 
 - 决策：GitHub Trending 和 `ai_tools` 不适合直接进入 daily digest 的重点栏目。

@@ -1020,3 +1020,17 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - 同一 snapshot `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` 离线 replay：`candidate_count=159`、summaries `25 / 134` capped/unchanged、`curator_request_bytes=127574`、phase4_live `provider_request_body_bytes=138433`、limits=`200 / 200000`、`transport_calls=0`。snapshot SHA-256 保持 `2cbb32a286f12c26bd963ea20100463bcce053561376945f5b90bef01a6d9def`。
 - 新增/更新 prompt、provider canonicalization、artifact semantics、contract/provider/CLI regression；Phase 3B provider two-candidate body=`3964`、CLI fixture body=`4093`，既有 `4096` limit 未修改。
 - 本轮完全离线：未调用 DeepSeek、未访问 RSS、未读取 API key / `.env`、未访问 holdings、未修改 production、未 commit/push。
+
+## 2026-08-12 v0.6.2 Phase 4 Live Evidence-ID Canonicalization
+
+### Trigger and boundary
+
+- 第二次 selected-only Phase 4 live shadow 已通过 Provider/JSON/input boundary，但 response validation 因 `duplicate_evidence_article_id` / `events.evidence_article_ids` fail closed；本轮不执行下一次真实调用。
+- 仅在显式 `phase4_live` provider canonicalization boundary 中，对同一 event 的 `evidence_article_ids` 删除完全相同的重复值并保留首次出现顺序；这是 set-like evidence reference 的 exact canonicalization，不是 generic dedupe、parser normalization 或 validator 放宽。
+- canonicalization 后仍由现有 validator 检查 known evidence、非空 evidence、required fields、canonical title、event ID、enum、report date/schema、content policy、finish reason 和 JSON parsing。unknown ID 不删除或修正，不合并不同 ID，不排序；跨 event evidence reuse 继续合法。default/full 与 Phase 3B duplicate evidence contract 保持原样。
+
+### Offline verification
+
+- provider regression 覆盖 `['a', 'a', 'b'] -> ['a', 'b']`、首次出现顺序、unknown/empty evidence、duplicate event、missing canonical title、跨 event reuse、selected-only rejection canonicalization，以及 full/Phase 3B strict duplicate evidence behavior。
+- 同一 snapshot `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` replay 预期保持 `candidate_count=159`、summaries `25 / 134` capped/unchanged、`curator_request_bytes=127574`、`provider_request_body_bytes=138433`、limits=`200 / 200000`、`transport_calls=0`，SHA-256 不变。
+- 本轮完全离线：未调用 DeepSeek、未访问 RSS、未读取 API key / `.env`、未访问 holdings、未修改 prompt、validator、schema、limits、retry、endpoint、model 或 production path，未 commit/push。

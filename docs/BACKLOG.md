@@ -99,7 +99,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - Global Event Curator 只做全球重大事件选择，不接 holdings、行情、legacy score、legacy category 或 matched keywords。
 - 真实 provider 不可直接替换 daily digest 或 `market_brief`；必须先输出 shadow preview 和 candidate trace，并保留 legacy fallback。
 - AI 不做全网生成、不编造事实、不替代来源链接。
-- Phase 4B 已冻结显式 `phase4_live` provider-facing projection：summary cap=`500`、candidate limit=`200`、provider body limit=`200000`；连续两次真实 DeepSeek shadow 已完成输入/transport 验证但因 duplicate rejected article ID 被 validator 拒绝。现在 live 模式采用 selected-only semantics：rejection enumeration 不再收集，provider boundary 将 rejection 字段 canonicalize 为 `[]`，selected events 仍严格验证；后续 real shadow 仍需单独授权，不能自动切换生产路径。
+- Phase 4B 已冻结显式 `phase4_live` provider-facing projection：summary cap=`500`、candidate limit=`200`、provider body limit=`200000`；selected-only 真实 DeepSeek shadow 已完成输入/transport 验证，但 output validation 先因 duplicate rejected article ID、随后因 duplicate evidence ID 被拒绝。现在 live 模式采用 selected-only semantics：rejection enumeration 不再收集，provider boundary 将 rejection 字段 canonicalize 为 `[]`，并仅对同一 event 内完全相同的 evidence ID 做保序 exact-dedupe；selected events 的其他 contract 仍严格验证，后续 real shadow 仍需单独授权，不能自动切换生产路径。
 
 ### missed coverage 闭环
 

@@ -412,9 +412,33 @@ def validate_curator_content_policy(response: CuratorResponse) -> None:
 
 
 def _canonicalize_phase4_live_response(payload: dict[str, object]) -> dict[str, object]:
-    """Apply the phase4_live selected-only product projection before validation."""
+    """Apply phase4_live-only projections before the existing validator."""
 
     canonical_payload = dict(payload)
+    raw_events = payload.get("events")
+    if isinstance(raw_events, list):
+        canonical_events: list[object] = []
+        for raw_event in raw_events:
+            if not isinstance(raw_event, dict):
+                canonical_events.append(raw_event)
+                continue
+            raw_evidence = raw_event.get("evidence_article_ids")
+            if not isinstance(raw_evidence, list):
+                canonical_events.append(raw_event)
+                continue
+
+            seen_article_ids: list[object] = []
+            canonical_evidence: list[object] = []
+            for article_id in raw_evidence:
+                if article_id in seen_article_ids:
+                    continue
+                seen_article_ids.append(article_id)
+                canonical_evidence.append(article_id)
+
+            canonical_event = dict(raw_event)
+            canonical_event["evidence_article_ids"] = canonical_evidence
+            canonical_events.append(canonical_event)
+        canonical_payload["events"] = canonical_events
     canonical_payload["rejected_article_ids"] = []
     return canonical_payload
 

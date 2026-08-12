@@ -320,6 +320,32 @@ def test_phase4_live_canonicalizes_duplicate_rejections_before_validation() -> N
     assert len(transport.calls) == 1
 
 
+def test_phase4_live_canonicalizes_duplicate_evidence_before_validation() -> None:
+    request = build_curator_request(
+        [candidate(article_id="article-a"), candidate(article_id="article-b")],
+        REPORT_DATE,
+        max_events=1,
+    )
+    payload = valid_response_payload()
+    payload["events"][0]["evidence_article_ids"] = [  # type: ignore[index]
+        "article-a",
+        "article-a",
+        "article-b",
+        "article-a",
+    ]
+    original_evidence = list(payload["events"][0]["evidence_article_ids"])  # type: ignore[index]
+    transport = FakeTransport([(200, envelope(payload))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        response = deepseek_provider(
+            transport,
+            input_mode=PHASE_4_LIVE_INPUT_MODE,
+        ).curate(request)
+
+    assert response.events[0].evidence_article_ids == ("article-a", "article-b")
+    assert payload["events"][0]["evidence_article_ids"] == original_evidence  # type: ignore[index]
+    assert len(transport.calls) == 1
+
+
 def test_phase4_live_discards_selected_rejected_overlap_but_keeps_selected_validation() -> None:
     request = build_curator_request([candidate()], REPORT_DATE, max_events=1)
     payload = valid_response_payload()
@@ -340,7 +366,12 @@ def test_phase4_live_discards_selected_rejected_overlap_but_keeps_selected_valid
 def test_phase4_live_selected_event_contract_remains_strict() -> None:
     request = build_curator_request([candidate()], REPORT_DATE, max_events=2)
     cases = (
-        ("unknown_evidence_article_id", "events.evidence_article_ids", {"evidence_article_ids": ["missing-id"]}),
+        (
+            "unknown_evidence_article_id",
+            "events.evidence_article_ids",
+            {"evidence_article_ids": ["missing-id", "missing-id"]},
+        ),
+        ("evidence_required", "events.evidence_article_ids", {"evidence_article_ids": []}),
         ("missing_required_field", "events.canonical_title", {"canonical_title": ""}),
         ("duplicate_event_id", "events.event_id", {"duplicate_event": True}),
     )
@@ -360,6 +391,41 @@ def test_phase4_live_selected_event_contract_remains_strict() -> None:
             )
         assert error.diagnostic_code == diagnostic_code
         assert error.diagnostic_path == diagnostic_path
+
+
+def test_phase4_live_allows_cross_event_evidence_reuse() -> None:
+    request = build_curator_request(
+        [candidate(article_id="article-a"), candidate(article_id="article-b")],
+        REPORT_DATE,
+        max_events=2,
+    )
+    payload = valid_response_payload()
+    payload["events"].append(  # type: ignore[union-attr]
+        {
+            "event_id": "event-b",
+            "canonical_title": "Second fixture event",
+            "summary": "The same evidence supports a related event.",
+            "category": "technology_ai",
+            "importance": "background",
+            "why_important": "Cross-event evidence reuse remains valid.",
+            "evidence_article_ids": ["article-a"],
+            "novelty": "material_update",
+            "confidence": "medium",
+            "uncertainties": [],
+        }
+    )
+    transport = FakeTransport([(200, envelope(payload))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        response = deepseek_provider(
+            transport,
+            input_mode=PHASE_4_LIVE_INPUT_MODE,
+        ).curate(request)
+
+    assert [event.event_id for event in response.events] == ["event-a", "event-b"]
+    assert [event.evidence_article_ids for event in response.events] == [
+        ("article-a",),
+        ("article-a",),
+    ]
 
 
 def test_default_and_phase3b_rejection_contract_remains_strict() -> None:
@@ -390,6 +456,37 @@ def test_default_and_phase3b_rejection_contract_remains_strict() -> None:
                 request,
             )
         assert error.diagnostic_code == "duplicate_rejected_article_id"
+
+
+def test_default_and_phase3b_duplicate_evidence_contract_remains_strict() -> None:
+    request = build_curator_request(
+        [candidate(article_id="article-a"), candidate(article_id="article-b")],
+        REPORT_DATE,
+        max_events=1,
+    )
+    payload = valid_response_payload()
+    payload["events"][0]["evidence_article_ids"] = [  # type: ignore[index]
+        "article-b",
+        "article-a",
+        "article-b",
+    ]
+    cases = (
+        ("full", {}),
+        (
+            PHASE_3B_FIXTURE_INPUT_MODE,
+            {"max_candidate_count": 2, "max_provider_request_body_bytes": 4096},
+        ),
+    )
+    for input_mode, limits in cases:
+        transport = FakeTransport([(200, envelope(payload))])
+        with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+            error = expect_failure(
+                deepseek_provider(transport, input_mode=input_mode, **limits),
+                transport,
+                "invalid_curator_response",
+                request,
+            )
+        assert error.diagnostic_code == "duplicate_evidence_article_id"
 
 
 def test_request_limits_fail_before_transport() -> None:
@@ -904,9 +1001,12 @@ def main() -> None:
     test_prompt_declares_exact_curator_response_contract()
     test_phase4_prompt_declares_selected_only_contract()
     test_phase4_live_canonicalizes_duplicate_rejections_before_validation()
+    test_phase4_live_canonicalizes_duplicate_evidence_before_validation()
     test_phase4_live_discards_selected_rejected_overlap_but_keeps_selected_validation()
     test_phase4_live_selected_event_contract_remains_strict()
+    test_phase4_live_allows_cross_event_evidence_reuse()
     test_default_and_phase3b_rejection_contract_remains_strict()
+    test_default_and_phase3b_duplicate_evidence_contract_remains_strict()
     test_request_limits_fail_before_transport()
     test_phase4_projection_is_immutable_and_preserves_identity_fields()
     test_phase4_provider_projects_once_and_sends_projected_body()

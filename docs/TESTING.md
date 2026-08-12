@@ -140,7 +140,8 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/run_ai_curator_shadow.py \
 - Phase 4 provider preparation 顺序为完整 candidate count check → projection → exact body construction/serialization → body check → API-key lookup/transport；candidate/body overflow 都是 0-call fail-closed。
 - `request.json`（仅未来真实 Phase 4 artifact）必须保存 projected request，而不是原始完整 summary；原始 snapshot 仍保持独立完整输入。
 - phase4_live system instruction 必须明确 selected-only semantics、rejection enumeration disabled、`rejected_article_ids=[]`，并要求模型只选择/聚合重要 events 与 evidence；default/full 和 Phase 3B prompt 保持原 rejection contract。
-- phase4_live provider boundary 在 generic validator 前将非权威 rejection 字段 canonicalize 为 `[]`，不 dedupe、不选 reason、不保存 rejection bookkeeping；selected event 的 validator、content policy、finish_reason 和 JSON parsing 仍严格 fail closed。
+- phase4_live provider boundary 在 generic validator 前将非权威 rejection 字段 canonicalize 为 `[]`，并仅按 event 对完全相同的 evidence ID 做保序 exact-dedupe；不 dedupe rejection、不选 reason、不保存 rejection bookkeeping。canonicalization 后 selected event 的 known evidence、非空 evidence、event ID、schema、enum、report date、content policy、finish_reason 和 JSON parsing 仍严格 fail closed。
+- unknown evidence ID 不因 canonicalization 被删除或修正；不同 evidence ID 不合并，跨 event 复用仍合法；default/full 与 Phase 3B fixture 的 duplicate evidence contract 保持 fail closed。
 - `response.json` 必须保存 canonical empty rejection list；`review.md` 必须写 `Rejection enumeration: not collected in phase4_live`，不能写成 AI 没有 reject。
 
 Phase 4B 离线回归还必须锁住：`<500`、`==500`、`>500`、empty/null summary、原始 candidate immutable、identity fields、exact 200 allowed、201 rejected、body `<=200000` allowed、body `>200000` rejected、no candidate pruning、no iterative summary shrinking，以及既有 Phase 3B `2 / 4096` fixture contract。

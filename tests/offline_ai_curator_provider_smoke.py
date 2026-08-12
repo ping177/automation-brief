@@ -266,6 +266,15 @@ def test_prompt_declares_exact_curator_response_contract() -> None:
     assert "do not omit required keys" in system_instruction.lower()
     assert '"title":' not in system_instruction
     assert '"headline":' not in system_instruction
+    prompt_lower = " ".join(system_instruction.lower().split())
+    for required_rule in (
+        "rejected article_id values must be unique",
+        "do not emit the same article_id more than once",
+        "emit one rejection object only",
+        "evidence_article_ids must be unique within each event",
+        "must not appear in rejected_article_ids",
+    ):
+        assert required_rule in prompt_lower
 
 
 def test_request_limits_fail_before_transport() -> None:

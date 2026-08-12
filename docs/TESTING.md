@@ -81,7 +81,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/run_ai_curator_shadow.py \
   --dry-run
 ```
 
-它必须输出 `mode: dry_run`、`provider_id: deepseek`、`model: deepseek-v4-flash`、`candidate_count <= 2`、`provider_request_body_bytes <= 4096` 和 `transport_calls: 0`，并报告 `curator_request_bytes` / exact `provider_request_body_bytes`。当前 prompt-aligned baseline fixture measurement 为 `candidate_count=2`、`curator_request_bytes=1178`、`provider_request_body_bytes=3944`。该路径不需要真实 key、不输出 API key/Authorization、不写 artifact。`--real-provider deepseek` 必须同时提供 `--candidate-fixture`，不能退回 feeds/RSS；默认不带 `--real-provider` 仍使用 fixture provider；未知 provider 必须 fail closed。Phase 3A 通用 provider 仍不启用默认 limit，只有 Phase 3B 显式 fixture gate 传入 `2 / 4096`；候选数或 body 超限必须在 HTTP 前失败且 0 calls，不自动截断候选或 payload。
+它必须输出 `mode: dry_run`、`provider_id: deepseek`、`model: deepseek-v4-flash`、`candidate_count <= 2`、`provider_request_body_bytes <= 4096` 和 `transport_calls: 0`，并报告 `curator_request_bytes` / exact `provider_request_body_bytes`。当前 prompt-aligned baseline fixture measurement 为 `candidate_count=2`、`curator_request_bytes=1178`、`provider_request_body_bytes=3964`；CLI candidate fixture 的对应 body 为 `4093`。该路径不需要真实 key、不输出 API key/Authorization、不写 artifact。`--real-provider deepseek` 必须同时提供 `--candidate-fixture`，不能退回 feeds/RSS；默认不带 `--real-provider` 仍使用 fixture provider；未知 provider 必须 fail closed。Phase 3A 通用 provider 仍不启用默认 limit，只有 Phase 3B 显式 fixture gate 传入 `2 / 4096`；候选数或 body 超限必须在 HTTP 前失败且 0 calls，不自动截断候选或 payload。
 
 Phase 3B 离线回归至少锁住：恰好 2 个候选通过；超过 2 个候选 fail closed；body `<=4096` 通过、`>4096` fail closed；不自动截断 candidates/payload；dry-run transport calls 为 0 且不依赖 key；actual real path 缺 key 在 transport 前失败；unknown provider、retry count、`finish_reason == "stop"`、secret、atomic artifact 和 production isolation 回归保持通过。冻结配置仍为 `max_attempts=2`、`max_tokens=8192`、`timeout=90s`；这些仅适用于本次 fixture gate，不是 live RSS / production limits。
 
@@ -107,7 +107,7 @@ Phase 4 — Live RSS Shadow Evaluation 仍必须显式、shadow-only 地运行�
 
 - `phase4_live` 只能通过 `--input-mode phase4_live` 选择，不能根据 candidate 数量或其他条件自动推断。
 - 本轮已冻结并验证 Provider-facing limits：summary cap=`500` chars、`max_candidate_count=200`、`max_provider_request_body_bytes=200000`。
-- 真实 RSS candidate window + 真实 DeepSeek shadow 仍需另行明确授权；本轮只做 offline replay / body construction，不执行真实 provider call。
+- 第一次真实 RSS candidate window + DeepSeek shadow 已执行并在 response validation 阶段 fail closed；后续 real shadow 仍需另行明确授权，本轮只做 offline replay / body construction。
 - 保持 shadow-only；不切换 daily digest / `market_brief`，不接入 Bark、Obsidian、launchd 或 pmset，AI failure 不影响 production。
 - 不把 Phase 3B 的 `max_candidate_count=2` 或 `max_provider_request_body_bytes=4096` 直接当作 live RSS / production limits。
 
@@ -135,10 +135,11 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/run_ai_curator_shadow.py \
 
 - formal loader 的 `original_candidate_count=159`；projection 后仍为 `candidate_count=159`。
 - `summary_max_chars=500`；`summaries_capped_count=25`；`summaries_unchanged_count=134`。
-- projected `curator_request_bytes=127574`；exact provider body `provider_request_body_bytes=138482`；二者均在相应 limits 内。
+- projected `curator_request_bytes=127574`；exact provider body `provider_request_body_bytes=138631`；二者均在相应 limits 内。
 - `transport_calls=0`，不读取 API key，不创建 artifact，不访问 RSS / holdings，原始 snapshot 的 SHA-256 不变化。
 - Phase 4 provider preparation 顺序为完整 candidate count check → projection → exact body construction/serialization → body check → API-key lookup/transport；candidate/body overflow 都是 0-call fail-closed。
 - `request.json`（仅未来真实 Phase 4 artifact）必须保存 projected request，而不是原始完整 summary；原始 snapshot 仍保持独立完整输入。
+- `SYSTEM_INSTRUCTION` 必须明确 rejected article IDs 的 input-membership、全局唯一、同 article 多理由只输出一条、selected/rejected disjoint，以及 validator 允许的 per-event evidence uniqueness / cross-event evidence reuse；validator 继续对错误输出 fail closed，不自动 dedupe。
 
 Phase 4B 离线回归还必须锁住：`<500`、`==500`、`>500`、empty/null summary、原始 candidate immutable、identity fields、exact 200 allowed、201 rejected、body `<=200000` allowed、body `>200000` rejected、no candidate pruning、no iterative summary shrinking，以及既有 Phase 3B `2 / 4096` fixture contract。
 

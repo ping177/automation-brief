@@ -980,3 +980,23 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - Phase 4 real-provider artifact 的 `request.json` 保存 Provider 实际看到的 projected `CuratorRequest`；run metadata 增加 input mode、summary cap、projection counts、candidate/body limits。原始 snapshot 继续作为独立完整输入事实。
 - 新增 projection/provider/CLI/artifact regressions；Phase 3B one-shot contract、retry、finish_reason、secret handling、artifact validation 保持通过。
 - 本轮完全离线：未调用 DeepSeek、未访问真实 RSS、未读取 `.env` / API key / holdings、未修改 `main.py`、`feeds.json`、daily digest、`market_brief` 或 production automation，未安装依赖、未 commit/push。
+
+## 2026-08-12 v0.6.2 Phase 4 real-output Collection-invariant Prompt Alignment
+
+### First live shadow result
+
+- 已执行第一次真实 RSS snapshot + DeepSeek shadow，使用显式 `--real-provider deepseek --input-mode phase4_live`；本轮不重复执行真实调用。
+- Failed run：`/Users/wp/Projects/_project-data/automation-brief/runs/ai-curator-shadow/20260812T095634.808715Z-3d8fe868baf3`。`run.json` 确认 `input_mode=phase4_live`、`candidate_count=159`、`summaries_capped_count=25`、`summaries_unchanged_count=134`、`curator_request_bytes=127574`、`provider_request_body_bytes=138482`、`max_candidate_count=200`、`max_provider_request_body_bytes=200000`、`attempts=1`。
+- 输入、projection、body limit、API-key lookup 后的 transport 均正常；真实 output 在本地 validator 阶段 fail closed：`failure_code=invalid_curator_response`，diagnostic=`duplicate_rejected_article_id`，path=`rejected_article_ids.article_id`。没有写入 `response.json` 或 raw provider response。
+
+### Validator-derived prompt alignment
+
+- 现有 validator 要求：input article IDs 必须唯一；`event_id` 全局唯一；每个 event 至少一个 evidence ID，且同一 event 内 evidence IDs 唯一；同一 evidence article 可在多个 event 复用；rejected article IDs 必须来自 input 且全局唯一；selected evidence 与 rejected IDs 互斥；reject reason 必须属于现有枚举。
+- 新增最小 system-prompt wording：明确 rejected list uniqueness、同一 article 多理由只输出一条最合适 rejection、selected/rejected disjoint 和 per-event evidence rules。没有修改 validator、domain schema、parser normalization、auto dedupe、limits、retry、finish_reason 或 production path。
+- 不自动 dedupe 是有意的 fail-closed 行为：重复 ID 的多个 reason 存在歧义，静默选择或丢弃会掩盖模型 contract violation 并改变原始 output 语义。
+
+### Offline verification after alignment
+
+- 正式 159-candidate dry-run 仍为 `candidate_count=159`、25 capped、134 unchanged、`curator_request_bytes=127574`、`provider_request_body_bytes=138631`、limits=`200 / 200000`、`transport_calls=0`。provider body 因 prompt alignment 从 `138482` 变为 `138631`，未硬编码旧数字。
+- Phase 3B provider smoke two-candidate body 为 `3964` bytes，CLI candidate fixture body 为 `4093` bytes，均低于既有 `4096` limit；candidate / contract / provider / artifact / CLI regressions 继续通过。
+- 本轮未执行第二次 DeepSeek call、未访问 RSS、未读取真实 API key / `.env` / holdings、未 commit/push。

@@ -416,7 +416,7 @@ def test_phase4_artifact_records_policy_and_projected_request() -> None:
                 max_candidate_count=200,
                 max_provider_request_body_bytes=200000,
                 curator_request_bytes=len(serialize_curator_request(projected_request)),
-                provider_request_body_bytes=138482,
+                provider_request_body_bytes=138631,
             ),
             run_id="phase4-projected",
         )

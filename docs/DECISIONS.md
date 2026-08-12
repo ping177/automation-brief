@@ -110,6 +110,12 @@
 - 理由：不同阶段的 limits 具有不同的安全语义；自动猜 mode 会让 live input 意外落入 fixture gate，或让 fixture contract 悄然改变。
 - 影响：projection 只创建 immutable Provider-facing copy，并在 exact body serialization 后执行 body limit check；`request.json` 保存模型实际看到的 projected request，原始 live snapshot 保持独立完整，不连接 production daily digest / `market_brief`。
 
+### Phase 4 real-output collection-invariant prompt alignment
+
+- 决策：沿用现有 `CuratorResponse` validator 的 collection invariants，在 system prompt 中明确 input article membership、event/rejection/evidence uniqueness、selected/rejected disjoint，以及同一 article 多个 reject reason 只输出一条最合适 rejection。
+- 理由：第一次真实 shadow 的输入、projection、body limit 和 transport 均正常，失败发生在模型重复输出同一 `rejected_article_id`；prompt 只描述了 schema 和 ID membership，没有把 validator 的集合约束完整暴露给模型。
+- 影响：模型输出继续由 validator fail closed；不修改 validator、domain schema、自动 dedupe、Phase 4B limits、provider retry 或 production path。
+
 ### GitHub Trending 不直接作为每日重点内容
 
 - 决策：GitHub Trending 和 `ai_tools` 不适合直接进入 daily digest 的重点栏目。

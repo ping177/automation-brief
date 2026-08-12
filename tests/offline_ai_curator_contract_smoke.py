@@ -228,6 +228,68 @@ def expect_invalid(payload: dict[str, object], request: CuratorRequest) -> None:
     raise AssertionError("Expected invalid curator response")
 
 
+def expect_invalid_diagnostic(
+    payload: dict[str, object],
+    request: CuratorRequest,
+    diagnostic_code: str,
+    diagnostic_path: str,
+) -> None:
+    try:
+        validate_curator_response(payload, request)
+    except CuratorContractError as exc:
+        assert exc.diagnostic_code == diagnostic_code
+        assert exc.diagnostic_path == diagnostic_path
+        return
+    raise AssertionError(f"Expected invalid curator response: {diagnostic_code}")
+
+
+def assert_rejection_collection_invariants(request: CuratorRequest) -> None:
+    duplicate_rejection = valid_payload()
+    duplicate_rejection["rejected_article_ids"] = [
+        {"article_id": "article-b", "reject_reason": "low_significance"},
+        {"article_id": "article-b", "reject_reason": "promotional"},
+    ]
+    expect_invalid_diagnostic(
+        duplicate_rejection,
+        request,
+        "duplicate_rejected_article_id",
+        "rejected_article_ids.article_id",
+    )
+
+    unknown_rejection = valid_payload()
+    unknown_rejection["rejected_article_ids"] = [
+        {"article_id": "missing-id", "reject_reason": "low_significance"}
+    ]
+    expect_invalid_diagnostic(
+        unknown_rejection,
+        request,
+        "unknown_rejected_article_id",
+        "rejected_article_ids.article_id",
+    )
+
+    overlap = valid_payload()
+    overlap["rejected_article_ids"] = [
+        {"article_id": "article-a", "reject_reason": "duplicate"}
+    ]
+    expect_invalid_diagnostic(
+        overlap,
+        request,
+        "selected_rejected_overlap",
+        "selected_rejected_article_ids",
+    )
+
+    valid_multi_rejection = valid_payload()
+    valid_multi_rejection["rejected_article_ids"] = [
+        {"article_id": "article-b", "reject_reason": "low_significance"},
+        {"article_id": "article-c", "reject_reason": "promotional"},
+    ]
+    response = validate_curator_response(valid_multi_rejection, request)
+    assert [item.article_id for item in response.rejected_article_ids] == [
+        "article-b",
+        "article-c",
+    ]
+
+
 def main() -> None:
     assert_fixture_loader_published_at_contract()
     request = valid_request()
@@ -252,6 +314,7 @@ def main() -> None:
     response = validate_curator_response(valid_payload(), request)
     assert response.events[0].event_id == "event-a"
     assert response.rejected_article_ids[0].reject_reason == "low_significance"
+    assert_rejection_collection_invariants(request)
 
     with TemporaryDirectory() as temp_dir:
         fixture_path = Path(temp_dir) / "response.json"

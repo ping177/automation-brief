@@ -12,11 +12,11 @@ v0.6.2 — AI Curator Shadow Evaluation（Phase 4B live policy frozen）
 
 ## Current status
 
-v0.6.2 Phase 3A/3B、Phase 4A 和 Phase 4B 均已完成：DeepSeek provider boundary、fixture-only `2 / 4096` gate、linked `published_at:null` snapshot contract、159-candidate payload decomposition，以及显式 `phase4_live` provider-facing projection / hard limits 均已通过离线验证。Phase 4B limits 为 summary cap=`500`、max candidate count=`200`、max provider body=`200000`；未修改 window semantics、production entry 或 daily digest / `market_brief` 行为。整体 shadow evaluation 尚未完成，真实 DeepSeek shadow 仍需单独明确授权。
+v0.6.2 Phase 3A/3B、Phase 4A 和 Phase 4B input boundary 均已完成：DeepSeek provider boundary、fixture-only `2 / 4096` gate、linked `published_at:null` snapshot contract、159-candidate payload decomposition，以及显式 `phase4_live` provider-facing projection / hard limits 均已通过离线验证。第一次真实 RSS + DeepSeek shadow 已执行一次，输入、projection、body limit 和 transport 正常，但 real output 因 `duplicate_rejected_article_id` 被本地 validator fail closed；collection-invariant Prompt Alignment 已完成离线修复与回归。Phase 4B limits 为 summary cap=`500`、max candidate count=`200`、max provider body=`200000`；未修改 validator、window semantics、production entry 或 daily digest / `market_brief` 行为。整体 shadow evaluation 尚未完成，下一次真实 shadow 仍需单独明确授权。
 
 ## Latest completed
 
-v0.6.2 Phase 4B 已完成：正式 loader replay 为 `original_candidate_count=159`；25 条 summary capped、134 条 unchanged；projected `curator_request_bytes=127574`、exact provider body=`138482`、`transport_calls=0`。`phase4_live` 只能经显式 `--input-mode phase4_live` 选择；provider 超过 200 candidates 或 200000 body bytes 时 fail closed，不 pruning、不二次 shrinking。Phase 3B `2 / 4096` fixture contract 保持独立通过。
+v0.6.2 Phase 4 real-output collection-invariant Prompt Alignment 已完成：正式 loader replay 为 `original_candidate_count=159`；25 条 summary capped、134 条 unchanged；projected `curator_request_bytes=127574`、新 exact provider body=`138631`、`transport_calls=0`。`phase4_live` 只能经显式 `--input-mode phase4_live` 选择；provider 超过 200 candidates 或 200000 body bytes 时 fail closed，不 pruning、不二次 shrinking。第一次 live output 因重复 `rejected_article_id` 被拒绝；Phase 3B `2 / 4096` fixture contract 保持独立通过，provider smoke two-candidate body=`3964`、CLI candidate fixture body=`4093`。
 
 ## Deployment
 
@@ -66,7 +66,7 @@ Notes: 暂无人工维护的公网部署信息。
 ## Important Context
 
 - Git branch、latest commit、working tree 由 project-command-center 实时 Git 扫描读取；PROJECT_STATE.md 不作为这些字段的权威来源。
-- README states the current v0.6.2 shadow evaluation does not call DeepSeek、Tavily 或任何真实 AI provider / paid search API。
+- README states production daily digest / `market_brief` do not call DeepSeek、Tavily 或任何真实 AI provider / paid search API；Phase 4 real shadow remains explicit and shadow-only。
 - v0.3.5 verified the Mac sleep -> pmset wake -> launchd -> digest -> Obsidian iCloud -> Bark -> iPhone Obsidian loop.
 - v0.4.1 expanded source roles for `global_tech_business`, `ai_industry`, and `ai_tools`.
 - v0.4.1.2 addressed delayed morning reports caused by the Mac sleeping during task execution.
@@ -96,10 +96,11 @@ Notes: 暂无人工维护的公网部署信息。
 - Phase 3B fixture one-shot gate 仅由显式 `--real-provider deepseek` path 使用：`max_candidate_count=2`、`max_provider_request_body_bytes=4096`、`max_attempts=2`、`max_tokens=8192`、`timeout=90s`；这些不是 live RSS / production limits，也不是通用 provider 默认值。
 - Phase 4A snapshot contract correction 允许 linked `published_at:null` candidate fixture，正式 replay 的 live snapshot 有 `159` candidates；完整 current provider body=`492741` bytes，title-only=`97583`，summary 300/500/1000-char counterfactual=`132770`/`138482`/`152332`，transport calls=`0`。GitHub Trending Python Daily 占 candidate serialized article bytes 的 `62.7564%`，VentureBeat AI 占 `16.1705%`；这些不是 source policy 或正式 limit。
 - Phase 4A 未修改 `main.py` window semantics：digest cutoff 仍在逐 article processing 时动态调用 `datetime.now(timezone.utc)`；`CuratorRequest.window_start/end` 仍使用候选最早/最晚 non-null `published_at`。由于 shared collector 同时服务 legacy path，后续 window change 需单独 production-impact review。
-- Phase 4B 已冻结 explicit `phase4_live` input mode、summary cap=`500`、candidate limit=`200` 和 provider body limit=`200000`；projection 只作用于 Provider-facing copy，`request.json` 保存 projected request，原始 live snapshot 保持独立完整且不被修改。正式 replay 为 159 candidates、25 capped、134 unchanged、provider body=`138482`、transport calls=`0`。
+- Phase 4B 已冻结 explicit `phase4_live` input mode、summary cap=`500`、candidate limit=`200` 和 provider body limit=`200000`；projection 只作用于 Provider-facing copy，`request.json` 保存 projected request，原始 live snapshot 保持独立完整且不被修改。最新正式 replay 为 159 candidates、25 capped、134 unchanged、projected request=`127574`、provider body=`138631`、transport calls=`0`。
 - Phase 4B candidate/body overflow 必须在 API-key lookup 和 HTTP transport 前 fail closed；不自动截断 candidate、不迭代缩短 summary、不提高 limit。Phase 3B `2 / 4096` 仍是独立 fixture-only mode。
+- 第一次 Phase 4 real RSS + DeepSeek shadow 的 input/transport 正常，response validation 因 `duplicate_rejected_article_id` / `rejected_article_ids.article_id` fail closed；Prompt Alignment 已按现有 validator 明确 rejected uniqueness、multi-reason single rejection、selected/rejected disjoint 和 evidence collection rules。未修改 validator 或自动 dedupe。
 - `.env` is used for local Bark / Obsidian configuration and must not be copied into project docs.
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.6.2 Phase 4B provider-facing projection and live hard-limit freeze. Preserve normal daily digest automation and explicit/manual `market_brief` behavior. `phase4_live` must always be selected with explicit `--input-mode phase4_live`; its 500-char summary cap applies only to an immutable Provider-facing copy, while the original 159-candidate live snapshot remains complete and independent. Offline exact replay is `curator_request_bytes=127574`, `provider_request_body_bytes=138482`, `transport_calls=0`; limits are 200 candidates / 200000 provider bytes. The next action, only with separate authorization, is a real DeepSeek shadow using this mode. Do not modify window semantics, do not reuse Phase 3B `2 / 4096`, and do not switch daily digest / `market_brief`, Bark, Obsidian, launchd, or pmset. Keep secrets and real holdings out of Git and docs. Blockers remain `暂无明确阻塞。`.
+Continue automation-brief from v0.6.2 Phase 4 real-output collection-invariant Prompt Alignment. Preserve normal daily digest automation and explicit/manual `market_brief` behavior. `phase4_live` must always be selected with explicit `--input-mode phase4_live`; its 500-char summary cap applies only to an immutable Provider-facing copy, while the original 159-candidate live snapshot remains complete and independent. The first real RSS + DeepSeek shadow passed input/transport but failed closed at local response validation with `duplicate_rejected_article_id`; no second call has been executed. Latest offline replay is `curator_request_bytes=127574`, `provider_request_body_bytes=138631`, `transport_calls=0`; limits remain 200 candidates / 200000 provider bytes. The next action, only with separate authorization, is a repeat real DeepSeek shadow using the same snapshot and explicit mode. Do not modify validator, window semantics, do not reuse Phase 3B `2 / 4096`, and do not switch daily digest / `market_brief`, Bark, Obsidian, launchd, or pmset. Keep secrets and real holdings out of Git and docs. Blockers remain `暂无明确阻塞。`.

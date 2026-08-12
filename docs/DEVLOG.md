@@ -900,3 +900,22 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - 全部 AI Curator offline candidate / contract / provider / artifact / CLI smoke 通过；未进行第二次真实 DeepSeek 调用、未调用 RSS、未读取 `.env` 或 holdings、未写 canonical runtime data。
 - 未改变 provider request body、retry policy、Phase 3B limits、production entry 或 success artifact contract。
 - 整体 `v0.6.2 — AI Curator Shadow Evaluation` 仍未完成，Blockers 保持 `暂无明确阻塞。`。
+
+## 2026-08-12 v0.6.2 Phase 3B Prompt Contract Alignment
+
+### 问题定位
+
+第二次真实 DeepSeek one-shot 已完成 Provider/HTTP/JSON pipeline，但真实 response 在本地 validator 因缺少 `events[].canonical_title` 失败。旧 system prompt 只列出顶层 response keys，并未给出 event/rejected article 的 exact output skeleton，因此没有充分约束 `canonical_title` 这个字段名。
+
+### 实际改动
+
+- 在现有 OpenAI-compatible / DeepSeek 共用的 system prompt 中加入紧凑 exact `CuratorResponse` JSON skeleton。
+- 明确所有顶层、event、rejected article key；特别要求 `canonical_title`，禁止 `title` / `headline` alias，禁止省略 required keys 或返回额外 prose / Markdown fence。
+- 明确空 collection 使用空数组、evidence/rejected article ids 必须来自 request、现有 enum values 和 `zh-CN` target language。
+- 未修改 Curator domain schema、validator、parser alias、request body allowlist、retry、finish_reason、Phase 3B limits、artifact contract 或 production entry。
+
+### 验证与边界
+
+- fake provider exact valid response、`title` alias / missing `canonical_title` fail-closed、prompt contract、evidence boundary 和 target-language regressions 已覆盖。
+- 两候选 prompt-aligned baseline fixture 的 DeepSeek request body 为 `3944` bytes，仍低于既有 `4096` Phase 3B gate；`curator_request_bytes=1178`、transport calls 保持 `0`；未执行第三次真实 DeepSeek、RSS 或 holdings 读取，未写 canonical runtime data。
+- 整体 `v0.6.2 — AI Curator Shadow Evaluation` 仍未完成，Blockers 保持 `暂无明确阻塞。`。

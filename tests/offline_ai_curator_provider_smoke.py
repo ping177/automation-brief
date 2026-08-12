@@ -228,6 +228,37 @@ def test_deepseek_frozen_config_and_exact_body() -> None:
     assert request.get_header("Authorization") == "Bearer fake-deepseek-key"  # type: ignore[attr-defined]
 
 
+def test_prompt_declares_exact_curator_response_contract() -> None:
+    request = build_curator_request([candidate()], REPORT_DATE, max_events=1)
+    prompt_payload = json.loads(serialize_deepseek_request(request, DEEPSEEK_PROVIDER_CONFIG))
+    system_instruction = prompt_payload["messages"][0]["content"]
+
+    for field_name in (
+        "schema_version",
+        "report_date",
+        "events",
+        "rejected_article_ids",
+        "warnings",
+        "event_id",
+        "canonical_title",
+        "summary",
+        "category",
+        "importance",
+        "why_important",
+        "evidence_article_ids",
+        "novelty",
+        "confidence",
+        "uncertainties",
+        "article_id",
+        "reject_reason",
+    ):
+        assert f'"{field_name}"' in system_instruction
+    assert "zh-CN" in system_instruction
+    assert "do not omit required keys" in system_instruction.lower()
+    assert '"title":' not in system_instruction
+    assert '"headline":' not in system_instruction
+
+
 def test_request_limits_fail_before_transport() -> None:
     curator_request = build_curator_request([candidate()], REPORT_DATE, max_events=1)
     body_size = len(serialize_deepseek_request(curator_request, DEEPSEEK_PROVIDER_CONFIG))
@@ -465,6 +496,12 @@ def test_domain_validation_and_invalid_evidence_do_not_retry() -> None:
     missing_required["events"][0].pop("why_important")  # type: ignore[index]
     duplicate_evidence = valid_response_payload()
     duplicate_evidence["events"][0]["evidence_article_ids"] = ["article-a", "article-a"]  # type: ignore[index]
+    missing_canonical_title = valid_response_payload()
+    missing_canonical_title["events"][0].pop("canonical_title")  # type: ignore[index]
+    title_alias = valid_response_payload()
+    title_alias_event = title_alias["events"][0]  # type: ignore[index]
+    title_alias_event.pop("canonical_title")
+    title_alias_event["title"] = "Fixture event"
     overlap = valid_response_payload()
     overlap["rejected_article_ids"] = [  # type: ignore[index]
         {"article_id": "article-a", "reject_reason": "duplicate"}
@@ -474,6 +511,8 @@ def test_domain_validation_and_invalid_evidence_do_not_retry() -> None:
         (invalid_evidence, "unknown_evidence_article_id", "events.evidence_article_ids", ""),
         (missing_required, "missing_required_field", "events.why_important", ""),
         (duplicate_evidence, "duplicate_evidence_article_id", "events.evidence_article_ids", ""),
+        (missing_canonical_title, "missing_required_field", "events.canonical_title", ""),
+        (title_alias, "missing_required_field", "events.canonical_title", ""),
         (overlap, "selected_rejected_overlap", "selected_rejected_article_ids", "article-a"),
     )
     request_value = build_curator_request([candidate()], REPORT_DATE, max_events=1)
@@ -541,6 +580,7 @@ def test_secret_is_not_exposed_in_error() -> None:
 def main() -> None:
     test_success_and_request_boundary()
     test_deepseek_frozen_config_and_exact_body()
+    test_prompt_declares_exact_curator_response_contract()
     test_request_limits_fail_before_transport()
     test_phase_3b_request_gate_boundaries_and_no_truncation()
     test_missing_key_fails_before_transport()

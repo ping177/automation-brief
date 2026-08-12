@@ -12,11 +12,11 @@ v0.6.2 — AI Curator Shadow Evaluation（Phase 3B offline safety preparation）
 
 ## Current status
 
-v0.6.2 Phase 3A 已完成 DeepSeek configuration、OpenAI-compatible response boundary 和 no-transport preflight；Phase 3B offline safety preparation 已完成 fixture one-shot hard-limit gate、离线回归和 failed validator diagnostic repair。第一次 real-provider one-shot 已到达本地 validation，但因旧实现压缩为 generic `invalid_curator_response` 失败；本轮只修复安全诊断记录，整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成。产品定位为个人隔夜全球要闻晨报（Overnight Brief）；feed language metadata / normalization 已落地，`CandidateArticle.language` 已接通 source-language metadata，`CuratorRequest.target_language` 固定为 `zh-CN`。本轮未再次调用真实 AI/RSS、未读取 holdings，article identity 与 legacy production behavior 保持不变，daily digest / `market_brief` 生产输出未切换。
+v0.6.2 Phase 3A 已完成 DeepSeek configuration、OpenAI-compatible response boundary 和 no-transport preflight；Phase 3B offline safety preparation 已完成 fixture one-shot hard-limit gate、离线回归、failed validator diagnostic repair 和 Prompt Contract Alignment。第二次 real-provider one-shot 已到达本地 validation，但因真实输出缺少 `events[].canonical_title` 失败；本轮只补强 system prompt 的 exact CuratorResponse contract，整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成。产品定位为个人隔夜全球要闻晨报（Overnight Brief）；feed language metadata / normalization 已落地，`CandidateArticle.language` 已接通 source-language metadata，`CuratorRequest.target_language` 固定为 `zh-CN`。本轮未再次调用真实 AI/RSS、未读取 holdings，article identity 与 legacy production behavior 保持不变，daily digest / `market_brief` 生产输出未切换。
 
 ## Latest completed
 
-v0.6.2 Phase 3B offline safety preparation：显式 `--real-provider deepseek` 必须使用 `--candidate-fixture`，且 dry-run 与 actual path 共享 `max_candidate_count=2`、`max_provider_request_body_bytes=4096` gate；超限在 API key/HTTP transport 前 fail closed，不截断 candidates/payload，也不退回 feeds/RSS。fixture dry-run measurement 为 `candidate_count=2`、`curator_request_bytes=1178`、`provider_request_body_bytes=2487`、`transport_calls=0`。此外，validator/content-policy failure 现在保留 bounded rule/path diagnostic，仍不保存 raw provider response 或完整模型 payload。未执行第二次真实 provider，未切换生产输出。
+v0.6.2 Phase 3B offline safety preparation：显式 `--real-provider deepseek` 必须使用 `--candidate-fixture`，且 dry-run 与 actual path 共享 `max_candidate_count=2`、`max_provider_request_body_bytes=4096` gate；超限在 API key/HTTP transport 前 fail closed，不截断 candidates/payload，也不退回 feeds/RSS。prompt-aligned baseline fixture measurement 为 `candidate_count=2`、`curator_request_bytes=1178`、`provider_request_body_bytes=3944`，仍在 4096 gate 内，dry-run transport calls 保持 `0`。此外，validator/content-policy failure 保留 bounded rule/path diagnostic，仍不保存 raw provider response 或完整模型 payload。未执行第三次真实 provider，未切换生产输出。
 
 ## Deployment
 
@@ -57,7 +57,7 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Next Action
 
-等待用户明确执行 Phase 3B fixture one-shot real-provider command；当前不调用真实 API/RSS/holdings，不进入 one-shot execution，不替换当前生产晨报。
+等待用户明确执行下一次 Phase 3B fixture one-shot real-provider command；当前不调用真实 API/RSS/holdings，不进入下一次 one-shot execution，不替换当前生产晨报。
 
 ## Blockers
 
@@ -90,10 +90,10 @@ Notes: 暂无人工维护的公网部署信息。
 - Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.
 - v0.6.1 产品与语言合同已完成：输入可为 `zh-CN` / `en` / `und`，最终 Curator 输出为 `zh-CN`；语言不进入 article identity，也不进入 legacy path。
 - v0.6.1 已为 `feeds.json` / `feeds.example.json` 增加可选 language metadata；旧配置缺失、空或非法 language 时归一化为 `und`，所有 16 个 active feed 的 name / url / mode / role / 顺序保持不变。
-- v0.6.2 Phase 3A 已完成配置与 preflight boundary；Phase 3B 已完成 offline fixture gate preparation 与失败诊断修复；整体 shadow evaluation 尚未完成，第一次真实 provider 运行失败后未进行第二次质量评估或生产切换。
+- v0.6.2 Phase 3A 已完成配置与 preflight boundary；Phase 3B 已完成 offline fixture gate preparation、失败诊断修复与 Prompt Contract Alignment；整体 shadow evaluation 尚未完成，第二次真实 provider 运行失败后未进行下一次质量评估或生产切换。
 - Phase 3B fixture one-shot gate 仅由显式 `--real-provider deepseek` path 使用：`max_candidate_count=2`、`max_provider_request_body_bytes=4096`、`max_attempts=2`、`max_tokens=8192`、`timeout=90s`；这些不是 live RSS / production limits，也不是通用 provider 默认值。
 - `.env` is used for local Bark / Obsidian configuration and must not be copied into project docs.
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.6.2 Phase 3B offline safety preparation. The product is a personal overnight global news brief (Overnight Brief); preserve the normal daily digest automation and explicit/manual `market_brief` behavior. Phase 3A configuration, Phase 3B fixture gate/preflight measurements, and safe failed-validator diagnostics are complete, but the overall v0.6.2 shadow evaluation is not complete. The next explicit user action may run the one-shot DeepSeek command against the existing two-candidate fixture; do not call real API/RSS/holdings or replace the current production brief during preparation. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect provider output to production automation or make trading recommendations.
+Continue automation-brief from v0.6.2 Phase 3B offline safety preparation. The product is a personal overnight global news brief (Overnight Brief); preserve the normal daily digest automation and explicit/manual `market_brief` behavior. Phase 3A configuration, Phase 3B fixture gate/preflight measurements, safe failed-validator diagnostics, and exact CuratorResponse prompt alignment are complete, but the overall v0.6.2 shadow evaluation is not complete. The next explicit user action may run the next one-shot DeepSeek command against the existing two-candidate fixture; do not call real API/RSS/holdings or replace the current production brief during preparation. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Do not connect provider output to production automation or make trading recommendations.

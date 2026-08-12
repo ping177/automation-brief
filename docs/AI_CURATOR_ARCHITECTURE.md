@@ -246,6 +246,30 @@ The run was fixture-only: it did not use the RSS collection path and did not con
 
 Human review found the technical chain and evidence mapping acceptable, with no trading advice. It also identified a Phase 4 evaluation item: `why_important` may add stronger interpretation than the evidence supports. Phase 4 review must distinguish fact from interpretation and check unsupported causal inference, unsupported market implication, and uncertainty handling. This observation does not change the validator, domain schema, provider contract, or content policy in Phase 3B.
 
+## Phase 4A Snapshot Contract and Payload Measurement
+
+The live candidate collector already treats `CandidateArticle.published_at` as optional: a candidate with a non-empty link may be retained when the feed has no usable publication timestamp, while a candidate with neither a link nor a publication timestamp is discarded. The fixture loader now mirrors that boundary. `published_at: null` is accepted only when `link` is non-empty; the field must still be present, malformed or empty timestamp strings fail closed, and linkless `null` candidates fail closed. A `null` timestamp is never replaced with the current time or `report_date`, and link-based article identity remains unchanged because `stable_article_id()` is still derived from the normalized link when one exists.
+
+The saved live snapshot `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` was replayed through the formal fixture loader as exactly 159 candidates. The snapshot contains no secret, holdings, authorization header, or transport dump. The targeted contract regression covers linked `published_at: null`, a valid timestamp, malformed timestamps, and linkless `null`; all existing Curator contract checks remain in the same offline smoke.
+
+Phase 4A measured the exact current DeepSeek serializer without transport and without applying the Phase 3B `2 / 4096` fixture gate:
+
+| Scenario | Candidates | CuratorRequest bytes | Provider body bytes |
+| --- | ---: | ---: | ---: |
+| Full current summaries | 159 | 478,169 | 492,741 |
+| Title only | 159 | 86,687 | 97,583 |
+| Summary capped at 300 characters (counterfactual) | 159 | 121,866 | 132,770 |
+| Summary capped at 500 characters (counterfactual) | 159 | 127,574 | 138,482 |
+| Summary capped at 1,000 characters (counterfactual) | 159 | 141,392 | 152,332 |
+
+Current summary lengths are strongly skewed: 159 candidates, 11 missing summaries, p50 95 characters, p90 6,524, p95 13,889, and maximum 54,536. GitHub Trending Python Daily contributes 299,828 serialized article bytes, 62.7564% of candidate article bytes, while VentureBeat AI contributes 77,257 bytes, 16.1705%. The largest individual serialized articles are dominated by long GitHub or VentureBeat summaries. This is evidence that a small number of unusually long summaries, not title length, dominate the full payload; it is not a source-priority or pruning decision.
+
+Using the unmodified current summaries in original snapshot order, the exact provider body sizes were 23,451 bytes for the first 25 candidates, 44,273 for the first 50, 85,883 for the first 100, and 492,741 for all 159. These first-N figures are measurement scenarios only and are not candidate selection policy.
+
+The window semantics were deliberately not changed in Phase 4A. `main.py` calls `within_lookback_hours()` from `candidate_from_entry()` for each article, and that helper computes `datetime.now(timezone.utc)` on each call; there is no frozen collection reference time. `CuratorRequest.window_start` and `window_end` are instead derived from the minimum and maximum non-null candidate `published_at` values in `build_curator_request()`. Changing either behavior would touch the shared `fetch_feed_candidates()` path used by both `collect_candidate_articles()` and the legacy `collect_news()` path, so it requires a separate production-impact review.
+
+The measurements were offline-only (`transport_calls=0`). They establish that a future Phase 4 hard-limit decision must consider summary-size control and candidate-count control together; they do not select a cap, modify feeds, or authorize a real provider call.
+
 ## Version Route and Next Step
 
 The formal route is:

@@ -18,7 +18,9 @@ from ai_curator import (  # noqa: E402
     FixtureCuratorProvider,
     RejectedArticle,
     build_curator_request,
+    load_candidate_fixture,
     render_shadow_preview,
+    stable_article_id,
     validate_curator_response,
 )
 
@@ -78,6 +80,146 @@ def valid_payload() -> dict[str, object]:
     }
 
 
+def candidate_fixture_article(
+    *,
+    title: str,
+    link: str,
+    published_at: str | None,
+) -> dict[str, object]:
+    article = {
+        "title": title,
+        "summary": "A fixture candidate summary.",
+        "source": "Fixture Source",
+        "feed_name": "Fixture Feed",
+        "feed_role": "breaking_news",
+        "link": link,
+        "language": "en",
+        "published_at": published_at,
+    }
+    return article
+
+
+def assert_fixture_loader_published_at_contract() -> None:
+    with TemporaryDirectory() as temp_dir:
+        fixture_path = Path(temp_dir) / "candidates.json"
+
+        linked_null_article = candidate_fixture_article(
+            title="Linked candidate without timestamp",
+            link="https://example.com/linked-null",
+            published_at=None,
+        )
+        fixture_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "report_date": "2026-07-16",
+                    "articles": [linked_null_article],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        report_date, articles = load_candidate_fixture(fixture_path)
+        assert report_date == date(2026, 7, 16)
+        assert len(articles) == 1
+        assert articles[0].published_at is None
+        assert articles[0].article_id == stable_article_id(
+            "https://example.com/linked-null",
+            "Fixture Source",
+            "Linked candidate without timestamp",
+            None,
+        )
+
+        timestamped_article = candidate_fixture_article(
+            title="Timestamped candidate",
+            link="https://example.com/timestamped",
+            published_at="2026-07-16T08:00:00+00:00",
+        )
+        fixture_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "report_date": "2026-07-16",
+                    "articles": [timestamped_article],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        _report_date, articles = load_candidate_fixture(fixture_path)
+        assert articles[0].published_at == datetime(2026, 7, 16, 8, 0, tzinfo=timezone.utc)
+
+        malformed_article = candidate_fixture_article(
+            title="Malformed timestamp candidate",
+            link="https://example.com/malformed",
+            published_at="not-an-iso-datetime",
+        )
+        fixture_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "report_date": "2026-07-16",
+                    "articles": [malformed_article],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        try:
+            load_candidate_fixture(fixture_path)
+        except CuratorContractError:
+            pass
+        else:
+            raise AssertionError("Malformed published_at must fail closed")
+
+        missing_timestamp_article = candidate_fixture_article(
+            title="Missing timestamp field candidate",
+            link="https://example.com/missing-timestamp",
+            published_at=None,
+        )
+        del missing_timestamp_article["published_at"]
+        fixture_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "report_date": "2026-07-16",
+                    "articles": [missing_timestamp_article],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        try:
+            load_candidate_fixture(fixture_path)
+        except CuratorContractError:
+            pass
+        else:
+            raise AssertionError("Missing published_at must fail closed")
+
+        linkless_null_article = candidate_fixture_article(
+            title="Linkless candidate without timestamp",
+            link="",
+            published_at=None,
+        )
+        fixture_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "report_date": "2026-07-16",
+                    "articles": [linkless_null_article],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        try:
+            load_candidate_fixture(fixture_path)
+        except CuratorContractError:
+            pass
+        else:
+            raise AssertionError("Linkless published_at null candidate must fail closed")
+
+
 def expect_invalid(payload: dict[str, object], request: CuratorRequest) -> None:
     try:
         validate_curator_response(payload, request)
@@ -87,6 +229,7 @@ def expect_invalid(payload: dict[str, object], request: CuratorRequest) -> None:
 
 
 def main() -> None:
+    assert_fixture_loader_published_at_contract()
     request = valid_request()
     assert request.target_language == "zh-CN"
     serialized_articles = request.to_dict()["articles"]

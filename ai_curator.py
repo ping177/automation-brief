@@ -258,12 +258,24 @@ def _candidate_from_fixture_article(
     source = _fixture_required_text(raw_article, "source", index)
     feed_name = _fixture_required_text(raw_article, "feed_name", index)
     feed_role = _fixture_required_text(raw_article, "feed_role", index)
-    published_at = _parse_fixture_datetime(raw_article.get("published_at"), f"candidate fixture article #{index} published_at")
+    if "published_at" not in raw_article:
+        raise CuratorContractError(
+            f"Candidate fixture article #{index} missing required field: published_at"
+        )
+    published_at = _parse_fixture_datetime(
+        raw_article["published_at"],
+        f"candidate fixture article #{index} published_at",
+        allow_none=True,
+    )
     article_report_date = _parse_fixture_date(raw_article.get("report_date", fixture_report_date.isoformat()), f"candidate fixture article #{index} report_date")
     if article_report_date != fixture_report_date:
         raise CuratorContractError(f"Candidate fixture article #{index} report_date does not match fixture report_date")
 
     link = str(raw_article.get("link", "")).strip()
+    if published_at is None and not link:
+        raise CuratorContractError(
+            f"Candidate fixture article #{index} requires link when published_at is null"
+        )
     provided_normalized_link = str(raw_article.get("normalized_link", "")).strip()
     derived_normalized_link = normalize_article_link(link)
     if link and provided_normalized_link and provided_normalized_link != derived_normalized_link:
@@ -309,7 +321,14 @@ def _parse_fixture_date(value: Any, field_name: str) -> date:
         raise CuratorContractError(f"{field_name} must be YYYY-MM-DD") from exc
 
 
-def _parse_fixture_datetime(value: Any, field_name: str) -> datetime:
+def _parse_fixture_datetime(
+    value: Any,
+    field_name: str,
+    *,
+    allow_none: bool = False,
+) -> datetime | None:
+    if value is None and allow_none:
+        return None
     if not isinstance(value, str) or not value.strip():
         raise CuratorContractError(f"{field_name} is required")
     try:

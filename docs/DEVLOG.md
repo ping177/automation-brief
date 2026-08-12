@@ -939,3 +939,24 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - Phase 3B 技术 verdict 为 PASS；本次 gate 只使用 two-candidate fixture，未使用真实 RSS，未影响 production daily digest / `market_brief`，Bark、Obsidian、launchd 和 pmset 保持不变。
 - `max_candidate_count=2`、`max_provider_request_body_bytes=4096` 以及对应 request profile 仍只属于 Phase 3B fixture one-shot gate，不是 live RSS / Phase 4 / production limits。
 - 整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成；Next Action 进入 Phase 4 — Live RSS Shadow Evaluation，先重新测量并冻结 live limits，保持 shadow-only。Blockers 保持 `暂无明确阻塞。`。
+
+## 2026-08-12 v0.6.2 Phase 4A Snapshot Contract Correction + Payload Decomposition
+
+### Snapshot contract correction
+
+- 上一轮 live RSS audit 发现：collector 合法保留了 19 条 `published_at=null` 且有 link 的候选，但 `load_candidate_fixture()` 把 null 当作缺失必填值。
+- `ai_curator.py` 现允许显式 `published_at: null`，但仅限 link 非空；字段缺失、空字符串、malformed ISO datetime，以及 linkless + null 仍 fail closed。不会伪造当前时间或 report date，不改变 link-based article identity、language、dedup 或 legacy semantics。
+- 新增 targeted contract regression，覆盖 linked null、valid timestamp、malformed timestamp 和 linkless null；现有 candidate/response contract 继续通过。
+
+### Formal replay and offline measurements
+
+- `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` 通过正式 loader replay 为 exactly `159` candidates。
+- 使用当前 `deepseek-v4-flash` exact serializer、完整 summary 的 `curator_request_bytes=478169`、`provider_request_body_bytes=492741`；transport calls=`0`。
+- Counterfactual provider body bytes：title-only `97583`；summary 300/500/1000 characters 分别为 `132770` / `138482` / `152332`。按 snapshot 原始顺序取 first 25/50/100/all 的 current-summary body 分别为 `23451` / `44273` / `85883` / `492741`。
+- Summary 分布为 p50=`95`、p90=`6524`、p95=`13889`、最大=`54536` characters，11 条缺失 summary；GitHub Trending Python Daily 占 candidate serialized article bytes 的 `62.7564%`，VentureBeat AI 占 `16.1705%`。少量异常长 summary 明显主导 payload，但本轮不因此设计 source policy、candidate cap 或 truncation。
+
+### Window and production boundary
+
+- Phase 4A 未修改 window semantics：`main.py` 的 `within_lookback_hours()` 对每篇文章动态调用 `datetime.now(timezone.utc)`，没有冻结 reference time；`CuratorRequest.window_start/end` 仍由候选最早/最晚 non-null `published_at` 推导。
+- 不改变上述语义，因为 `fetch_feed_candidates()` 同时服务 candidate shadow path 和 legacy `collect_news()` path；后续 window 修复必须单独完成 production-impact review。
+- 未再次访问 RSS、未调用 DeepSeek、未读取 secret/.env/holdings、未修改 production entry、未写 canonical runtime data、未 commit/push。整体 `v0.6.2` 仍未完成，Phase 4 hard limits 尚未冻结。

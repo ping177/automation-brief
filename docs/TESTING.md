@@ -109,6 +109,14 @@ Phase 4 — Live RSS Shadow Evaluation 只作为下一阶段边界记录，不�
 - 保持 shadow-only；不切换 daily digest / `market_brief`，不接入 Bark、Obsidian、launchd 或 pmset，AI failure 不影响 production。
 - 不把 Phase 3B 的 `max_candidate_count=2` 或 `max_provider_request_body_bytes=4096` 直接当作 live RSS / production limits。
 
+## Phase 4A snapshot contract and payload audit
+
+Phase 4A 的 snapshot replay 和 payload decomposition 必须保持完全离线：不读取 RSS、不读取 `.env` 或 API key、不访问 holdings、不调用 DeepSeek，且 provider transport calls 必须为 `0`。`load_candidate_fixture()` 应忠实接受 live collector 合法产生的 linked `published_at: null`，拒绝字段缺失、malformed timestamp 和 linkless `null`；null 不得被替换为当前时间或 report date。
+
+本轮正式 loader replay 的验收是 `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` 加载为 exactly `159` candidates。测量使用当前正式 `deepseek-v4-flash` serializer，只在内存中生成 full/title-only/300/500/1000-character summary scenarios，以及 first-25/50/100/all count scenarios；这些不是生产 truncation 或 pruning policy。安全测量结果保存在 `/private/tmp/automation-brief-phase-4a-payload-measurement.json`，只含长度、字节、feed/source/title 等 metadata，不含完整 RSS 正文或 provider body。
+
+Phase 4A 不修改 digest 的动态 lookback cutoff，也不修改 `CuratorRequest.window_start/end` 的 article timestamp 语义；任何 window change 必须单独评估其对 shared legacy `collect_news()` path 的影响。
+
 ## Canonical runtime data migration verification
 
 路径迁移先运行全部离线 smoke，再复制真实数据。迁移记录只包含文件名、大小、SHA-256、UTF-8 和来源/目标元数据，不包含 holdings 内容、报告正文、secrets 或 provider payload。canonical 默认树为：

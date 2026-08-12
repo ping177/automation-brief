@@ -12,11 +12,11 @@ v0.6.2 — AI Curator Shadow Evaluation（Phase 3B real-provider gate completed�
 
 ## Current status
 
-v0.6.2 Phase 3A 已完成 DeepSeek configuration、OpenAI-compatible response boundary 和 no-transport preflight；Phase 3B offline safety preparation、failed validator diagnostic repair、Prompt Contract Alignment 及 fixture-only real-provider one-shot gate 均已完成。成功 run `20260812T075832.935190Z-ffb3a259aaa6` 使用 DeepSeek `deepseek-v4-flash`，`attempts=1`、`candidate_count=2`、`validation_status=passed`、`status=succeeded`，技术 verdict 为 PASS。真实样例的人工 review 发现 `why_important` 可能在 evidence 之上加入更强的因果或政策解释，这只进入 Phase 4 evaluation，不阻塞 Phase 3B。整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成；本次 gate 为 fixture-only，未使用真实 RSS，未影响 production，daily digest / `market_brief` 生产输出未切换。
+v0.6.2 Phase 3A 已完成 DeepSeek configuration、OpenAI-compatible response boundary 和 no-transport preflight；Phase 3B offline safety preparation、failed validator diagnostic repair、Prompt Contract Alignment 及 fixture-only real-provider one-shot gate 均已完成。Phase 4A 已完成 snapshot contract correction 和离线 payload decomposition：fixture loader 现在忠实接受 linked `published_at:null`，保存的 159-candidate snapshot 已通过正式 loader replay；完整 current provider body 为 `492741` bytes，transport calls=`0`。整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成；未修改 window semantics、production entry 或 daily digest / `market_brief` 行为。
 
 ## Latest completed
 
-v0.6.2 Phase 3B real-provider one-shot gate 已成功完成：fixture-only run `20260812T075832.935190Z-ffb3a259aaa6` 使用 DeepSeek `deepseek-v4-flash`，`attempts=1`、`candidate_count=2`、`curator_request_bytes=1178`、`provider_request_body_bytes=3944`、`status=succeeded`、`validation_status=passed`、`ai_event_count=1`、`rejected_article_count=1`，Legacy comparison 为 `not evaluated`。成功 artifact 已生成 `run.json`、`request.json`、`response.json`、`trace.json` 和 `review.md`。`3944 <= 4096` 仍只证明 Phase 3B fixture gate 安全，不构成 live RSS / production limits。下一阶段需要人工评估 evidence 与解释边界，不在本轮修改 validator 或 content scoring。
+v0.6.2 Phase 4A 已完成：`published_at:null` fixture/live contract 修正、targeted regression、159-candidate snapshot formal replay 和 exact provider payload decomposition。Full current summary body 为 `492741` bytes；title-only 为 `97583`，summary 300/500/1000-char counterfactual 分别为 `132770` / `138482` / `152332`。少量超长 summary，尤其 GitHub Trending 与 VentureBeat AI，主导 payload；这些只是 Phase 4 hard-limit 的事实依据，不是已冻结的 candidate cap 或 summary cap。
 
 ## Deployment
 
@@ -57,7 +57,7 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Next Action
 
-Phase 4 — Live RSS Shadow Evaluation（下一阶段边界，当前不实施）：后续使用真实 RSS candidate window + 真实 DeepSeek shadow，重新测量并冻结 live candidate count、provider request body size 和 Phase 4 hard limits；保持 shadow-only，不切换 daily digest / `market_brief` 生产路径。
+Phase 4 下一步：基于 Phase 4A 的 candidate-count / summary-size 测量，单独评估并冻结 live hard-limit 方案，再决定是否进行真实 DeepSeek shadow；继续保持 shadow-only，不切换 daily digest / `market_brief` 生产路径。不要直接复用 Phase 3B `2 / 4096` limits，也不要在本轮 measurement 结果上自动实施 truncation 或 pruning。
 
 ## Blockers
 
@@ -94,8 +94,10 @@ Phase 4 — Live RSS Shadow Evaluation（下一阶段边界，当前不实施）
 - Phase 3B 成功样例的 Phase 4 evaluation item：检查 `why_important` 的 fact / interpretation boundary、unsupported causal inference、unsupported market implication 和 uncertainty handling；当前不修改 validator、关键词或 content scoring。
 - Phase 4 仍保持 shadow-only；Bark、Obsidian、launchd、pmset、daily digest 和 `market_brief` 生产行为不变，AI failure 不得影响 production。Phase 3B 的 `2 / 4096` fixture limits 不得直接复用为 live RSS / production limits。
 - Phase 3B fixture one-shot gate 仅由显式 `--real-provider deepseek` path 使用：`max_candidate_count=2`、`max_provider_request_body_bytes=4096`、`max_attempts=2`、`max_tokens=8192`、`timeout=90s`；这些不是 live RSS / production limits，也不是通用 provider 默认值。
+- Phase 4A snapshot contract correction 允许 linked `published_at:null` candidate fixture，正式 replay 的 live snapshot 有 `159` candidates；完整 current provider body=`492741` bytes，title-only=`97583`，summary 300/500/1000-char counterfactual=`132770`/`138482`/`152332`，transport calls=`0`。GitHub Trending Python Daily 占 candidate serialized article bytes 的 `62.7564%`，VentureBeat AI 占 `16.1705%`；这些不是 source policy 或正式 limit。
+- Phase 4A 未修改 `main.py` window semantics：digest cutoff 仍在逐 article processing 时动态调用 `datetime.now(timezone.utc)`；`CuratorRequest.window_start/end` 仍使用候选最早/最晚 non-null `published_at`。由于 shared collector 同时服务 legacy path，后续 window change 需单独 production-impact review。
 - `.env` is used for local Bark / Obsidian configuration and must not be copied into project docs.
 
 ## Handoff Prompt
 
-Continue automation-brief from v0.6.2 Phase 3B real-provider gate completed. The product is a personal overnight global news brief (Overnight Brief); preserve the normal daily digest automation and explicit/manual `market_brief` behavior. The fixture-only DeepSeek `deepseek-v4-flash` one-shot succeeded with validation passed, but the overall v0.6.2 shadow evaluation is not complete. The next bounded step is Phase 4 — Live RSS Shadow Evaluation: use a real RSS candidate window and real DeepSeek only as shadow, first re-measure and freeze live limits, and do not reuse Phase 3B `2 / 4096` limits. Keep Phase 4 separate from production; do not switch daily digest / `market_brief`, Bark, Obsidian, launchd, or pmset, and do not make trading recommendations. Runtime artifacts default to `~/Projects/_project-data/automation-brief/`; explicit CLI/function overrides and `AUTOMATION_BRIEF_DATA_ROOT` remain supported. Keep real holdings and cost/position/value/profit-loss fields out of Git and docs. Blockers remain `暂无明确阻塞。`.
+Continue automation-brief from v0.6.2 Phase 4A snapshot contract correction and payload decomposition. The product is a personal overnight global news brief (Overnight Brief); preserve normal daily digest automation and explicit/manual `market_brief` behavior. The linked `published_at:null` fixture/live boundary is now covered and the saved live snapshot replays as exactly 159 candidates. Exact current DeepSeek body measurement is 492741 bytes; title-only and 300/500/1000-character summary scenarios are measurement-only, not production caps. The next bounded step is to review candidate-count versus summary-size hard-limit options, then separately decide whether to run a real DeepSeek shadow. Do not modify window semantics without a legacy production-impact review, do not reuse Phase 3B `2 / 4096` limits, and do not switch daily digest / `market_brief`, Bark, Obsidian, launchd, or pmset. Keep secrets and real holdings out of Git and docs. Blockers remain `暂无明确阻塞。`.

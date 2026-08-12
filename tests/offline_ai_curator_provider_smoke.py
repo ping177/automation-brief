@@ -15,9 +15,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from ai_curator import CandidateArticle, build_curator_request  # noqa: E402
 from ai_curator_provider import (  # noqa: E402
+    DEEPSEEK_PROVIDER_CONFIG,
+    DeepSeekCuratorProvider,
     OpenAICompatibleCuratorProvider,
     OpenAICompatibleProviderConfig,
     OpenAICompatibleProviderError,
+    serialize_deepseek_request,
     serialize_curator_request,
 )
 
@@ -66,9 +69,19 @@ def valid_response_payload() -> dict[str, object]:
     }
 
 
-def envelope(payload: object) -> bytes:
+def envelope(
+    payload: object,
+    *,
+    finish_reason: object = "stop",
+    include_finish_reason: bool = True,
+) -> bytes:
+    choice: dict[str, object] = {
+        "message": {"content": json.dumps(payload, ensure_ascii=False)}
+    }
+    if include_finish_reason:
+        choice["finish_reason"] = finish_reason
     return json.dumps(
-        {"choices": [{"message": {"content": json.dumps(payload, ensure_ascii=False)}}]},
+        {"choices": [choice]},
         ensure_ascii=False,
     ).encode("utf-8")
 
@@ -116,6 +129,19 @@ def provider(transport: FakeTransport, *, max_attempts: int = 2) -> OpenAICompat
     )
 
 
+def deepseek_provider(
+    transport: FakeTransport,
+    *,
+    max_provider_request_body_bytes: int | None = None,
+    max_candidate_count: int | None = None,
+) -> DeepSeekCuratorProvider:
+    return DeepSeekCuratorProvider(
+        transport=transport,
+        max_provider_request_body_bytes=max_provider_request_body_bytes,
+        max_candidate_count=max_candidate_count,
+    )
+
+
 def expect_failure(
     provider_instance: OpenAICompatibleCuratorProvider,
     transport: FakeTransport,
@@ -155,6 +181,71 @@ def test_success_and_request_boundary() -> None:
         serialize_curator_request(curator_request)
     )
     assert provider_instance.last_call_metadata.provider_request_body_bytes == len(request.data)  # type: ignore[attr-defined]
+
+
+def test_deepseek_frozen_config_and_exact_body() -> None:
+    assert DEEPSEEK_PROVIDER_CONFIG.provider_id == "deepseek"
+    assert DEEPSEEK_PROVIDER_CONFIG.model == "deepseek-v4-flash"
+    assert DEEPSEEK_PROVIDER_CONFIG.endpoint == "https://api.deepseek.com/chat/completions"
+    assert DEEPSEEK_PROVIDER_CONFIG.api_key_env == "AUTOMATION_BRIEF_CURATOR_API_KEY"
+    assert DEEPSEEK_PROVIDER_CONFIG.timeout == 90.0
+    assert DEEPSEEK_PROVIDER_CONFIG.max_attempts == 2
+    assert DEEPSEEK_PROVIDER_CONFIG.max_tokens == 8192
+    assert DEEPSEEK_PROVIDER_CONFIG.stream is False
+    assert DEEPSEEK_PROVIDER_CONFIG.thinking_type == "disabled"
+    assert DEEPSEEK_PROVIDER_CONFIG.response_format_type == "json_object"
+
+    curator_request = build_curator_request([candidate()], REPORT_DATE, max_events=1)
+    body = serialize_deepseek_request(curator_request, DEEPSEEK_PROVIDER_CONFIG)
+    payload = json.loads(body)
+    assert list(payload) == ["model", "messages", "max_tokens", "thinking", "response_format"]
+    assert payload["model"] == "deepseek-v4-flash"
+    assert payload["max_tokens"] == 8192
+    assert payload["thinking"] == {"type": "disabled"}
+    assert payload["response_format"] == {"type": "json_object"}
+    assert "stream" not in payload
+    assert "tools" not in payload
+    assert "temperature" not in payload
+    assert "top_p" not in payload
+
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        deepseek_provider(transport).curate(curator_request)
+    request, timeout = transport.calls[0]
+    assert timeout == 90.0
+    assert request.full_url == "https://api.deepseek.com/chat/completions"  # type: ignore[attr-defined]
+    assert request.data == body  # type: ignore[attr-defined]
+    assert "fake-deepseek-key" not in request.data.decode("utf-8")  # type: ignore[attr-defined]
+    assert request.get_header("Authorization") == "Bearer fake-deepseek-key"  # type: ignore[attr-defined]
+
+
+def test_request_limits_fail_before_transport() -> None:
+    curator_request = build_curator_request([candidate()], REPORT_DATE, max_events=1)
+    body_size = len(serialize_deepseek_request(curator_request, DEEPSEEK_PROVIDER_CONFIG))
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        error = expect_failure(
+            deepseek_provider(
+                transport,
+                max_provider_request_body_bytes=body_size - 1,
+            ),
+            transport,
+            "provider_request_body_limit",
+        )
+    assert error.failure_stage == "preflight"
+    assert error.attempts == 0
+    assert not transport.calls
+
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        error = expect_failure(
+            deepseek_provider(transport, max_candidate_count=0),
+            transport,
+            "candidate_count_limit",
+        )
+    assert error.failure_stage == "preflight"
+    assert error.attempts == 0
+    assert not transport.calls
 
 
 def test_missing_key_fails_before_transport() -> None:
@@ -212,6 +303,68 @@ def test_non_retryable_and_parse_failures_fail_closed() -> None:
         expect_failure(provider(transport), transport, "invalid_response_envelope")
         assert len(transport.calls) == 1
 
+        transport = FakeTransport(
+            [
+                (
+                    200,
+                    json.dumps(
+                        {
+                            "choices": [
+                                {
+                                    "finish_reason": "stop",
+                                    "message": {"content": ""},
+                                }
+                            ]
+                        }
+                    ).encode("utf-8"),
+                )
+            ]
+        )
+        with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+            expect_failure(deepseek_provider(transport), transport, "invalid_json")
+        assert len(transport.calls) == 1
+
+
+def test_finish_reason_must_be_stop_and_does_not_retry() -> None:
+    request = build_curator_request([candidate()], REPORT_DATE, max_events=1)
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        accepted_transport = FakeTransport([(200, envelope(valid_response_payload(), finish_reason="stop"))])
+        accepted = deepseek_provider(accepted_transport).curate(request)
+        assert accepted.events[0].event_id == "event-a"
+        assert len(accepted_transport.calls) == 1
+
+        for finish_reason in (
+            "length",
+            "content_filter",
+            "tool_calls",
+            "insufficient_system_resource",
+            "unknown",
+        ):
+            transport = FakeTransport(
+                [(200, envelope(valid_response_payload(), finish_reason=finish_reason))]
+            )
+            error = expect_failure(
+                deepseek_provider(transport), transport, "invalid_finish_reason"
+            )
+            assert error.failure_stage == "response_parse"
+            assert error.attempts == 1
+            assert len(transport.calls) == 1
+
+        transport = FakeTransport(
+            [
+                (
+                    200,
+                    envelope(valid_response_payload(), include_finish_reason=False),
+                )
+            ]
+        )
+        error = expect_failure(
+            deepseek_provider(transport), transport, "invalid_finish_reason"
+        )
+        assert error.failure_stage == "response_parse"
+        assert error.attempts == 1
+        assert len(transport.calls) == 1
+
 
 def test_domain_validation_and_invalid_evidence_do_not_retry() -> None:
     invalid_schema = valid_response_payload()
@@ -220,8 +373,8 @@ def test_domain_validation_and_invalid_evidence_do_not_retry() -> None:
     invalid_evidence["events"][0]["evidence_article_ids"] = ["missing"]  # type: ignore[index]
     for payload in (invalid_schema, invalid_evidence):
         transport = FakeTransport([(200, envelope(payload))])
-        with env_value("AUTOMATION_BRIEF_TEST_API_KEY", "unit-test-secret"):
-            error = expect_failure(provider(transport), transport, "invalid_curator_response")
+        with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+            error = expect_failure(deepseek_provider(transport), transport, "invalid_curator_response")
         assert error.attempts == 1
 
 
@@ -233,21 +386,21 @@ def test_content_policy_rejects_direct_advice_but_allows_factual_rating() -> Non
     factual_rating = valid_response_payload()
     factual_rating["events"][0]["summary"] = "机构给予该公司买入评级，公告未提供交易建议。"  # type: ignore[index]
 
-    with env_value("AUTOMATION_BRIEF_TEST_API_KEY", "unit-test-secret"):
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
         rejected_transport = FakeTransport([(200, envelope(direct_advice))])
         rejected_error = expect_failure(
-            provider(rejected_transport), rejected_transport, "content_policy_violation"
+            deepseek_provider(rejected_transport), rejected_transport, "content_policy_violation"
         )
         assert rejected_error.attempts == 1
 
         reader_rejected_transport = FakeTransport([(200, envelope(reader_directed_advice))])
         reader_rejected_error = expect_failure(
-            provider(reader_rejected_transport), reader_rejected_transport, "content_policy_violation"
+            deepseek_provider(reader_rejected_transport), reader_rejected_transport, "content_policy_violation"
         )
         assert reader_rejected_error.attempts == 1
 
         accepted_transport = FakeTransport([(200, envelope(factual_rating))])
-        accepted = provider(accepted_transport).curate(
+        accepted = deepseek_provider(accepted_transport).curate(
             build_curator_request([candidate()], REPORT_DATE, max_events=1)
         )
         assert accepted.events[0].summary == factual_rating["events"][0]["summary"]
@@ -268,11 +421,14 @@ def test_secret_is_not_exposed_in_error() -> None:
 
 def main() -> None:
     test_success_and_request_boundary()
+    test_deepseek_frozen_config_and_exact_body()
+    test_request_limits_fail_before_transport()
     test_missing_key_fails_before_transport()
     test_transient_network_error_retries_once()
     test_retryable_http_statuses_retry_once()
     test_timeout_and_max_attempts()
     test_non_retryable_and_parse_failures_fail_closed()
+    test_finish_reason_must_be_stop_and_does_not_retry()
     test_domain_validation_and_invalid_evidence_do_not_retry()
     test_content_policy_rejects_direct_advice_but_allows_factual_rating()
     test_secret_is_not_exposed_in_error()

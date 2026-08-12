@@ -18,6 +18,14 @@ from ai_curator import (  # noqa: E402
     load_candidate_fixture,
 )
 from ai_curator_artifacts import ShadowRunInfo, create_run_id, write_shadow_run  # noqa: E402
+from ai_curator_provider import (  # noqa: E402
+    DEEPSEEK_PROVIDER_CONFIG,
+    DeepSeekCuratorProvider,
+    OpenAICompatibleProviderError,
+    serialize_curator_request,
+    serialize_deepseek_request,
+    validate_provider_request_limits,
+)
 from main import (  # noqa: E402
     DEFAULT_CONFIG_FILE,
     DEFAULT_FEEDS_FILE,
@@ -38,7 +46,7 @@ from project_paths import get_project_paths  # noqa: E402
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate an offline AI Curator shadow preview.")
-    parser.add_argument("--fixture-response", required=True, type=Path, help="Local JSON CuratorResponse fixture")
+    parser.add_argument("--fixture-response", type=Path, help="Local JSON CuratorResponse fixture")
     parser.add_argument("--candidate-fixture", type=Path, help="Local JSON CandidateArticle fixture")
     parser.add_argument("--feeds", type=Path, default=DEFAULT_FEEDS_FILE, help="Path to feeds.json")
     parser.add_argument("--keywords", type=Path, default=DEFAULT_KEYWORDS_FILE, help="Path to keywords.json")
@@ -47,11 +55,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
     parser.add_argument("--date", help="Report date, defaults to today. Example: 2026-07-16")
     parser.add_argument("--max-events", type=int, default=5)
+    parser.add_argument(
+        "--real-provider",
+        choices=("deepseek",),
+        help="Explicitly opt into a real provider; omitted means fixture provider.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build and measure the selected real-provider request without transport.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    _validate_cli_mode(args)
     paths = get_project_paths(repo_root=PROJECT_ROOT, data_root=args.data_root)
     report_date = parse_report_date(args.date) if args.date else date.today()
     if args.candidate_fixture:
@@ -86,7 +105,24 @@ def main() -> None:
         )
 
     output_dir = args.output_dir or paths.ai_curator_shadow_dir
+    if args.real_provider == "deepseek" and args.dry_run:
+        _print_deepseek_preflight(request)
+        return
+
     run_id = create_run_id()
+    if args.real_provider == "deepseek":
+        _run_real_provider(
+            request=request,
+            report_date=report_date,
+            trace_records=trace_records,
+            output_dir=output_dir,
+            run_id=run_id,
+            legacy_evaluation=legacy_evaluation,
+            candidate_window_start=candidate_window_start,
+            candidate_window_end=candidate_window_end,
+        )
+        return
+
     try:
         response = FixtureCuratorProvider(args.fixture_response).curate(request)
     except Exception as exc:
@@ -125,6 +161,112 @@ def main() -> None:
             candidate_window_start=candidate_window_start,
             candidate_window_end=candidate_window_end,
             provider_request_body_bytes=None,
+        ),
+        run_id=run_id,
+    )
+    print(f"Shadow run written: {paths.run_dir}")
+
+
+def _validate_cli_mode(args: argparse.Namespace) -> None:
+    if args.real_provider is None and args.fixture_response is None:
+        raise ValueError("--fixture-response is required unless --real-provider is selected")
+    if args.real_provider is not None and args.fixture_response is not None:
+        raise ValueError("--fixture-response cannot be combined with --real-provider")
+    if args.dry_run and args.real_provider != "deepseek":
+        raise ValueError("--dry-run requires --real-provider deepseek")
+    if args.dry_run and args.candidate_fixture is None:
+        raise ValueError("--dry-run requires --candidate-fixture")
+
+
+def _print_deepseek_preflight(request) -> None:  # noqa: ANN001
+    curator_request_bytes = len(serialize_curator_request(request))
+    provider_request_body = serialize_deepseek_request(request, DEEPSEEK_PROVIDER_CONFIG)
+    validate_provider_request_limits(request, provider_request_body)
+    summary = {
+        "mode": "dry_run",
+        "provider_id": DEEPSEEK_PROVIDER_CONFIG.provider_id,
+        "model": DEEPSEEK_PROVIDER_CONFIG.model,
+        "endpoint": DEEPSEEK_PROVIDER_CONFIG.endpoint,
+        "candidate_count": len(request.articles),
+        "curator_request_bytes": curator_request_bytes,
+        "provider_request_body_bytes": len(provider_request_body),
+        "max_tokens": DEEPSEEK_PROVIDER_CONFIG.max_tokens,
+        "timeout": DEEPSEEK_PROVIDER_CONFIG.timeout,
+        "max_attempts": DEEPSEEK_PROVIDER_CONFIG.max_attempts,
+        "thinking_mode": DEEPSEEK_PROVIDER_CONFIG.thinking_type,
+        "json_mode": DEEPSEEK_PROVIDER_CONFIG.response_format_type == "json_object",
+        "stream": DEEPSEEK_PROVIDER_CONFIG.stream,
+        "target_language": request.target_language,
+        "transport_calls": 0,
+    }
+    print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
+
+
+def _run_real_provider(
+    *,
+    request,
+    report_date: date,
+    trace_records,
+    output_dir: Path,
+    run_id: str,
+    legacy_evaluation: str,
+    candidate_window_start,
+    candidate_window_end,
+) -> None:  # noqa: ANN001
+    provider = DeepSeekCuratorProvider()
+    try:
+        response = provider.curate(request)
+    except OpenAICompatibleProviderError as exc:
+        metadata = provider.last_call_metadata
+        paths = write_shadow_run(
+            output_dir,
+            report_date=report_date,
+            request=request,
+            response=None,
+            trace_records=trace_records,
+            run_info=ShadowRunInfo(
+                status="failed",
+                provider_id=DEEPSEEK_PROVIDER_CONFIG.provider_id,
+                model=DEEPSEEK_PROVIDER_CONFIG.model,
+                api_key_env=DEEPSEEK_PROVIDER_CONFIG.api_key_env,
+                attempts=exc.attempts,
+                validation_status=metadata.validation_status if metadata else "failed",
+                failure_stage=exc.failure_stage,
+                failure_code=exc.failure_code,
+                legacy_evaluation=legacy_evaluation,
+                candidate_window_start=candidate_window_start,
+                candidate_window_end=candidate_window_end,
+                curator_request_bytes=metadata.curator_request_bytes if metadata else None,
+                provider_request_body_bytes=(
+                    metadata.provider_request_body_bytes if metadata else None
+                ),
+            ),
+            run_id=run_id,
+        )
+        print(f"Real-provider run failed: {paths.run_dir}", file=sys.stderr)
+        raise
+
+    metadata = provider.last_call_metadata
+    if metadata is None:
+        raise RuntimeError("DeepSeek provider completed without call metadata")
+    paths = write_shadow_run(
+        output_dir,
+        report_date=report_date,
+        request=request,
+        response=response,
+        trace_records=trace_records,
+        run_info=ShadowRunInfo(
+            status="succeeded",
+            provider_id=metadata.provider_id,
+            model=metadata.model,
+            api_key_env=metadata.api_key_env,
+            attempts=metadata.attempts,
+            validation_status=metadata.validation_status,
+            legacy_evaluation=legacy_evaluation,
+            candidate_window_start=candidate_window_start,
+            candidate_window_end=candidate_window_end,
+            curator_request_bytes=metadata.curator_request_bytes,
+            provider_request_body_bytes=metadata.provider_request_body_bytes,
         ),
         run_id=run_id,
     )

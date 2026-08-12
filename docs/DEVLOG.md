@@ -835,3 +835,27 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 
 - 未调用真实 RSS、AI provider 或 holdings；未读取 `.env`，未写 canonical runtime data；daily digest、`market_brief`、Bark、Obsidian、launchd、pmset 和 Curator domain schema 保持不变。
 - Final Corrective Audit 结果为 PASS。Phase 2 foundation 完成；整体 `v0.6.2 — AI Curator Shadow Evaluation` 尚未完成，后续阶段另行评估。
+
+## 2026-08-12 v0.6.2 Phase 3A DeepSeek Configuration + Real-call Preflight
+
+### 实际改动与验证
+
+- 在现有标准库 OpenAI-compatible adapter 上增加冻结的 DeepSeek one-shot profile：`deepseek-v4-flash`、`https://api.deepseek.com/chat/completions`、90 秒、最多 2 次、8192 tokens、disabled thinking 和 JSON mode；最终 body 只保留显式 allowlist 字段，不启用 stream/tools 或 arbitrary passthrough。
+- 新增 `--real-provider deepseek` 显式 opt-in 和 `--dry-run` preflight；fixture 默认路径不因环境中存在 key 而联网。preflight 使用 exact serialized bytes 报告 CuratorRequest / provider body 大小，transport calls 固定为 0，不生成伪造 succeeded artifact。
+- 增加 provider body/response safety、`choices[0].finish_reason == "stop"` 成功边界、其他 finish reason fail closed / no retry、preflight limit 0-call、unknown provider、fake key 隔离和真实 provider failed metadata 的离线回归；Phase 3A 不启用 payload limit 正式默认值。
+
+### Phase 3B temporary fixture one-shot gate（下一阶段冻结决策，当前未启用）
+
+记录下一阶段 fixture one-shot gate 的临时限制：
+
+- `max_candidate_count = 2`
+- `max_provider_request_body_bytes = 4096`
+- `max_attempts = 2`
+- `max_tokens = 8192`
+
+这些只是 Phase 3B fixture one-shot gate limits，不是 live RSS / production limits；本轮没有启用它们，也没有进入 Phase 3B。
+
+### 边界与结论
+
+- 本阶段未调用真实 DeepSeek API、真实 RSS、Bark 或 Obsidian，未读取 `.env` 或真实 holdings，未写 canonical runtime data；没有改动 `main.py`、daily/market brief、launchd、pmset 或生产自动化。
+- Phase 3A 的配置与 preflight boundary 已完成，但整体 `v0.6.2 — AI Curator Shadow Evaluation` 仍未完成：尚未进行真实 provider 质量评估、比较器或生产切换。

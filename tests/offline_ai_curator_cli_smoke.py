@@ -4,10 +4,19 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from ai_curator import build_curator_request, load_candidate_fixture  # noqa: E402
+from ai_curator_provider import (  # noqa: E402
+    DEEPSEEK_PROVIDER_CONFIG,
+    serialize_curator_request,
+    serialize_deepseek_request,
+)
 
 
 def write_json(path: Path, payload: dict[str, object]) -> None:
@@ -19,19 +28,27 @@ def run_shadow_cli(
     response_path: Path,
     output_dir: Path | None,
     data_root: Path,
+    *,
+    extra_args: list[str] | None = None,
+    include_fixture_response: bool = True,
+    env_updates: dict[str, str | None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    env = os.environ.copy()
-    env["PATH"] = f"{PROJECT_ROOT / '.venv' / 'bin'}:{env.get('PATH', '')}"
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    env["CODEX_SANDBOX_NETWORK_DISABLED"] = "1"
+    env = {
+        "PATH": f"{PROJECT_ROOT / '.venv' / 'bin'}:{os.defpath}",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "CODEX_SANDBOX_NETWORK_DISABLED": "1",
+    }
+    for name, value in (env_updates or {}).items():
+        if value is None:
+            env.pop(name, None)
+        else:
+            env[name] = value
     output_base = output_dir or data_root / "default-shadow-output"
     args = [
         "python3",
         str(PROJECT_ROOT / "scripts" / "run_ai_curator_shadow.py"),
         "--candidate-fixture",
         str(candidate_path),
-        "--fixture-response",
-        str(response_path),
         "--data-root",
         str(data_root),
         "--feeds",
@@ -41,8 +58,11 @@ def run_shadow_cli(
         "--config",
         str(output_base.parent / "missing-config.json"),
     ]
+    if include_fixture_response:
+        args.extend(["--fixture-response", str(response_path)])
     if output_dir is not None:
         args.extend(["--output-dir", str(output_dir)])
+    args.extend(extra_args or [])
     return subprocess.run(
         args,
         cwd=PROJECT_ROOT,
@@ -165,6 +185,89 @@ def main() -> None:
         assert len(run_dirs(default_shadow_dir)) == 1
         assert (run_dirs(default_shadow_dir)[0] / "review.md").exists()
         assert not (PROJECT_ROOT / "output" / "ai-curator-shadow").exists()
+
+        fixture_with_key_output = temp_path / "fixture-with-key-output"
+        fixture_with_key_result = run_shadow_cli(
+            candidate_path,
+            response_path,
+            fixture_with_key_output,
+            data_root,
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": "fake-key-must-not-trigger-real-call"},
+        )
+        assert fixture_with_key_result.returncode == 0, fixture_with_key_result.stderr
+        fixture_with_key_run = run_dirs(fixture_with_key_output)[0]
+        fixture_with_key_payload = json.loads((fixture_with_key_run / "run.json").read_text(encoding="utf-8"))
+        assert fixture_with_key_payload["provider_id"] == "fixture"
+        for artifact_path in fixture_with_key_run.iterdir():
+            assert "fake-key-must-not-trigger-real-call" not in artifact_path.read_text(encoding="utf-8")
+        assert "fake-key-must-not-trigger-real-call" not in fixture_with_key_result.stdout
+        assert "fake-key-must-not-trigger-real-call" not in fixture_with_key_result.stderr
+
+        dry_run_result = run_shadow_cli(
+            candidate_path,
+            response_path,
+            temp_path / "dry-run-output",
+            data_root,
+            include_fixture_response=False,
+            extra_args=["--real-provider", "deepseek", "--dry-run"],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert dry_run_result.returncode == 0, dry_run_result.stderr
+        dry_run_summary = json.loads(dry_run_result.stdout)
+        assert dry_run_summary["mode"] == "dry_run"
+        assert dry_run_summary["provider_id"] == "deepseek"
+        assert dry_run_summary["model"] == "deepseek-v4-flash"
+        assert dry_run_summary["endpoint"] == "https://api.deepseek.com/chat/completions"
+        assert dry_run_summary["candidate_count"] == 2
+        assert dry_run_summary["max_tokens"] == 8192
+        assert dry_run_summary["timeout"] == 90.0
+        assert dry_run_summary["max_attempts"] == 2
+        assert dry_run_summary["thinking_mode"] == "disabled"
+        assert dry_run_summary["json_mode"] is True
+        assert dry_run_summary["target_language"] == "zh-CN"
+        assert dry_run_summary["transport_calls"] == 0
+        assert dry_run_summary["provider_request_body_bytes"] > dry_run_summary["curator_request_bytes"]
+        assert not run_dirs(temp_path / "dry-run-output")
+        assert "AUTOMATION_BRIEF_CURATOR_API_KEY" not in dry_run_result.stdout
+        assert "fake-key" not in dry_run_result.stdout
+
+        fixture_report_date, fixture_candidates = load_candidate_fixture(candidate_path)
+        fixture_request = build_curator_request(fixture_candidates, fixture_report_date, max_events=5)
+        assert dry_run_summary["curator_request_bytes"] == len(serialize_curator_request(fixture_request))
+        assert dry_run_summary["provider_request_body_bytes"] == len(
+            serialize_deepseek_request(fixture_request, DEEPSEEK_PROVIDER_CONFIG)
+        )
+
+        real_provider_output = temp_path / "real-provider-output"
+        real_provider_result = run_shadow_cli(
+            candidate_path,
+            response_path,
+            real_provider_output,
+            data_root,
+            include_fixture_response=False,
+            extra_args=["--real-provider", "deepseek"],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert real_provider_result.returncode != 0
+        real_provider_run = run_dirs(real_provider_output)[0]
+        real_provider_payload = json.loads((real_provider_run / "run.json").read_text(encoding="utf-8"))
+        assert real_provider_payload["provider_id"] == "deepseek"
+        assert real_provider_payload["failure_code"] == "missing_api_key"
+        assert real_provider_payload["attempts"] == 0
+        assert not (real_provider_run / "response.json").exists()
+
+        unknown_provider_result = run_shadow_cli(
+            candidate_path,
+            response_path,
+            temp_path / "unknown-provider-output",
+            data_root,
+            include_fixture_response=False,
+            extra_args=["--real-provider", "unknown"],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert unknown_provider_result.returncode != 0
+        assert "invalid choice" in unknown_provider_result.stderr
+        assert not run_dirs(temp_path / "unknown-provider-output")
 
         invalid_response_path = temp_path / "invalid-response.json"
         invalid_response = valid_response_fixture()

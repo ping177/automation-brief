@@ -58,7 +58,7 @@ PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile project_paths.py scripts/
 .venv/bin/python tests/offline_holdings_config_smoke.py
 ```
 
-For v0.6.0-alpha / v0.6.2 Phase 2 AI Curator shadow changes, compile the curator, provider, artifact, and explicit shadow modules, then run:
+For v0.6.0-alpha / v0.6.2 Phase 2–3A AI Curator shadow changes, compile the curator, provider, artifact, and explicit shadow modules, then run:
 
 ```bash
 PYTHONPYCACHEPREFIX=/private/tmp python3 -m py_compile ai_curator.py ai_curator_provider.py ai_curator_artifacts.py project_paths.py scripts/run_ai_curator_shadow.py scripts/publish_mobile_digest.py scripts/send_bark_notification.py
@@ -70,7 +70,20 @@ PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_artifacts_smoke.py
 .venv/bin/python tests/offline_project_paths_smoke.py
 ```
 
-这些测试必须保持离线：不接真实 AI provider，不调用真实 RSS，不调用 Bark，不写入 Obsidian，不运行 launchd / pmset；真实 holdings 只允许由 validator 做不打印值的校验，其他 smoke 一律使用临时 fixture。Provider smoke 使用 fake transport，覆盖 API key 缺失、timeout、瞬态网络错误、429、5xx、不可重试 4xx、invalid JSON、schema/evidence validation、content policy、max attempts、真实 request-body byte measurement 和 secret 不泄露。Artifact smoke 使用临时目录，覆盖成功/失败 run、atomic publish、same-day 不覆盖、writer success-boundary revalidation、allowlist、content rendering safety、Legacy label、fetch-failure trace、metadata、response.json 只在 validated success 存在和两个 byte measurement 字段语义。
+这些测试必须保持离线：不接真实 AI provider，不调用真实 RSS，不调用 Bark，不写入 Obsidian，不运行 launchd / pmset；真实 holdings 只允许由 validator 做不打印值的校验，其他 smoke 一律使用临时 fixture。Provider smoke 使用 fake transport，覆盖冻结 DeepSeek 配置与 exact body allowlist（`max_tokens`、disabled thinking、JSON mode、无 stream/tools）、`choices[0].finish_reason == "stop"` 成功边界，以及 `length`、`content_filter`、`tool_calls`、`insufficient_system_resource`、unknown 和缺失值的 fail-closed / no-retry 行为；同时覆盖 API key 缺失、timeout、瞬态网络错误、429、5xx、不可重试 4xx、空 content、invalid JSON、schema/evidence validation、content policy、max attempts、真实 request-body byte measurement、preflight limit 0-call 和 secret 不泄露。Artifact smoke 使用临时目录，覆盖成功/失败 run、atomic publish、same-day 不覆盖、writer success-boundary revalidation、allowlist、content rendering safety、Legacy label、fetch-failure trace、metadata、response.json 只在 validated success 存在和两个 byte measurement 字段语义。
+
+Phase 3A preflight 的离线命令为：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 scripts/run_ai_curator_shadow.py \
+  --candidate-fixture /private/tmp/ai-curator-candidates.json \
+  --real-provider deepseek \
+  --dry-run
+```
+
+它必须输出 `mode: dry_run`、`transport_calls: 0`、fixture candidate count、`curator_request_bytes` 和来自 exact provider body bytes 的 `provider_request_body_bytes`，且不需要真实 key、不输出 API key/Authorization、不写 artifact。默认不带 `--real-provider` 仍使用 fixture provider；未知 provider 必须 fail closed。Phase 3A 不启用正式 candidate/body hard limit，但注入 limit 超限必须在 HTTP 前失败且 0 calls。
+
+Phase 3B 的 temporary fixture one-shot gate 决策记录为：`max_candidate_count=2`、`max_provider_request_body_bytes=4096`、`max_attempts=2`、`max_tokens=8192`。这些仅用于下一阶段的 fixture gate，不是 live RSS / production limits；本轮不启用。
 
 ## Canonical runtime data migration verification
 
@@ -139,7 +152,7 @@ python3 -m json.tool config/holdings.example.json
 
 ## AI Curator shadow checklist
 
-v0.6.0-alpha adds the original shadow plumbing; v0.6.2 Phase 2 adds provider and run-artifact boundaries without enabling production or a real provider. When modifying the AI Curator path, confirm:
+v0.6.0-alpha adds the original shadow plumbing; v0.6.2 Phase 2 adds provider and run-artifact boundaries, while Phase 3A adds an explicit DeepSeek opt-in and no-transport preflight without enabling production. When modifying the AI Curator path, confirm:
 
 - Candidate pool is built before legacy keyword filtering.
 - Fully offline shadow CLI validation can use `--candidate-fixture` plus `--fixture-response`; that path must not read real feeds or call RSS.

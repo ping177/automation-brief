@@ -23,6 +23,16 @@ from ai_curator import CuratorContractError, CuratorRequest, CuratorResponse, va
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_ATTEMPTS = 2
+DEEPSEEK_PROVIDER_ID = "deepseek"
+DEEPSEEK_MODEL = "deepseek-v4-flash"
+DEEPSEEK_ENDPOINT = "https://api.deepseek.com/chat/completions"
+DEEPSEEK_API_KEY_ENV = "AUTOMATION_BRIEF_CURATOR_API_KEY"
+DEEPSEEK_TIMEOUT_SECONDS = 90.0
+DEEPSEEK_MAX_ATTEMPTS = 2
+DEEPSEEK_MAX_TOKENS = 8192
+DEEPSEEK_STREAM = False
+DEEPSEEK_THINKING_TYPE = "disabled"
+DEEPSEEK_RESPONSE_FORMAT_TYPE = "json_object"
 _ENVIRONMENT_VARIABLE_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -34,6 +44,10 @@ class OpenAICompatibleProviderError(RuntimeError):
         self.failure_code = failure_code
         self.attempts = attempts
         super().__init__(f"{failure_stage}:{failure_code}")
+
+
+class ProviderRequestLimitError(OpenAICompatibleProviderError):
+    """A request exceeded an explicitly injected preflight limit."""
 
 
 @dataclass(frozen=True)
@@ -58,6 +72,55 @@ class OpenAICompatibleProviderConfig:
             raise ValueError("max_attempts must be 1 or 2")
         if not _ENVIRONMENT_VARIABLE_PATTERN.fullmatch(self.api_key_env):
             raise ValueError("api_key_env must be a valid environment variable name")
+
+
+@dataclass(frozen=True)
+class DeepSeekProviderConfig(OpenAICompatibleProviderConfig):
+    """The frozen Phase 3A DeepSeek one-shot request profile."""
+
+    provider_id: str = DEEPSEEK_PROVIDER_ID
+    model: str = DEEPSEEK_MODEL
+    endpoint: str = DEEPSEEK_ENDPOINT
+    api_key_env: str = DEEPSEEK_API_KEY_ENV
+    timeout: float = DEEPSEEK_TIMEOUT_SECONDS
+    max_attempts: int = DEEPSEEK_MAX_ATTEMPTS
+    max_tokens: int = DEEPSEEK_MAX_TOKENS
+    stream: bool = DEEPSEEK_STREAM
+    thinking_type: str = DEEPSEEK_THINKING_TYPE
+    response_format_type: str = DEEPSEEK_RESPONSE_FORMAT_TYPE
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.provider_id != DEEPSEEK_PROVIDER_ID:
+            raise ValueError("DeepSeek provider_id is fixed")
+        if self.model != DEEPSEEK_MODEL:
+            raise ValueError("DeepSeek model is fixed")
+        if self.endpoint != DEEPSEEK_ENDPOINT:
+            raise ValueError("DeepSeek endpoint is fixed")
+        if self.api_key_env != DEEPSEEK_API_KEY_ENV:
+            raise ValueError("DeepSeek api_key_env is fixed")
+        if self.timeout != DEEPSEEK_TIMEOUT_SECONDS:
+            raise ValueError("DeepSeek timeout is fixed")
+        if self.max_attempts != DEEPSEEK_MAX_ATTEMPTS:
+            raise ValueError("DeepSeek max_attempts is fixed")
+        if self.max_tokens != DEEPSEEK_MAX_TOKENS:
+            raise ValueError("DeepSeek max_tokens is fixed")
+        if self.stream is not DEEPSEEK_STREAM:
+            raise ValueError("DeepSeek stream must remain disabled")
+        if self.thinking_type != DEEPSEEK_THINKING_TYPE:
+            raise ValueError("DeepSeek thinking mode is fixed")
+        if self.response_format_type != DEEPSEEK_RESPONSE_FORMAT_TYPE:
+            raise ValueError("DeepSeek response format is fixed")
+
+
+DEEPSEEK_PROVIDER_CONFIG = DeepSeekProviderConfig(
+    provider_id=DEEPSEEK_PROVIDER_ID,
+    model=DEEPSEEK_MODEL,
+    endpoint=DEEPSEEK_ENDPOINT,
+    api_key_env=DEEPSEEK_API_KEY_ENV,
+    timeout=DEEPSEEK_TIMEOUT_SECONDS,
+    max_attempts=DEEPSEEK_MAX_ATTEMPTS,
+)
 
 
 @dataclass(frozen=True)
@@ -118,20 +181,9 @@ Do not state uncertain or unsupported information as fact.
 """
 
 
-def serialize_curator_request(request: CuratorRequest) -> bytes:
-    """Serialize the domain request whose byte size is measured separately."""
-
-    return json.dumps(
-        request.to_dict(),
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-
-
-def serialize_openai_compatible_request(request: CuratorRequest, model: str) -> bytes:
+def _openai_compatible_payload(request: CuratorRequest, model: str) -> dict[str, object]:
     request_json = serialize_curator_request(request).decode("utf-8")
-    payload = {
+    return {
         "model": model,
         "messages": [
             {"role": "system", "content": SYSTEM_INSTRUCTION},
@@ -146,7 +198,64 @@ def serialize_openai_compatible_request(request: CuratorRequest, model: str) -> 
             },
         ],
     }
+
+
+def _serialize_json_payload(payload: dict[str, object]) -> bytes:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
+def serialize_curator_request(request: CuratorRequest) -> bytes:
+    """Serialize the domain request whose byte size is measured separately."""
+
+    return json.dumps(
+        request.to_dict(),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def serialize_openai_compatible_request(request: CuratorRequest, model: str) -> bytes:
+    return _serialize_json_payload(_openai_compatible_payload(request, model))
+
+
+def serialize_deepseek_request(
+    request: CuratorRequest,
+    config: DeepSeekProviderConfig = DEEPSEEK_PROVIDER_CONFIG,
+) -> bytes:
+    """Serialize the exact allowlisted DeepSeek request body."""
+
+    payload = _openai_compatible_payload(request, config.model)
+    payload["max_tokens"] = config.max_tokens
+    payload["thinking"] = {"type": config.thinking_type}
+    payload["response_format"] = {"type": config.response_format_type}
+    return _serialize_json_payload(payload)
+
+
+def validate_provider_request_limits(
+    request: CuratorRequest,
+    provider_request_body: bytes,
+    *,
+    max_candidate_count: int | None = None,
+    max_provider_request_body_bytes: int | None = None,
+) -> None:
+    """Enforce only explicitly injected limits before any HTTP call.
+
+    Phase 3A intentionally supplies no formal defaults. The named checks are
+    the future Phase 3B enforcement point and fail closed without truncation.
+    """
+
+    if max_candidate_count is not None and max_candidate_count < 0:
+        raise ValueError("max_candidate_count must be non-negative")
+    if max_provider_request_body_bytes is not None and max_provider_request_body_bytes < 0:
+        raise ValueError("max_provider_request_body_bytes must be non-negative")
+    if max_candidate_count is not None and len(request.articles) > max_candidate_count:
+        raise ProviderRequestLimitError("preflight", "candidate_count_limit", 0)
+    if (
+        max_provider_request_body_bytes is not None
+        and len(provider_request_body) > max_provider_request_body_bytes
+    ):
+        raise ProviderRequestLimitError("preflight", "provider_request_body_limit", 0)
 
 
 class CuratorContentPolicyError(CuratorContractError):
@@ -180,20 +289,43 @@ class OpenAICompatibleCuratorProvider:
         config: OpenAICompatibleProviderConfig,
         *,
         transport: HTTPTransport | None = None,
+        max_candidate_count: int | None = None,
+        max_provider_request_body_bytes: int | None = None,
     ) -> None:
         self.config = config
         self._transport = transport or _urllib_transport
+        self._max_candidate_count = max_candidate_count
+        self._max_provider_request_body_bytes = max_provider_request_body_bytes
         self.last_call_metadata: ProviderCallMetadata | None = None
+
+    def _serialize_request(self, request: CuratorRequest) -> bytes:
+        return serialize_openai_compatible_request(request, self.config.model)
 
     def curate(self, request: CuratorRequest) -> CuratorResponse:
         curator_request_bytes = len(serialize_curator_request(request))
-        body = serialize_openai_compatible_request(request, self.config.model)
+        body = self._serialize_request(request)
         provider_request_body_bytes = len(body)
-        self._record_metadata(0, curator_request_bytes, None, "not_run")
+        self._record_metadata(0, curator_request_bytes, provider_request_body_bytes, "not_run")
+        try:
+            validate_provider_request_limits(
+                request,
+                body,
+                max_candidate_count=self._max_candidate_count,
+                max_provider_request_body_bytes=self._max_provider_request_body_bytes,
+            )
+        except ProviderRequestLimitError:
+            self._record_metadata(0, curator_request_bytes, provider_request_body_bytes, "failed")
+            raise
 
         api_key = os.environ.get(self.config.api_key_env, "").strip()
         if not api_key:
-            raise self._failure("configuration", "missing_api_key", 0, curator_request_bytes, None)
+            raise self._failure(
+                "configuration",
+                "missing_api_key",
+                0,
+                curator_request_bytes,
+                provider_request_body_bytes,
+            )
 
         http_request = Request(
             self.config.endpoint,
@@ -339,6 +471,14 @@ class OpenAICompatibleCuratorProvider:
                 curator_request_bytes,
                 provider_request_body_bytes,
             )
+        if choices[0].get("finish_reason") != "stop":
+            raise self._failure(
+                "response_parse",
+                "invalid_finish_reason",
+                attempts,
+                curator_request_bytes,
+                provider_request_body_bytes,
+            )
         message = choices[0].get("message")
         if not isinstance(message, dict):
             raise self._failure(
@@ -441,3 +581,27 @@ class OpenAICompatibleCuratorProvider:
 
     def _should_retry_transport(self, _failure_code: str, attempt: int) -> bool:
         return attempt < self.config.max_attempts
+
+
+class DeepSeekCuratorProvider(OpenAICompatibleCuratorProvider):
+    """Explicit DeepSeek boundary over the existing stdlib HTTP adapter."""
+
+    def __init__(
+        self,
+        config: DeepSeekProviderConfig = DEEPSEEK_PROVIDER_CONFIG,
+        *,
+        transport: HTTPTransport | None = None,
+        max_candidate_count: int | None = None,
+        max_provider_request_body_bytes: int | None = None,
+    ) -> None:
+        if not isinstance(config, DeepSeekProviderConfig):
+            raise TypeError("DeepSeekCuratorProvider requires DeepSeekProviderConfig")
+        super().__init__(
+            config,
+            transport=transport,
+            max_candidate_count=max_candidate_count,
+            max_provider_request_body_bytes=max_provider_request_body_bytes,
+        )
+
+    def _serialize_request(self, request: CuratorRequest) -> bytes:
+        return serialize_deepseek_request(request, self.config)

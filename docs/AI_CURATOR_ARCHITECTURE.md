@@ -4,30 +4,33 @@ This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/l
 
 ## Scope
 
-v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator. v0.6.1 freezes the Overnight Brief product boundary, source-language metadata, Simplified Chinese reader output, and legacy/candidate isolation, then wires feed language into the candidate contract without changing production output behavior. v0.6.2 Phase 2 adds an explicit OpenAI-compatible adapter boundary and filesystem artifacts for offline shadow evaluation. v0.6.2 Phase 3A freezes one DeepSeek one-shot request profile and adds explicit real-provider opt-in plus a no-transport preflight. Phase 3B adds a fixture-only hard-limit gate shared by the explicit dry-run and real-provider paths; the offline preparation path itself remains non-networking, and the successful real-provider run remains an explicit fixture-only shadow gate.
+v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator. v0.6.1 freezes the Morning Brief product boundary, source-language metadata, Simplified Chinese reader output, and legacy/candidate isolation, then wires feed language into the candidate contract without changing production output behavior. v0.6.2 Phase 2 adds an explicit OpenAI-compatible adapter boundary and filesystem artifacts for offline shadow evaluation. v0.6.2 Phase 3A freezes one DeepSeek one-shot request profile and adds explicit real-provider opt-in plus a no-transport preflight. Phase 3B adds a fixture-only hard-limit gate shared by the explicit dry-run and real-provider paths; the offline preparation path itself remains non-networking, and the successful real-provider run remains an explicit fixture-only shadow gate.
+
+The v0.7 Phase A correction adds one explicit manual consumer: `main.py --report-type overnight_brief` may invoke the existing `phase4_live` single-pass Provider and use its validated events for that one report. This is still an opt-in/manual path, not the default production automation or a replacement for the v0.6.2 shadow CLI/artifacts.
 
 It does not:
 
-- call a real AI provider
 - replace the ordinary daily digest
 - replace `market_brief`
 - modify Bark, Obsidian, launchd, or pmset automation
 - send holdings, positions, costs, profit/loss, or market quotes to the curator
 
+The explicit manual `overnight_brief` call uses the existing provider boundary only; Provider technical failure falls back to the whole legacy reader-facing news layer. It does not add a second pass, new schema, translation pipeline, ranking system, or quality threshold.
+
 ## Product Reset
 
-The product is a personal overnight global news brief (Overnight Brief), not an AI investment assistant, stock-opportunity finder, stock recommendation tool, news-to-stock mapper, or daily investment-opinion generator.
+The product is a personal Morning Brief, not an AI investment assistant, stock-opportunity finder, stock recommendation tool, news-to-stock mapper, or daily investment-opinion generator.
 
 The future unified reader-facing structure is:
 
 ```text
-一、隔夜全球要闻
+一、昨夜最重要的事
 二、隔夜市场
-三、今日观察
-四、我的持仓（仅异常时出现）
+三、今日值得关注
+四、持仓异常（仅异常时出现）
 ```
 
-The global-news section should favor roughly 10–18 high-value events, factual summaries, cross-source consolidation, and evidence traceability. “今日观察” is limited to at most three variables to keep watching, not a market forecast. “我的持仓” is conditional and must not expose cost, position size, profit/loss, or trading advice. v0.6.1 defines this contract and the minimal feed/candidate wiring; it does not generate `overnight_brief.md`, delete daily or market brief outputs, or switch production behavior.
+The global-news section should favor high-value events, factual summaries, cross-source consolidation, and evidence traceability. “今日值得关注” is limited to at most three variables to keep watching, not a market forecast. “持仓异常” is conditional and must not expose cost, position size, profit/loss, or trading advice. v0.6.1 defines this contract and the minimal feed/candidate wiring; it does not generate Morning Brief output, delete daily or market brief outputs, or switch production behavior.
 
 ## Language Boundary
 
@@ -145,11 +148,11 @@ response_format: {"type": "json_object"}
 
 The exact DeepSeek body contains only `model`, `messages`, `max_tokens`, `thinking`, and `response_format`; it does not add tools, temperature, top_p, or arbitrary extra-body passthrough. The default/full and Phase 3B system instruction preserves the existing rejection contract. Explicit `phase4_live` uses one selected-only CuratorResponse instruction with `rejected_article_ids=[]`; it treats candidate fields as untrusted data, prohibits browsing or outside knowledge, and fixes reader-facing text to `zh-CN`. The selected-event validator remains strict and unchanged.
 
-The Phase 4 editorial policy remains general rather than snapshot-specific. One Curator call owns event grouping, ranking, direct/minimal evidence, attribution preservation, and confidence/uncertainty calibration. A concrete news peg remains the event boundary; routine or narrow events cannot gain priority from an authoritative source or prominent category, and low-value events need not fill the capacity. Before that one call, `phase4_live` alone excludes the exact product-mismatched source `GitHub Trending Python Daily` from the daily main pool. This narrow Provider-facing boundary does not alter the raw candidate pool, roles, feeds, source scoring, default/full, Phase 3B, or production paths; ordinary news sources such as `Investing.com 中文财经` remain eligible for Curator selection.
+The Phase 4 editorial policy remains general rather than snapshot-specific. One Curator call owns event grouping, ranking, direct/minimal evidence, attribution preservation, and confidence/uncertainty calibration. A concrete underlying news peg remains the event boundary: articles about the same entity, time period, and core market/policy/geopolitical change must aggregate even when their metrics or headline angles differ. Each event's canonical title, summary, why-important text, and evidence IDs must describe and support the same entity and event. Routine or narrow events cannot gain priority from an authoritative source or prominent category, and low-value events need not fill the capacity. Before that one call, `phase4_live` alone excludes the exact product-mismatched source `GitHub Trending Python Daily` from the daily main pool. This narrow Provider-facing boundary does not alter the raw candidate pool, roles, feeds, source scoring, default/full, Phase 3B, or production paths; ordinary news sources such as `Investing.com 中文财经` remain eligible for Curator selection.
 
 The quality gate uses a compact repo fixture bound to the audited snapshot SHA-256. It stores reference event IDs, `must_include_at_10` / `strong_candidate` tiers, article IDs, known forbidden bindings, attribution/uncertainty expectations, and representative omit IDs without news bodies or fixed generated prose. A small offline evaluator reports explicit findings only; it does not compute a weighted score or attempt general semantic validation, and it is not called by the provider, domain validator, artifact writer, daily digest, or `market_brief`.
 
-The CLI resolves event capacity by explicit evaluation mode. Default/full, fixture operation, Phase 3B, and the domain `CuratorRequest` default remain 5. Only an explicit `phase4_live` run with no `--max-events` override uses 10, matching this snapshot's audited 8–12 useful-event range without changing schema or validator behavior. Ten is a ceiling, not a fill target; the model may return fewer events.
+The CLI resolves event capacity by explicit evaluation mode. Default/full, fixture operation, Phase 3B, and the domain `CuratorRequest` default remain 5. Only an explicit `phase4_live` run with no `--max-events` override uses 20. The v0.7 Morning Brief decision is based on same-snapshot sensitivity: the 10-event cap visibly squeezed major-event coverage, 15 did not provide a stable compromise, and two independent Flash runs at 20 improved coverage. Twenty is a ceiling, not a fill target; the model may return fewer events. The phase4_live prompt explicitly forbids quota filling with low-value events. The complete validated response remains in the canonical artifact, while Morning Brief reader projection displays only `must_know` and `important`; `background` does not enter any reader-facing event section or watch slot. Flash ordering of marginal events can still vary; this does not justify adding a new rule system, schema, or ranking stage.
 
 The adapter accepts the provider envelope only long enough to extract the first message content. For this one-shot Curator, `choices[0].finish_reason` must be exactly `stop`; missing, unknown, `length`, `content_filter`, `tool_calls`, and `insufficient_system_resource` values fail closed without retry. In explicit `phase4_live`, the provider boundary projects the non-authoritative rejection field to `[]` and removes only exact duplicate evidence IDs within each event, preserving first-seen order, before the existing validator. Selected event fields still go through `validate_curator_response()` after that narrow canonicalization: unknown evidence IDs, empty evidence, duplicate event IDs, schema failures, and other contract violations fail closed. Default/full and Phase 3B payloads go directly to the generic validator, including strict rejection and duplicate-evidence validation. Invalid JSON, invalid response envelopes, invalid finish reasons, and selected-event evidence failures fail closed without retry. The default is at most two attempts: transient transport errors, HTTP 429, and HTTP 5xx may retry once; other 4xx responses do not retry.
 
@@ -163,7 +166,7 @@ python3 scripts/run_ai_curator_shadow.py \
   --real-provider deepseek
 ```
 
-Only `deepseek` is accepted, and the real-provider path requires `--candidate-fixture`; it cannot fall back to `feeds.json` or RSS collection. The CLI does not infer provider mode from an API key and does not wire this path into `main.py`, the daily or market brief scripts, launchd, Bark, Obsidian, or pmset. The key is read only by the provider call boundary from `AUTOMATION_BRIEF_CURATOR_API_KEY`; no key value, Authorization header, or raw transport object is persisted.
+Only `deepseek` is accepted, and the shadow CLI real-provider path requires `--candidate-fixture`; it cannot fall back to `feeds.json` or RSS collection. The shadow CLI does not infer provider mode from an API key and does not wire its artifact path into `main.py`, the daily or market brief scripts, launchd, Bark, Obsidian, or pmset. The explicit v0.7 manual `overnight_brief` path uses the same Provider boundary directly, without importing or invoking the shadow CLI. The key is read only by the provider call boundary from `AUTOMATION_BRIEF_CURATOR_API_KEY`; no key value, Authorization header, or raw transport object is persisted.
 
 Phase 3A/3B preflight is explicit and safe to run with no key and no fixture response:
 
@@ -206,9 +209,9 @@ runs/ai-curator-shadow/<run_id>/
 └── review.md
 ```
 
-`run_id` is a sortable UTC timestamp plus a collision-resistant suffix, so repeated runs on the same report date do not overwrite one another. The writer stages all files in a sibling temporary directory, validates the staged set, and atomically renames it to the final run id; I/O failure therefore cannot publish a formal partial run. `run.json` records status, report date, candidate/legacy/AI counts, provider metadata, attempts, validation status, `curator_request_bytes`, and `provider_request_body_bytes`. The first is the serialized `CuratorRequest` JSON; the second is the complete HTTP JSON body actually passed to the provider transport, and is `null` for fixture runs. Failed runs additionally record classified `failure_stage` and `failure_code`; validator/content-policy failures may add a bounded `failure_diagnostic` containing only an allowlisted rule code, field path, and a known candidate article id when needed. They may retain safe request and trace artifacts but never write a fake `response.json`.
+`run_id` is a sortable UTC timestamp plus a collision-resistant suffix, so repeated runs on the same report date do not overwrite one another. The explicit AI-backed `overnight_brief` caller uses the same writer and canonical root, with an `overnight-` run-id prefix to distinguish its caller without adding a new metadata schema. The writer stages all files in a sibling temporary directory, validates the staged set, and atomically renames it to the final run id; I/O failure therefore cannot publish a formal partial run. `run.json` records status, report date, candidate/legacy/AI counts, provider metadata, attempts, validation status, `curator_request_bytes`, and `provider_request_body_bytes`. The first is the serialized provider-facing `CuratorRequest` JSON; the second is the complete HTTP JSON body actually passed to the provider transport, and is `null` for fixture runs. Failed runs additionally record classified `failure_stage` and `failure_code`; validator/content-policy failures may add a bounded `failure_diagnostic` containing only an allowlisted rule code, field path, and a known candidate article id when needed. They may retain safe request and trace artifacts but never write a fake `response.json`.
 
-`request.json` and `response.json` use explicit allowlists. Before a successful run is persisted, the writer re-runs `validate_curator_response()` and the minimal Curator content policy against the response and checks request/response report dates. Raw provider envelopes are discarded. No artifact contains API key values, Authorization headers, holdings, raw HTTP transport dumps, raw validator exception text, or the full model-generated payload. In `phase4_live`, `response.json` therefore contains canonical `"rejected_article_ids": []`, and `review.md` says `Rejection enumeration: not collected in phase4_live` rather than implying that the AI rejected nothing. AI free text is rendered as escaped plain text in `review.md`; direct reader-facing trading actions are rejected, while factual reporting such as an institution assigning a “买入评级” is allowed. `review.md` is a human-review surface with candidate count/window, AI events, evidence/source context, explicit Legacy evaluation semantics, failure classification and safe validation diagnostics when applicable, and a review checklist.
+`request.json` and `response.json` use explicit allowlists. Before a successful run is persisted, the writer re-runs `validate_curator_response()` and the minimal Curator content policy against the response and checks request/response report dates. Raw provider envelopes are discarded. No artifact contains API key values, Authorization headers, holdings, raw HTTP transport dumps, raw validator exception text, or the full model-generated payload. In `phase4_live`, `response.json` therefore contains canonical `"rejected_article_ids": []`, and `review.md` says `Rejection enumeration: not collected in phase4_live` rather than implying that the AI rejected nothing. AI free text is rendered as escaped plain text in `review.md`; direct reader-facing trading actions are rejected, while factual reporting such as an institution assigning a “买入评级” is allowed. `review.md` is a human-review surface with candidate count/window, AI events, evidence/source context, explicit Legacy evaluation semantics, failure classification and safe validation diagnostics when applicable, and a review checklist. For direct `overnight_brief`, `trace.json` retains the full collected candidate identity/legacy comparison snapshot while `request.json` retains the exact provider-facing projection; this makes source exclusion and projection auditable without changing the Curator contract.
 
 ## Trace
 
@@ -234,6 +237,14 @@ python3 scripts/run_ai_curator_shadow.py --fixture-response path/to/response.jso
 It writes one run directory containing `run.json`, `request.json`, `response.json`, `trace.json`, and `review.md` under the canonical `runs/ai-curator-shadow/` data directory by default. Fixture runs mark Legacy comparison as `not evaluated` and provider request-body bytes as `null`; the live candidate path is only a `keyword-gate approximation`, explicitly not final production digest selection. Those generated files are local artifacts and should not be committed. The HTTP adapter is wired into this CLI only under the explicit `--real-provider deepseek` opt-in, so the documented fixture command cannot call a real provider.
 
 The runtime DeepSeek configuration is fixed to `deepseek-v4-flash`. The historical Pro comparison remains readable from its artifact `model` field, but no longer requires a runtime profile or CLI switch.
+
+The explicit `overnight_brief` command uses the same `phase4_live` limits and writes its run beside shadow artifacts:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python main.py --report-type overnight_brief
+```
+
+Find the newest direct run with `find /Users/wp/Projects/_project-data/automation-brief/runs/ai-curator-shadow -maxdepth 1 -type d -name 'overnight-*' -print | sort | tail -1`. A provider failure still writes a failed run artifact and leaves the Morning Brief's existing whole-news legacy fallback unchanged.
 
 For fully offline validation, provide a local candidate fixture:
 
@@ -315,7 +326,7 @@ The formal route is:
 ```text
 v0.6.1 — Product Reset + Language Boundary
 v0.6.2 — AI Curator Shadow Evaluation
-v0.7 — Unified Overnight Brief
+v0.7 — Morning Brief
 ```
 
 v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator remains shadow-only and does not replace daily digest, `market_brief`, or production automation.

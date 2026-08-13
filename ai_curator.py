@@ -6,7 +6,7 @@ import urllib.parse
 from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, Sequence
 
 
 SCHEMA_VERSION = "ai_curator_shadow_v1"
@@ -671,6 +671,15 @@ def candidate_trace_records(candidates: tuple[CandidateArticle, ...] | list[Cand
             }
         )
     return records
+
+
+def candidate_collection_window(
+    candidates: Sequence[CandidateArticle],
+) -> tuple[datetime | None, datetime | None]:
+    collected_at = tuple(candidate.collected_at for candidate in candidates)
+    if not collected_at:
+        return None, None
+    return min(collected_at), max(collected_at)
 
 
 def render_shadow_preview(

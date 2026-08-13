@@ -14,6 +14,7 @@ from ai_curator import (  # noqa: E402
     CuratorContractError,
     FixtureCuratorProvider,
     build_curator_request,
+    candidate_collection_window,
     candidate_trace_records,
     load_candidate_fixture,
 )
@@ -21,6 +22,9 @@ from ai_curator_artifacts import ShadowRunInfo, create_run_id, write_shadow_run 
 from ai_curator_provider import (  # noqa: E402
     DEEPSEEK_PROVIDER_CONFIG,
     PHASE_3B_FIXTURE_INPUT_MODE,
+    PHASE_4_LIVE_MAX_CANDIDATE_COUNT,
+    PHASE_4_LIVE_MAX_EVENTS,
+    PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES,
     PHASE_4_LIVE_INPUT_MODE,
     DeepSeekCuratorProvider,
     OpenAICompatibleProviderError,
@@ -29,12 +33,10 @@ from main import (  # noqa: E402
     DEFAULT_CONFIG_FILE,
     DEFAULT_FEEDS_FILE,
     DEFAULT_KEYWORDS_FILE,
-    candidate_text,
     collect_candidate_articles,
     load_json,
     load_optional_json,
-    match_keywords,
-    news_item_from_candidate,
+    legacy_items_from_candidates,
     normalize_config,
     normalize_feeds,
     normalize_keywords,
@@ -46,9 +48,6 @@ from project_paths import get_project_paths  # noqa: E402
 PHASE_3B_MAX_CANDIDATE_COUNT = 2
 PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES = 4096
 DEFAULT_MAX_EVENTS = 5
-PHASE_4_LIVE_MAX_CANDIDATE_COUNT = 200
-PHASE_4_LIVE_MAX_EVENTS = 10
-PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES = 200000
 
 
 def parse_args() -> argparse.Namespace:
@@ -64,7 +63,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-events",
         type=int,
-        help="Override the input-mode event capacity (default: 5; phase4_live: 10).",
+        help="Override the input-mode event capacity (default: 5; phase4_live: 20).",
     )
     parser.add_argument(
         "--real-provider",
@@ -458,34 +457,6 @@ def _fixture_failure_info(
         candidate_window_end=candidate_window_end,
         provider_request_body_bytes=None,
     )
-
-
-def candidate_collection_window(candidates):  # noqa: ANN001
-    collected_at = [candidate.collected_at for candidate in candidates]
-    if not collected_at:
-        return None, None
-    return min(collected_at), max(collected_at)
-
-
-def legacy_items_from_candidates(candidates, keywords, feed_mode_by_name, max_items_per_feed):  # noqa: ANN001
-    seen_links: set[str] = set()
-    feed_counts: dict[str, int] = {}
-    legacy_items = []
-    for candidate in candidates:
-        if not candidate.link:
-            continue
-        matched = match_keywords(candidate_text(candidate), keywords)
-        feed_mode = feed_mode_by_name.get(candidate.feed_name, "keyword")
-        if feed_mode == "keyword" and not matched:
-            continue
-        if candidate.link in seen_links:
-            continue
-        if feed_counts.get(candidate.feed_name, 0) >= max_items_per_feed:
-            continue
-        seen_links.add(candidate.link)
-        feed_counts[candidate.feed_name] = feed_counts.get(candidate.feed_name, 0) + 1
-        legacy_items.append(news_item_from_candidate(candidate, matched))
-    return legacy_items
 
 
 if __name__ == "__main__":

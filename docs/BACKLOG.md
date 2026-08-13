@@ -9,7 +9,7 @@
 ```text
 v0.6.1 — Product Reset + Language Boundary
 v0.6.2 — AI Curator Shadow Evaluation
-v0.7 — Unified Overnight Brief
+v0.7 — Morning Brief
 ```
 
 历史条目中的既有 `-alpha` / `-beta` token 是 legacy 事实，保留原样，不回写历史。
@@ -28,13 +28,13 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 
 ### v0.6.1 Product Reset + Language Boundary
 
-- Phase 1（本轮已完成）落地 Overnight Brief 产品合同、未来统一输出结构、多语言输入 / 简体中文 reader-facing 输出边界、AI Curator 职责边界和 legacy / candidate 隔离合同；不修改业务代码、feed 配置、测试或生产入口。
+- Phase 1（本轮已完成）落地 Morning Brief 产品合同、未来统一输出结构、多语言输入 / 简体中文 reader-facing 输出边界、AI Curator 职责边界和 legacy / candidate 隔离合同；不修改业务代码、feed 配置、测试或生产入口。
 - Phase 2（本轮已完成）实现可选顶层 feed `language` metadata：正式语义为 `zh-CN`、`en`、`und`，缺失、空值或非法值归一化为 `und`；旧配置继续可加载。
 - v0.6.1 已正式完成；下一阶段是 v0.6.2 AI Curator Shadow Evaluation，仍只做 real-provider shadow evaluation，不替换生产输出。
 - candidate path 读取 `language` 并写入现有 `CandidateArticle.language`；`CuratorRequest.target_language` 固定为 `zh-CN`。语言不进入 `stable_article_id()`、canonical URL、dedup identity 或 legacy keyword gate。
 - 当前 16 个 active feed 全部保持启用，不删除、不改变 `mode` / `role`、不新增 `priority`，也不实现 `candidate_only` 配置。英文来源不因语言被删除。
 - `keep`、`keep_but_lower_priority`、`candidate_only`、`needs_review` 仅作为未来 source policy 的设计建议，不是本版本 runtime config；当前没有真实 feed health / 重复率验证，因此不改变运行行为。
-- v0.6.1 不接真实 AI provider、不切换 daily digest 或 `market_brief` 生产输出、不正式生成 `overnight_brief.md`，不删除 legacy runtime data，也不修改 launchd / pmset / Bark / Obsidian 路径。
+- v0.6.1 不接真实 AI provider、不切换 daily digest 或 `market_brief` 生产输出、不正式生成 Morning Brief 输出，不删除 legacy runtime data，也不修改 launchd / pmset / Bark / Obsidian 路径。
 
 ### v0.6.0-alpha AI Curator shadow foundation — retained constraints
 
@@ -76,7 +76,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - v0.5-beta.3 已完成新闻事件排序和合并 polish：政策监管新闻优先级提高，同主题证监会再融资 / 定增政策合并展示，IPO / 融资分类更严格，holdings 相关新闻区分明确相关新闻 / 弱相关变量，风险与反证优先覆盖政策监管变量。
 - v0.5-beta.3.1 已完成真实样例 hotfix：A 股再融资 / 定增制度变量继续提权，泛“监管”分类收紧，观察理由关键词去重，今日主线增加 `relevance >= 70` 渲染阈值，券商业绩预告排序提高，风险与反证明确覆盖再融资和定增储架发行变量。
 - v0.5-beta.5 已完成重要新闻相关度和分类 polish：重要新闻增加同源与融资类型限额，融资/财报按标题主动作处理，投资机构名册 / 榜单降权，政府监管统计优先归政策监管，算力/数据中心电力需要直接证据，风险与今日继续观察优先使用市场和持仓异常。
-- 以上 v0.5 系列条目是已完成的显式 `market_brief` 历史能力；它继续作为独立、手动或显式触发的旧入口保留，不代表 Overnight Brief 的最终产品定位，也不在 v0.6.1 中继续优化。
+- 以上 v0.5 系列条目是已完成的显式 `market_brief` 历史能力；它继续作为独立、手动或显式触发的旧入口保留，不代表 Morning Brief 的最终产品定位，也不在 v0.6.1 中继续优化。
 - 保持规则输出克制，不把普通科技动态、泛访谈、benchmark 争议和活动宣传误升格为市场信号。
 - 持仓观察必须来自 canonical `manual-inputs/holdings.json` 或仓库示例文件，不能把具体持仓硬编码进业务代码。
 
@@ -100,7 +100,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 真实 provider 不可直接替换 daily digest 或 `market_brief`；必须先输出 shadow preview 和 candidate trace，并保留 legacy fallback。
 - AI 不做全网生成、不编造事实、不替代来源链接。
 - Phase 4B 已冻结显式 `phase4_live` provider-facing projection：summary cap=`500`、candidate limit=`200`、provider body limit=`200000`；selected-only 真实 DeepSeek shadow 已完成输入/transport 验证，但 output validation 先因 duplicate rejected article ID、随后因 duplicate evidence ID 被拒绝。现在 live 模式采用 selected-only semantics：rejection enumeration 不再收集，provider boundary 将 rejection 字段 canonicalize 为 `[]`，并仅对同一 event 内完全相同的 evidence ID 做保序 exact-dedupe；selected events 的其他 contract 仍严格验证，后续 real shadow 仍需单独授权，不能自动切换生产路径。
-- v0.6.2 Phase 4 已关闭：simple single-pass technical shadow boundary、GitHub-only cleanup 与 production isolation 已验证；same-snapshot 内容实验显示 major-event recall / ranking 仍不稳定。不要在 v0.6.2 继续 prompt、模型、source filter、validator 或多阶段实验；下一正式工作是 v0.7 Unified Overnight Brief 的独立产品设计，仍不得自动切换生产路径。
+- v0.6.2 Phase 4 已关闭：simple single-pass technical shadow boundary、GitHub-only cleanup 与 production isolation 已验证；same-snapshot 内容实验显示 major-event recall / ranking 仍不稳定。不要在 v0.6.2 继续 prompt、模型、source filter、validator 或多阶段实验；下一正式工作是 v0.7 Morning Brief 的独立产品设计，仍不得自动切换生产路径。
 
 ### missed coverage 闭环
 

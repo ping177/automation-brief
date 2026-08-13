@@ -284,8 +284,8 @@ def main() -> None:
         assert phase4_summary["provider_request_body_bytes"] <= 200000
 
         phase4_report_date, phase4_candidates = load_candidate_fixture(phase4_candidate_path)
-        assert phase4_summary["max_events"] == 10
-        phase4_request = build_curator_request(phase4_candidates, phase4_report_date, max_events=10)
+        assert phase4_summary["max_events"] == 20
+        phase4_request = build_curator_request(phase4_candidates, phase4_report_date, max_events=20)
         phase4_projected_request = project_curator_request_for_provider(phase4_request)
         assert phase4_summary["curator_request_bytes"] == len(
             serialize_curator_request(phase4_projected_request)
@@ -322,7 +322,7 @@ def main() -> None:
         phase4_request_payload = json.loads(
             (phase4_real_run / "request.json").read_text(encoding="utf-8")
         )
-        assert phase4_request_payload["max_events"] == 10
+        assert phase4_request_payload["max_events"] == 20
         assert phase4_request_payload["articles"][0]["summary"] == "x" * 500
         assert not (phase4_real_run / "response.json").exists()
         assert phase4_candidate_path.read_bytes() == phase4_snapshot_bytes

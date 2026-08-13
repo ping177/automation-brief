@@ -2,18 +2,18 @@
 
 本文记录 automation-brief 的长期产品、架构和工作流决策。只记录相对稳定的判断；短期任务放在 `docs/BACKLOG.md`，过程记录放在 `docs/DEVLOG.md`。
 
-## Overnight Brief 产品合同
+## Morning Brief 产品合同
 
-### 个人隔夜全球要闻晨报定位
+### 个人早间简报定位
 
-- 决策：automation-brief 的最终产品定位是个人隔夜全球要闻晨报（Overnight Brief）。目标是让读者每天早上约 5 分钟了解昨晚世界发生了什么、全球市场发生了什么、今天哪些变量值得继续关注。
+- 决策：automation-brief 的最终 reader-facing 产品定位是个人早间简报（Morning Brief）。目标是让读者每天早上约 5 分钟了解昨晚世界发生了什么、全球市场发生了什么、今天哪些变量值得继续关注。
 - 不定位为 AI 投研助手、A 股机会发现系统、股票推荐工具、新闻到股票机会映射器或每日投资观点生成器。
-- 未来统一结构为“隔夜全球要闻 / 隔夜市场 / 今日观察 / 我的持仓（仅异常时出现）”。“今日观察”最多 3 条，不是市场预测；“我的持仓”不得输出成本、仓位、盈亏或买卖建议。
-- 影响：v0.6.1 冻结产品与语言合同并完成最小 candidate wiring，不正式生成 `overnight_brief.md`，不删除 daily digest 或 `market_brief`，不切换生产输出。
+- 未来统一结构为“昨夜最重要的事 / 隔夜市场 / 今日值得关注 / 持仓异常（仅异常时出现）”。“今日值得关注”最多 3 条，不是市场预测；“持仓异常”不得输出成本、仓位、盈亏或买卖建议。
+- 影响：v0.6.1 冻结产品与语言合同并完成最小 candidate wiring，不正式生成 Morning Brief 输出，不删除 daily digest 或 `market_brief`，不切换生产输出。
 
 ### Numeric version route
 
-- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation、`v0.7` Unified Overnight Brief。
+- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation、`v0.7` Morning Brief。
 - 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token。
 
 ### 多语言输入与简体中文输出
@@ -134,6 +134,27 @@
 - 理由：159-candidate content audit 证明 technical pipeline 正常，但原 instruction 只有泛化的 “important events” 要求，无法约束 background 占位、主题相关 evidence 污染、单方声明事实化、机械式 `high + []` 和过度聚合。
 - 影响：新增绑定 snapshot SHA-256 的紧凑 gold reference 和离线 evaluator，只检查人工明确的 capacity-scoped must-include、priority/background、forbidden evidence、attribution-required 与 uncertainty-expected 条件；它不读取新闻正文、不进入 provider request / production validator，不做 embedding、semantic similarity、事实核查或加权评分。Phase 4 prompt 以一个具体 news peg 为 event 边界，禁止为节省容量合并可独立成标题的行动。schema、validator、selected-only semantics、projection、transport、retry、artifact 和 production paths 均不变。
 
+### v0.7 Morning Brief phase4_live 容量调整为 20
+
+- 决策：Morning Brief（内部 `overnight_brief`）使用共享 `phase4_live` `max_events=20`；default/full、fixture 和 Phase 3B 的默认容量仍为 5。此前 same-snapshot sensitivity 的 10/15/20 运行仅作为历史决策依据保留，不属于正式 runtime。
+- 理由：同一份 154-candidate snapshot 的 sensitivity 显示 10 存在明显容量挤压，15 没有形成稳定折中，而 20 的两次独立 DeepSeek Flash 运行都改善了重大事件覆盖。
+- 影响：20 是最多允许的 CuratedEvent 数，不是补满目标；Flash 在边际事件排序上仍可能波动。该决定不新增 prompt、schema、classification、ranking/scoring、dedupe、feed 或 AI stage。
+
+### v0.7 Morning Brief reader-facing rename
+
+- 决策：reader-facing 产品名称统一为 `Morning Brief` / `早间简报`；Markdown 标题使用“早间简报”，canonical 文件名使用 `morning-brief-YYYY-MM-DD.md`。
+- 影响：稳定 machine identifier `report_type="overnight_brief"`、Python module/function/internal symbol、Curator artifact run 前缀和既有显式 CLI 均保持不变；不新增 alias 或 compatibility layer。
+
+### v0.7 Morning Brief watch composition
+
+- 决策：AI success 时，“今日值得关注”不再机械取 CuratedEvent 前三个 `uncertainties`；仅投影已有 Curator `importance in {must_know, important}` 且属于政策、市场、能源或地缘类别的 unresolved variables，再按既有顺序复用结构化行情信号和无 RSS 解释的持仓异常，最多 3 条，不足不补。
+- 影响：不新增 uncertainty 语义模型、keyword/template rule、schema 或第二次 AI 调用；provider fallback、market data 和 holdings anomaly trigger 保持原路径。
+
+### v0.7 Morning Brief reader-facing importance boundary
+
+- 决策：AI success 的 Morning Brief reader-facing event 仅展示现有 `importance` enum 中的 `must_know` 和 `important`；`background` 不进入主新闻、市场新闻、今日值得关注或持仓相关新闻投影。
+- 影响：过滤仅发生在 Morning Brief writer projection；canonical CuratorResponse artifact 继续完整保存包括 `background` 在内的 validated events。`max_events=20`、schema、enum、provider、validator 和 fallback 均不变，不新增阈值或评分系统。
+
 ### GitHub Trending 不直接作为每日重点内容
 
 - 决策：GitHub Trending 和 `ai_tools` 不适合直接进入 daily digest 的重点栏目。
@@ -166,3 +187,9 @@
 - Decision: close Phase 4 with the simple single-pass Flash shadow path, retaining only the exact `GitHub Trending Python Daily` exclusion from the Phase 4 daily main pool.
 - Rationale: real-provider technical boundaries succeeded. Flash same-snapshot recall remained about 4/8 known major events; Pro improved only marginally at materially higher cost, while GitHub-only cleanup improved grouping/evidence without improving recall. Further prompt, model, source-filter, validation, or orchestration tuning has no demonstrated product value.
 - Impact: remove the one-time Pro runtime profile; historical artifacts retain their recorded model. Keep the gold/evaluator as offline development regression only. AI Curator remains shadow-only and production daily digest / `market_brief` remain unchanged. v0.7 starts only under a separate task.
+
+## v0.7 Phase A explicit Curator projection and fallback
+
+- 决策：显式手动 `overnight_brief` 复用 v0.6.2 已冻结的 `phase4_live` single-pass Curator；AI success 时 CuratedEvent 是 reader-facing 新闻的唯一选择、事件聚合和简体中文文本来源，现有行情与持仓异常能力继续由本地模块负责。
+- 理由：Phase A 真实验收显示 legacy reader-facing 新闻会重新引入重复、英文摘要和 Market Brief 模板化表达；CuratorResponse 已有 canonical title、summary、category 和 evidence ids，不需要新增 schema、translation pipeline 或第二次 AI 调用。
+- 影响：`financial_markets` / `energy_commodities` 与其他 event 只做既有 category 的互斥 section 投影；evidence ids 回查 CandidateArticle source/link。Provider 技术失败时整份新闻层回退到 legacy renderer，不混合、不投票、不补位。此路径仅由显式 `overnight_brief` 触发，默认 `digest`、显式 `market_brief`、feeds、launchd、pmset、Bark 和 Obsidian 保持不变；不进入 Phase B 前不做生产切换。

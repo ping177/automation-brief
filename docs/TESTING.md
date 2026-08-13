@@ -75,6 +75,40 @@ PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_quality_smoke.py
 
 这些测试必须保持离线：不接真实 AI provider，不调用真实 RSS，不调用 Bark，不写入 Obsidian，不运行 launchd / pmset；真实 holdings 只允许由 validator 做不打印值的校验，其他 smoke 一律使用临时 fixture。Provider smoke 使用 fake transport，覆盖冻结 DeepSeek 配置与 exact body allowlist（`max_tokens`、disabled thinking、JSON mode、无 stream/tools）、完整 CuratorResponse prompt skeleton（包括 `canonical_title` exact key、无 `title` / `headline` alias、target language `zh-CN`）、`choices[0].finish_reason == "stop"` 成功边界，以及 `length`、`content_filter`、`tool_calls`、`insufficient_system_resource`、unknown 和缺失值的 fail-closed / no-retry 行为；同时覆盖 API key 缺失、timeout、瞬态网络错误、429、5xx、不可重试 4xx、空 content、invalid JSON、schema/evidence validation、missing required field、duplicate/overlap、content policy、safe validation diagnostics、max attempts、真实 request-body byte measurement、preflight limit 0-call 和 secret 不泄露。Artifact smoke 使用临时目录，覆盖成功/失败 run、atomic publish、same-day 不覆盖、writer success-boundary revalidation、allowlist、bounded failure diagnostics、content rendering safety、Legacy label、fetch-failure trace、metadata、response.json 只在 validated success 存在和两个 byte measurement 字段语义。
 
+## v0.7 Phase A Morning Brief smoke checklist
+
+Phase A 只验证显式 `overnight_brief` 统一晨报，不切换默认 `digest`，不运行 Obsidian、Bark、launchd 或 pmset。离线 smoke 不调用 AI Curator；显式人工运行时才会按 `phase4_live` 调用既有 single-pass Provider。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_overnight_brief_smoke.py
+```
+
+离线 smoke 至少覆盖：
+
+- 四个目标 section 的生成顺序，以及正常情况下不渲染“持仓异常”。
+- Daily Digest 核心事件进入第一节；同一 link 或近似标题事件跨第一、二节只展示一次。
+- “今日值得关注”最多三条，跳过已展示新闻且不为凑数补齐。
+- phase4_live prompt 明确 `max_events=20` 是 ceiling 而非 quota；少于 20 个 event 可正常 validation/render，低价值 uncertainty 不自动占 watch slot。
+- AI success reader projection 展示 `must_know` / `important`，不展示主新闻或市场新闻中的 `background`，且 background uncertainty 不进入 watch；artifact response 保持完整。
+- phase4_live prompt 明确同一 underlying event 不因指标或标题角度不同而拆分，并要求 canonical title、summary、why-important 与 evidence 支持同一实体和事件。
+- 明确持仓异常或高精度持仓新闻才触发第四节；弱/无 holdings 不崩溃。
+- 前一交易日 A 股结构化行情说明、行情缺失降级和部分 RSS 失败提示。
+- 显式 `main.py --report-type overnight_brief` dispatch 输出 `morning-brief-YYYY-MM-DD.md`，Markdown 标题为“早间简报”。
+- AI success 时 CuratedEvent 的 category 互斥投影、evidence source/link 映射、中文 reader-facing 文本、legacy 新闻隔离和相似标题不二次去重。
+- AI market events 非空时不显示市场空态；没有 AI market events 时正确显示市场空态。
+- Provider 技术失败时整份新闻层回退为 Phase A legacy 输出；行情与持仓异常仍保留。
+- direct AI-backed `overnight_brief` success/failure 使用同一 `write_shadow_run` persistence，分别写入成功 `response.json` 或失败阶段的 `run.json`，不调用真实 Provider 的离线测试使用 fake transport / 缺失 key。
+- direct run 的 `run.json` 锁住 `original_candidate_count`、provider-facing `candidate_count`、`phase4_live` projection metadata；`request.json`、`response.json`、`trace.json` 和 `review.md` 均存在于同一 canonical run directory。
+
+同时运行普通日报和旧市场简报回归：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_digest_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_market_brief_smoke.py
+```
+
+Phase A 不要求默认自动链、Obsidian/Bark 发布、全球行情补齐、第二次 AI 调用、AI 质量阈值或 weekly AI/tools digest。真实 AI-backed 样例必须由用户在自己的 Terminal 环境显式运行，不作为离线测试前置条件。
+
 Phase 3B fixture one-shot gate 的最终离线 dry-run 命令为：
 
 ```bash
@@ -138,7 +172,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/run_ai_curator_shadow.py \
 验收必须同时满足：
 
 - formal loader 的 `original_candidate_count=159`；仅 `phase4_live` 在 Provider preparation 前按 exact source name 排除产品类型天然不匹配的 `GitHub Trending Python Daily`（19），故 `candidate_count=140`、`source_excluded_count=19`。`Investing.com 中文财经` 继续进入每日主选池。原始 CandidateArticle / snapshot 不变，gold 的 8 个 must-includes supporting article IDs 必须全部仍在 provider-facing pool。
-- explicit `phase4_live` 未传 `--max-events` 时 request `max_events=10`；default/full、fixture 和 Phase 3B 仍为 5，validator 继续使用 request value。
+- explicit `phase4_live` 未传 `--max-events` 时 request `max_events=20`；default/full、fixture 和 Phase 3B 仍为 5，validator 继续使用 request value。
 - `summary_max_chars=500`；`summaries_capped_count=6`；`summaries_unchanged_count=134`。
 - projected `curator_request_bytes=108264`；cleaned-pool simple single-pass phase4_live provider body `provider_request_body_bytes=119868`；二者均在相应 limits 内。
 - `transport_calls=0`，不读取 API key，不创建 artifact，不访问 RSS / holdings，原始 snapshot 的 SHA-256 不变化。

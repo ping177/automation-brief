@@ -12,19 +12,37 @@ from difflib import SequenceMatcher
 from email.utils import parsedate_to_datetime
 from html import unescape
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Mapping, Optional, Sequence
 
 import feedparser
 
 from ai_curator import (
     CandidateArticle,
+    CuratedEvent,
+    CuratorRequest,
+    CuratorProvider,
+    CuratorResponse,
+    build_curator_request,
+    candidate_collection_window,
+    candidate_trace_records,
     normalize_article_link,
     normalize_language,
     stable_article_id,
 )
+from ai_curator_artifacts import ShadowRunInfo, create_run_id, write_shadow_run
+from ai_curator_provider import (
+    DEEPSEEK_PROVIDER_CONFIG,
+    PHASE_4_LIVE_INPUT_MODE,
+    PHASE_4_LIVE_MAX_CANDIDATE_COUNT,
+    PHASE_4_LIVE_MAX_EVENTS,
+    PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES,
+    DeepSeekCuratorProvider,
+    OpenAICompatibleProviderError,
+)
 from holdings import load_holdings
 from market_analysis import build_market_brief_context
 from market_brief_writer import write_market_brief_markdown
+from overnight_brief_writer import write_overnight_brief_markdown
 from market_data import fetch_market_snapshot
 from project_paths import ProjectPaths, get_project_paths
 
@@ -224,8 +242,10 @@ def normalize_config(raw_config: Any) -> ReportConfig:
         raw_config.get("category_order"), defaults.category_order, "category_order"
     )
     report_type = str(raw_config.get("report_type", defaults.report_type)).strip().lower()
-    if report_type not in {"list", "digest", "market_brief"}:
-        raise ValueError("config.report_type must be one of 'list', 'digest', or 'market_brief'")
+    if report_type not in {"list", "digest", "market_brief", "overnight_brief"}:
+        raise ValueError(
+            "config.report_type must be one of 'list', 'digest', 'market_brief', or 'overnight_brief'"
+        )
 
     return ReportConfig(
         output_dir=str(raw_config.get("output_dir", defaults.output_dir)).strip() or defaults.output_dir,
@@ -524,7 +544,7 @@ def candidate_from_entry(
     published_at = get_entry_datetime(entry)
     if not link and not published_at:
         return None
-    if config.report_type == "digest":
+    if config.report_type in {"digest", "overnight_brief"}:
         in_time_range = within_lookback_hours(published_at, config.lookback_hours)
     else:
         in_time_range = within_days_back(published_at, report_date, config.days_back)
@@ -719,6 +739,200 @@ def collect_candidate_articles(
             collected.append(candidate)
 
     return tuple(collected), tuple(failures)
+
+
+def legacy_items_from_candidates(
+    candidates: Sequence[CandidateArticle],
+    keywords_by_category: dict[str, list[str]],
+    feed_mode_by_name: Mapping[str, str],
+    max_items_per_feed: int,
+) -> list[NewsItem]:
+    """Project one candidate snapshot into the existing legacy NewsItem path."""
+
+    seen_links: set[str] = set()
+    feed_counts: dict[str, int] = {}
+    legacy_items: list[NewsItem] = []
+    for candidate in candidates:
+        if not candidate.link:
+            continue
+        matched = match_keywords(candidate_text(candidate), keywords_by_category)
+        feed_mode = feed_mode_by_name.get(candidate.feed_name, "keyword")
+        if feed_mode == "keyword" and not matched:
+            continue
+        if candidate.link in seen_links:
+            continue
+        if feed_counts.get(candidate.feed_name, 0) >= max_items_per_feed:
+            continue
+        seen_links.add(candidate.link)
+        feed_counts[candidate.feed_name] = feed_counts.get(candidate.feed_name, 0) + 1
+        legacy_items.append(news_item_from_candidate(candidate, matched))
+    return legacy_items
+
+
+def curate_overnight_candidates(
+    candidates: Sequence[CandidateArticle],
+    report_date: date,
+    *,
+    provider: CuratorProvider | None = None,
+    artifact_root: Path | None = None,
+    trace_records: Sequence[Mapping[str, Any]] = (),
+    legacy_evaluation: str = "not_evaluated",
+    candidate_window_start: datetime | None = None,
+    candidate_window_end: datetime | None = None,
+) -> CuratorResponse | None:
+    """Run the existing single-pass phase4_live Curator for explicit overnight use."""
+
+    request = build_curator_request(
+        tuple(candidates),
+        report_date=report_date,
+        max_events=PHASE_4_LIVE_MAX_EVENTS,
+    )
+    curator = provider or DeepSeekCuratorProvider(
+        config=DEEPSEEK_PROVIDER_CONFIG,
+        max_candidate_count=PHASE_4_LIVE_MAX_CANDIDATE_COUNT,
+        max_provider_request_body_bytes=PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES,
+        input_mode=PHASE_4_LIVE_INPUT_MODE,
+    )
+    try:
+        response = curator.curate(request)
+    except (OpenAICompatibleProviderError, ValueError) as exc:
+        if artifact_root is not None:
+            _persist_overnight_curator_artifact(
+                artifact_root=artifact_root,
+                request=request,
+                response=None,
+                curator=curator,
+                trace_records=trace_records,
+                report_date=report_date,
+                legacy_evaluation=legacy_evaluation,
+                candidate_window_start=candidate_window_start,
+                candidate_window_end=candidate_window_end,
+                error=exc,
+            )
+        logging.warning("AI Curator unavailable for overnight_brief: %s", exc)
+        return None
+    if artifact_root is not None:
+        _persist_overnight_curator_artifact(
+            artifact_root=artifact_root,
+            request=request,
+            response=response,
+            curator=curator,
+            trace_records=trace_records,
+            report_date=report_date,
+            legacy_evaluation=legacy_evaluation,
+            candidate_window_start=candidate_window_start,
+            candidate_window_end=candidate_window_end,
+        )
+    return response
+
+
+def _persist_overnight_curator_artifact(
+    *,
+    artifact_root: Path,
+    request: CuratorRequest,
+    response: CuratorResponse | None,
+    curator: CuratorProvider,
+    trace_records: Sequence[Mapping[str, Any]],
+    report_date: date,
+    legacy_evaluation: str,
+    candidate_window_start: datetime | None,
+    candidate_window_end: datetime | None,
+    error: BaseException | None = None,
+) -> None:
+    """Persist the explicit overnight call through the existing shadow writer."""
+
+    metadata = getattr(curator, "last_call_metadata", None)
+    prepared_request = getattr(curator, "last_prepared_request", None)
+    artifact_request = prepared_request if prepared_request is not None else request
+    provider_config = getattr(curator, "config", DEEPSEEK_PROVIDER_CONFIG)
+    provider_id = getattr(metadata, "provider_id", "") or getattr(
+        provider_config, "provider_id", DEEPSEEK_PROVIDER_CONFIG.provider_id
+    )
+    model = getattr(metadata, "model", "") or getattr(
+        provider_config, "model", DEEPSEEK_PROVIDER_CONFIG.model
+    )
+    api_key_env = getattr(metadata, "api_key_env", "") or getattr(
+        provider_config, "api_key_env", DEEPSEEK_PROVIDER_CONFIG.api_key_env
+    )
+    input_mode = getattr(metadata, "input_mode", "") or PHASE_4_LIVE_INPUT_MODE
+    succeeded = response is not None and error is None
+    if isinstance(error, OpenAICompatibleProviderError):
+        failure_stage = error.failure_stage
+        failure_code = error.failure_code
+        attempts = error.attempts
+        failure_diagnostic_code = error.diagnostic_code
+        failure_diagnostic_path = error.diagnostic_path
+        failure_diagnostic_article_id = error.diagnostic_article_id
+    elif error is not None:
+        failure_stage = "provider"
+        failure_code = "provider_error"
+        attempts = getattr(metadata, "attempts", 0) if metadata is not None else 0
+        failure_diagnostic_code = ""
+        failure_diagnostic_path = ""
+        failure_diagnostic_article_id = ""
+    else:
+        failure_stage = ""
+        failure_code = ""
+        attempts = getattr(metadata, "attempts", 1) if metadata is not None else 1
+        failure_diagnostic_code = ""
+        failure_diagnostic_path = ""
+        failure_diagnostic_article_id = ""
+
+    def metadata_value(name: str) -> Any:
+        return getattr(metadata, name, None) if metadata is not None else None
+
+    run_info = ShadowRunInfo(
+        status="succeeded" if succeeded else "failed",
+        provider_id=provider_id,
+        model=model,
+        api_key_env=api_key_env,
+        attempts=attempts,
+        validation_status=metadata_value("validation_status") or ("passed" if succeeded else "failed"),
+        failure_stage=failure_stage,
+        failure_code=failure_code,
+        failure_diagnostic_code=failure_diagnostic_code,
+        failure_diagnostic_path=failure_diagnostic_path,
+        failure_diagnostic_article_id=failure_diagnostic_article_id,
+        curator_request_bytes=(
+            metadata_value("curator_request_bytes") if prepared_request is not None else None
+        ),
+        provider_request_body_bytes=(
+            metadata_value("provider_request_body_bytes") if prepared_request is not None else None
+        ),
+        input_mode=input_mode,
+        original_candidate_count=len(request.articles),
+        source_excluded_count=(
+            metadata_value("source_excluded_count") if prepared_request is not None else None
+        ),
+        summary_max_chars=(
+            metadata_value("summary_max_chars") if prepared_request is not None else None
+        ),
+        summaries_capped_count=(
+            metadata_value("summaries_capped_count") if prepared_request is not None else None
+        ),
+        summaries_unchanged_count=(
+            metadata_value("summaries_unchanged_count") if prepared_request is not None else None
+        ),
+        max_candidate_count=PHASE_4_LIVE_MAX_CANDIDATE_COUNT,
+        max_provider_request_body_bytes=PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES,
+        legacy_evaluation=legacy_evaluation,
+        candidate_window_start=candidate_window_start,
+        candidate_window_end=candidate_window_end,
+    )
+    try:
+        paths = write_shadow_run(
+            artifact_root,
+            report_date=report_date,
+            request=artifact_request,
+            response=response if succeeded else None,
+            trace_records=trace_records,
+            run_info=run_info,
+            run_id=f"overnight-{create_run_id()}",
+        )
+    except Exception as exc:
+        logging.warning("Unable to persist overnight AI Curator artifact (%s)", type(exc).__name__)
+        return
+    logging.info("AI Curator overnight artifact: %s", paths.run_dir)
 
 
 def group_by_category(
@@ -2417,6 +2631,8 @@ def write_markdown(
     *,
     paths: ProjectPaths | None = None,
     holdings_path: Path | None = None,
+    curated_events: Sequence[CuratedEvent] | None = None,
+    candidate_by_id: Mapping[str, CandidateArticle] | None = None,
 ) -> Path:
     resolved_paths = paths or get_project_paths(repo_root=BASE_DIR)
     if config.report_type == "market_brief":
@@ -2429,6 +2645,26 @@ def write_markdown(
             feed_failures=failures,
         )
         return write_market_brief_markdown(market_context, output_dir)
+    if config.report_type == "overnight_brief":
+        holdings_config = load_holdings(path=holdings_path, paths=resolved_paths)
+        market_snapshot = fetch_market_snapshot(report_date, holdings_config)
+        market_context = build_market_brief_context(
+            market_snapshot,
+            holdings_config,
+            items,
+            feed_failures=failures,
+        )
+        sections = build_digest_sections(items, config)
+        return write_overnight_brief_markdown(
+            sections.core,
+            sections.market,
+            market_context,
+            output_dir,
+            report_date=report_date,
+            feed_failures=failures,
+            curated_events=curated_events,
+            candidate_by_id=candidate_by_id,
+        )
     if config.report_type == "digest":
         return write_digest_markdown(items, output_dir, report_date, config, failures)
     return write_list_markdown(items, keywords_by_category, output_dir, report_date, config, failures)
@@ -2456,7 +2692,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--date", help="Report date, defaults to today. Example: 2026-06-11")
     parser.add_argument(
         "--report-type",
-        choices=("list", "digest", "market_brief"),
+        choices=("list", "digest", "market_brief", "overnight_brief"),
         help="Override config.report_type for this run only.",
     )
     return parser.parse_args()
@@ -2477,7 +2713,40 @@ def main() -> None:
 
     feeds = normalize_feeds(load_json(args.feeds))
     keywords = normalize_keywords(load_json(args.keywords))
-    items, failures = collect_news(feeds, keywords, config, report_date)
+    curated_events: Sequence[CuratedEvent] | None = None
+    candidate_by_id: Mapping[str, CandidateArticle] | None = None
+    if config.report_type == "overnight_brief":
+        candidates, failures = collect_candidate_articles(feeds, config, report_date)
+        feed_mode_by_name = {feed["name"]: feed["mode"] for feed in feeds}
+        items = legacy_items_from_candidates(
+            candidates,
+            keywords,
+            feed_mode_by_name,
+            config.max_items_per_feed,
+        )
+        candidate_by_id = {candidate.article_id: candidate for candidate in candidates}
+        trace_records = candidate_trace_records(candidates, items)
+        if failures:
+            trace_records.append(
+                {
+                    "trace_type": "fetch_failures",
+                    "candidate_failures": list(failures),
+                }
+            )
+        candidate_window_start, candidate_window_end = candidate_collection_window(candidates)
+        curator_response = curate_overnight_candidates(
+            candidates,
+            report_date,
+            artifact_root=paths.ai_curator_shadow_dir,
+            trace_records=trace_records,
+            legacy_evaluation="keyword_gate_approximation",
+            candidate_window_start=candidate_window_start,
+            candidate_window_end=candidate_window_end,
+        )
+        if curator_response is not None:
+            curated_events = curator_response.events
+    else:
+        items, failures = collect_news(feeds, keywords, config, report_date)
     output_file = write_markdown(
         items,
         keywords,
@@ -2487,6 +2756,8 @@ def main() -> None:
         failures,
         paths=paths,
         holdings_path=args.holdings,
+        curated_events=curated_events,
+        candidate_by_id=candidate_by_id,
     )
     logging.info("Generated report: %s", output_file)
 

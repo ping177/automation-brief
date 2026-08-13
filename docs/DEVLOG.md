@@ -1053,3 +1053,64 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - Real Phase 4 shadows established a working large-pool Flash path and validated selected-only response handling, artifacts, failure isolation, and production separation. The final GitHub-only cleaned Flash run processed `159 -> 140` candidates successfully; it improved evidence grouping and removed known forbidden contamination, while known major-event recall remained about `4/8` on this audited snapshot.
 - The one-time Pro comparison reached `5/8` with better grouping/evidence, but only a marginal overall gain at materially higher cost. The runtime `--model-profile` / Pro allowlist was removed; historical Pro artifacts remain intact because each artifact records its actual model.
 - v0.6.2 therefore closes with one simple Flash provider configuration, `phase4_live` scoped `max_events=10`, the exact GitHub Trending daily-main-pool exclusion, and the narrow offline gold/evaluator. No further tuning or production integration is authorized; v0.7 is not started here.
+
+## 2026-08-13 — v0.7 Phase A Morning Brief MVP
+
+- 新增显式 `overnight_brief` report type 和 `overnight_brief_writer.py`，默认 `config.json` 仍为 `digest`；Daily Digest、显式 `market_brief`、feeds、AI Curator、launchd、pmset、Bark 和 Obsidian 发布链保持不变。
+- Morning Brief 复用 Daily Digest 的 core selection/summary/time helpers，以及 Market Brief 的行情展示、市场新闻分析和持仓匹配；当前结构化行情明确标注为前一交易日 A 股指数数据，不包装成完整全球隔夜行情。
+- 报告级 assembly dedupe 以 link / normalized title / 近似标题做最后防线；“今日值得关注”最多 3 条，持仓异常 section 仅在逆势异常或高精度持仓新闻时渲染。
+- 新增 `tests/offline_overnight_brief_smoke.py`，覆盖正常生成、跨 section 去重、0–3 条观察变量、conditional holdings、行情缺失、无 holdings、RSS failure 和显式 dispatch 输出文件名。
+- 本轮未接入默认自动化链，也未调用真实 AI provider；新增 unified smoke、digest、market brief、market news、market data、holdings、project paths 及全部 offline AI Curator smoke 均通过。未 commit、未 push，等待人工查看 Phase A 生成样例。
+
+## 2026-08-13 — v0.7 Phase A Curator integration correction
+
+- 显式 `overnight_brief` 现在只抓取一次 `CandidateArticle` pool，并将同一 pool 复用到现有 `phase4_live` single-pass Curator 与 legacy fallback；默认 `digest`、显式 `market_brief` 和自动化发布链不变。
+- AI success 时只渲染 validated `CuratorResponse.events`：`financial_markets` / `energy_commodities` 进入“隔夜市场”，其余 event 进入“昨夜最重要的事”；同一 events 集合做互斥投影，不再对 AI event 使用 legacy 标题 dedupe、英文 RSS 摘要或 Market Brief 规则化新闻字段。
+- Curator event 的 `evidence_article_ids` 只用于回查现有 candidate source/link；“今日值得关注”优先使用 event uncertainties，最多三条，并可保留已有结构化行情观察；行情、conditional holdings anomaly、RSS failure footer、Markdown safety 和 canonical output 保持复用。
+- Provider preflight/config/transport/JSON/validation/content-policy 技术失败时，writer 收到 `curated_events=None`，整份 reader-facing 新闻层回退到原 Phase A legacy 输出，不与 AI 结果混合。phase4_live limits 提升为 `ai_curator_provider.py` 的共享常量，shadow CLI 改为引用该处，v0.6.2 shadow 行为不变。
+- 新增 overnight smoke 覆盖 Curator success、category projection、evidence source/link、英文候选与中文 event、AI/legacy 隔离、AI event 不二次 dedupe、整份 fallback 和 holdings evidence overlap；offline Curator/provider、Daily Digest、Market Brief、py_compile、diff check 与 Project State push-gate 均需继续通过。未调用真实 Provider，未 commit、未 push，不进入 Phase B。
+
+## 2026-08-13 — v0.7 Phase A market empty-state correction and recall audit
+
+- 修复 `overnight_brief_writer.py` 的 reader-facing 空态条件：AI success 已渲染至少一个 market event 时，不再追加“暂无明确的市场新闻或市场信号”；AI market events 为空和 legacy fallback 行为保持不变。
+- `tests/offline_overnight_brief_smoke.py` 新增 market events 非空/为空两条最小边界断言。
+- 对 2026-08-13 16:49 的真实报告和 canonical 日志做只读审计：同日 `daily-news` 已选出央行二季度货币政策报告与隔夜逆回购报道，且 16:49 的中国新闻网相关 RSS fetch 成功；但显式 overnight path 没有保存本次 CandidateArticle pool、CuratorRequest 或 CuratorResponse，无法从现有 artifacts 证明精确 candidate/provider-facing 计数或将该事件严格归类为 B/C/D。既有 shadow artifacts 的 report_date 为 2026-08-12，因此仅作为边界证据，不冒充本次运行。
+
+## 2026-08-13 — v0.7 Phase A direct Morning Brief Curator artifact persistence
+
+- 显式 `overnight_brief` 现在直接复用 `ai_curator_artifacts.write_shadow_run`、`ShadowRunInfo` 和现有 provider `last_prepared_request` / `last_call_metadata`；不新增 persistence subsystem、Curator schema 或 provider stage。
+- direct success/failure 均写入 canonical `runs/ai-curator-shadow/`：成功包含已有 `run.json`、provider-facing `request.json`、validated `response.json`、candidate `trace.json` 和 `review.md`；技术失败不写 `response.json`，但保留失败阶段/代码及可用 request/trace。`overnight-` run-id 前缀用于 caller 区分，shadow CLI 的 timestamp run-id 与行为保持不变。
+- direct trace 由同一 CandidateArticle pool 生成，包含 legacy comparison 与 fetch failures；run metadata 记录 original/provider-facing candidate counts、phase4_live source exclusion/summary projection、request/body bytes、validation status 和 candidate collection window。AI failure 仍让 writer 收到 `curated_events=None`，保持整份 legacy 新闻 fallback。
+- 新增 offline overnight artifact success/failure smoke；未调用真实 DeepSeek、未访问 RSS、未修改 feeds/Prompt/selection/model/default report type、未 commit/push，不进入 Phase B。
+
+## 2026-08-13 — v0.7 Phase A same-snapshot max_events sensitivity preparation
+
+- 现有 shadow CLI 只能从 candidate fixture 或 RSS 构造 request，不能直接复用保存的 provider-facing `request.json`；因此新增 development-only `scripts/run_ai_curator_max_events_sensitivity.py`，不修改 `main.py`、shadow CLI、生产默认 `max_events` 或 provider contract。
+- 入口固定现有 `phase4_live` DeepSeek Flash 配置、limits、prompt 和 validator，只接受 baseline `request.json` 与 `--max-events`。加载后重建同一 `CuratorRequest`，要求 baseline `max_events=10`，并在真实 transport 前确认 provider-facing projection 除该字段外逐字段相同。
+- 实验结果通过既有 `write_shadow_run` 写入 canonical `runs/ai-curator-shadow/`，使用 `sensitivity-max-events-15-*` / `sensitivity-max-events-20-*` 前缀；offline smoke 使用 fake transport，已验证 candidate 顺序、window、target language、selection goal 和 article content 不变。未调用真实 DeepSeek、未重新抓 RSS、未 commit/push，不进入 Phase B。
+
+## 2026-08-13 — v0.7 Phase A phase4_live capacity decision
+
+- 同一 154-candidate snapshot 的 `max_events` sensitivity 已完成：10 存在明显容量挤压，15 未形成稳定折中，20 的两次独立 DeepSeek Flash 运行均改善重大事件覆盖。
+- 将共享 `PHASE_4_LIVE_MAX_EVENTS` 从 10 调整为 20；Morning Brief 与现有 phase4_live 使用方继续引用同一常量，default/full、fixture、Phase 3B、Prompt、schema、feeds、model/provider、writer 和 production default report type 不变。
+- 20 仅是允许的 CuratedEvent 上限，不要求填满；Flash 边际事件排序仍可能波动，本轮不增加规则、ranking/scoring、dedupe 或新的 AI stage。未调用真实 DeepSeek、未 commit/push，不进入 Phase B。
+
+## 2026-08-13 — v0.7 Phase A Morning Brief reader-facing correction
+
+- phase4_live prompt 增加最小 contract clarification：`max_events=20` 是 ceiling 而非 quota；达到重要性门槛的事件不足时应返回更少，不为填满容量纳入低价值、常规、局部或影响有限的事件；schema、importance enum、分类和 provider 行为不变。
+- AI success 的“今日值得关注”改为 composition projection：只使用已有 CuratedEvent `importance in {must_know, important}` 且属于政策、市场、能源或地缘类别的 unresolved variables，再复用已有结构化行情信号与无 RSS 解释的持仓异常，最多 3 条，不足不补；不新增关键词、模板规则、schema 或第二次 AI 调用。
+- reader-facing 产品同步更名为 Morning Brief / 早间简报，标题和 canonical 文件名改为 `morning-brief-YYYY-MM-DD.md`；稳定 machine identifier `report_type="overnight_brief"`、内部 module/function symbol、artifact run 前缀和显式 CLI 保持不变。
+- 新增/更新 offline smoke 覆盖 prompt ceiling、少于 20 个 event、watch composition、低价值 uncertainty 排除、宏观/地缘变量、持仓异常和不足三条；未调用真实 DeepSeek，未修改 feeds 或默认生产链，不 commit/push，不进入 Phase B。
+
+## 2026-08-13 — v0.7 Phase A background projection and Curator contract correction
+
+- Morning Brief writer 在 reader-facing projection 入口仅保留现有 `importance in {must_know, important}`；主新闻、市场新闻、watch 和持仓相关新闻共用过滤后的事件集合。validated CuratorResponse 及 canonical artifact 仍完整保留 `background`，不改变 schema、enum、validator 或 `max_events=20`。
+- phase4_live prompt 明确：同一主体、同一时间段、同一核心市场/政策/地缘变化即使采用不同指标或标题角度也属于一个 underlying news peg，应聚合为一个 event 并可合并直接相关 evidence；不同 news peg 仍不得错误合并。
+- phase4_live prompt 同时要求 canonical title、summary、why-important 和 evidence IDs 支持同一实体与事件，禁止借用其他候选的公司、人物、金额或事实；无法一致支持时修正或舍弃，不新增 semantic validator、repair pass 或第二次 AI 调用。
+- offline smoke 新增 `must_know` / `important` 展示、core/market `background` 隐藏、background uncertainty 不进入 watch，以及两组 prompt contract 断言；未调用真实 DeepSeek、未 commit/push，不进入 Phase B。
+
+## 2026-08-13 — v0.7 Phase A closeout
+
+- Morning Brief 已通过真人 reader-facing acceptance；Phase A 永久路径保持 `CandidateArticle → phase4_live single-pass Curator → validated CuratedEvent → thin reader projection → market data / holdings anomaly → canonical artifact/report`，Provider 技术失败仍使用整层 legacy 新闻 fallback。
+- 已删除仅用于已完成 10/15/20 same-snapshot sensitivity 实验的 development-only runner 与 offline smoke；10/15/20 结果和 `max_events=20` 决策依据保留在历史 DECISIONS / DEVLOG 记录中，canonical artifacts 不变。
+- Phase A 业务行为、Prompt、schema、feeds、model/provider、默认 report type 和自动化发布链不再继续调整；Next Action 转为用户明确授权后的 Phase B 评估。

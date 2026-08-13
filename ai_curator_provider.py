@@ -44,6 +44,9 @@ FULL_PROVIDER_INPUT_MODE = "full"
 PHASE_3B_FIXTURE_INPUT_MODE = "phase3b_fixture"
 PHASE_4_LIVE_INPUT_MODE = "phase4_live"
 PHASE_4_LIVE_EXCLUDED_SOURCES = frozenset({"GitHub Trending Python Daily"})
+PHASE_4_LIVE_MAX_CANDIDATE_COUNT = 200
+PHASE_4_LIVE_MAX_EVENTS = 20
+PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES = 200000
 PROVIDER_INPUT_MODES = frozenset(
     {FULL_PROVIDER_INPUT_MODE, PHASE_3B_FIXTURE_INPUT_MODE, PHASE_4_LIVE_INPUT_MODE}
 )
@@ -253,6 +256,13 @@ specific event. The same country, company, conflict, industry, or broad topic
 is not the same news peg. Two actions that can each stand as a separate
 headline should remain separate. Never merge distinct news pegs to save
 max_events slots or attach a weaker separate event to enlarge a stronger one.
+If multiple articles describe the same subject or entity, same time period, and
+same core market, policy, or geopolitical change, aggregate them into one
+CuratedEvent even when they use different metrics, headline angles, or result
+descriptions. Do not split one market rebound because one article emphasizes
+market capitalization while another emphasizes a technical bull market or AI
+trading. One underlying news peg must map to only one event; its
+evidence_article_ids may include all directly relevant articles.
 
 Rank event groups before selecting. With limited slots prioritize: major global
 breaking news, disasters, and public safety; war, military, geopolitics, and
@@ -262,11 +272,22 @@ economic developments; broadly consequential technology or AI changes; then
 ordinary company, personnel, and narrow product news. Do not rank by source
 prestige, language, feed type, company fame, or category visibility. Routine,
 repeated, narrow, or background events must not displace higher-value events.
-Order events by importance and do not fill request.max_events with low-value
-events.
+Order events by importance. Do not treat request.max_events as a quota: return
+at most request.max_events events. If fewer events meet the importance
+threshold, return fewer. Do not fill remaining slots with low-value, routine,
+local, narrow, or limited-impact events just to reach the cap. Prioritize
+major-event coverage over a full-looking count.
 
 For each event choose the smallest sufficient set of article IDs that directly
 supports that one news peg. Shared context alone is not evidence relevance.
+For every event, canonical_title, summary, why_important, and
+evidence_article_ids must describe and support the same underlying event and
+entity. Never borrow a company, person, amount, or fact from another candidate,
+and never combine facts from different events in the candidate pool. Before
+output, verify that each core entity in canonical_title is directly supported
+by evidence_article_ids and that the core facts in summary are supported by
+that same evidence set. If consistent support is unavailable, correct or omit
+the event rather than guess.
 Event text must be non-empty; do not invent facts. Use `canonical_title`, never
 `title` or `headline`. Preserve material attribution such as says, claims,
 reports, according to, or officials said; statements by political figures,

@@ -317,15 +317,40 @@ def test_phase4_prompt_declares_selected_only_contract() -> None:
         "smallest sufficient set of article ids",
         "shared context alone is not evidence relevance",
         "the same country, company, conflict, industry, or broad topic is not the same news peg",
+        "same subject or entity, same time period, and same core market, policy, or geopolitical change",
+        "different metrics, headline angles, or result descriptions",
+        "one underlying news peg must map to only one event",
+        "may include all directly relevant articles",
         "never merge distinct news pegs to save max_events slots",
         "two actions that can each stand as a separate headline should remain separate",
-        "do not fill request.max_events with low-value events",
+        "do not treat request.max_events as a quota",
+        "if fewer events meet the importance threshold, return fewer",
+        "do not fill remaining slots with low-value, routine, local, narrow, or limited-impact events",
+        "prioritize major-event coverage over a full-looking count",
         "preserve material attribution",
         "do not become independently confirmed facts",
         "use high confidence only for clear facts",
         "state the concrete uncertainty",
+        "canonical_title, summary, why_important, and evidence_article_ids must describe and support the same underlying event and entity",
+        "never borrow a company, person, amount, or fact from another candidate",
+        "never combine facts from different events in the candidate pool",
+        "each core entity in canonical_title is directly supported",
+        "the core facts in summary are supported by that same evidence set",
+        "correct or omit the event rather than guess",
     ):
         assert required_quality_rule in prompt_lower
+
+
+def test_phase4_live_allows_fewer_events_than_the_max_events_ceiling() -> None:
+    request = build_curator_request([candidate()], REPORT_DATE, max_events=20)
+    transport = FakeTransport([(200, envelope(valid_response_payload()))])
+    with env_value("AUTOMATION_BRIEF_CURATOR_API_KEY", "fake-deepseek-key"):
+        response = deepseek_provider(
+            transport,
+            input_mode=PHASE_4_LIVE_INPUT_MODE,
+        ).curate(request)
+
+    assert len(response.events) == 1
 
 
 def test_phase4_live_canonicalizes_duplicate_rejections_before_validation() -> None:
@@ -623,7 +648,7 @@ def test_phase4_live_excludes_only_daily_main_pool_sources() -> None:
     original_request = build_curator_request(
         [*kept, *github_excluded, *investing_retained],
         REPORT_DATE,
-        max_events=10,
+        max_events=20,
     )
     original_article_ids = tuple(article.article_id for article in original_request.articles)
     assert len(original_request.articles) == 159

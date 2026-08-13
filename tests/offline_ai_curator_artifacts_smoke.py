@@ -26,7 +26,10 @@ from ai_curator_artifacts import (  # noqa: E402
     create_run_id,
     write_shadow_run,
 )
-from ai_curator_provider import PHASE_4_LIVE_INPUT_MODE, serialize_curator_request  # noqa: E402
+from ai_curator_provider import (  # noqa: E402
+    PHASE_4_LIVE_INPUT_MODE,
+    serialize_curator_request,
+)
 
 
 REPORT_DATE = date(2026, 7, 16)
@@ -89,6 +92,15 @@ def response(request_value: CuratorRequest) -> CuratorResponse:
 
 def selected_only_response(request_value: CuratorRequest) -> CuratorResponse:
     return replace(response(request_value), rejected_article_ids=())
+
+
+def phase4_success_info(**changes) -> ShadowRunInfo:  # noqa: ANN003
+    return replace(
+        success_info(),
+        input_mode=PHASE_4_LIVE_INPUT_MODE,
+        provider_request_body_bytes=1000,
+        **changes,
+    )
 
 
 def success_info(
@@ -193,7 +205,7 @@ def test_phase4_live_artifact_canonicalizes_rejection_semantics() -> None:
             request=request_value,
             response=selected_only_response(request_value),
             trace_records=[],
-            run_info=replace(success_info(), input_mode=PHASE_4_LIVE_INPUT_MODE),
+            run_info=phase4_success_info(),
             run_id="20260812T120000.000000Z-selected-only",
         )
 
@@ -434,7 +446,8 @@ def test_phase4_artifact_records_policy_and_projected_request() -> None:
                 attempts=1,
                 validation_status="passed",
                 input_mode="phase4_live",
-                original_candidate_count=2,
+                original_candidate_count=3,
+                source_excluded_count=1,
                 summary_max_chars=500,
                 summaries_capped_count=1,
                 summaries_unchanged_count=1,
@@ -447,7 +460,8 @@ def test_phase4_artifact_records_policy_and_projected_request() -> None:
         )
         run_payload = json.loads(paths.run_json.read_text(encoding="utf-8"))
         assert run_payload["input_mode"] == "phase4_live"
-        assert run_payload["original_candidate_count"] == 2
+        assert run_payload["original_candidate_count"] == 3
+        assert run_payload["source_excluded_count"] == 1
         assert run_payload["summary_max_chars"] == 500
         assert run_payload["summaries_capped_count"] == 1
         assert run_payload["summaries_unchanged_count"] == 1
@@ -456,6 +470,7 @@ def test_phase4_artifact_records_policy_and_projected_request() -> None:
         request_payload = json.loads(paths.request_json.read_text(encoding="utf-8"))  # type: ignore[union-attr]
         assert request_payload["articles"][0]["summary"] == "x" * 500
         assert "Input mode: `phase4_live`" in paths.review_md.read_text(encoding="utf-8")
+        assert "Source-excluded candidates: `1`" in paths.review_md.read_text(encoding="utf-8")
 
 
 def test_failed_run_has_no_response_artifact() -> None:

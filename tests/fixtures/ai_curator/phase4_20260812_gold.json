@@ -1,0 +1,111 @@
+{
+  "snapshot_id": "automation-brief-live-candidates-20260812T081815290841Z",
+  "snapshot_sha256": "2cbb32a286f12c26bd963ea20100463bcce053561376945f5b90bef01a6d9def",
+  "reference_max_events": 10,
+  "events": [
+    {
+      "reference_id": "hormuz_access_dispute",
+      "tier": "must_include_at_10",
+      "supporting_article_ids": [
+        "art_ce092dfbeb45c4aa0d80a994",
+        "art_9ba5a9e894cb34babac3386e",
+        "art_54fc02743e09fbbb74624fb9"
+      ],
+      "forbidden_article_ids": [
+        "art_aac68036a949ecb463b8f79d",
+        "art_6a4d28c8dd9d5035c7736cf7"
+      ],
+      "attribution_required": true,
+      "uncertainty_expected": true
+    },
+    {
+      "reference_id": "colombia_earthquake",
+      "tier": "must_include_at_10",
+      "supporting_article_ids": [
+        "art_175572351a9c7c6d80e67c97",
+        "art_2c188a8fa9aba053befdbdb8"
+      ],
+      "forbidden_article_ids": [],
+      "attribution_required": false,
+      "uncertainty_expected": true
+    },
+    {
+      "reference_id": "henan_flood_response",
+      "tier": "must_include_at_10",
+      "supporting_article_ids": [
+        "art_2ffaa77ef560ebd0c82c0999"
+      ],
+      "forbidden_article_ids": [],
+      "attribution_required": false,
+      "uncertainty_expected": true
+    },
+    {
+      "reference_id": "golan_heights_diplomatic_change",
+      "tier": "must_include_at_10",
+      "supporting_article_ids": [
+        "art_aa8ef36ed3a0353bf728e35b"
+      ],
+      "forbidden_article_ids": [],
+      "attribution_required": true,
+      "uncertainty_expected": false
+    },
+    {
+      "reference_id": "mandeb_shipping_attack",
+      "tier": "must_include_at_10",
+      "supporting_article_ids": [
+        "art_10ccfc18b3177e8825a664b5"
+      ],
+      "forbidden_article_ids": [],
+      "attribution_required": true,
+      "uncertainty_expected": true
+    },
+    {
+      "reference_id": "china_equity_market_rally",
+      "tier": "must_include_at_10",
+      "supporting_article_ids": [
+        "art_0a111c88cf170afdcfd89d06"
+      ],
+      "forbidden_article_ids": [],
+      "attribution_required": false,
+      "uncertainty_expected": false
+    },
+    {
+      "reference_id": "chatgpt_ads_test",
+      "tier": "must_include_at_10",
+      "supporting_article_ids": [
+        "art_d433301b0dcaebb93e8f5c81"
+      ],
+      "forbidden_article_ids": [],
+      "attribution_required": false,
+      "uncertainty_expected": false
+    },
+    {
+      "reference_id": "manus_meta_transaction_unwind",
+      "tier": "must_include_at_10",
+      "supporting_article_ids": [
+        "art_442cf6b601dea899a8ff861b"
+      ],
+      "forbidden_article_ids": [],
+      "attribution_required": true,
+      "uncertainty_expected": true
+    },
+    {
+      "reference_id": "c919_first_international_commercial_flight",
+      "tier": "strong_candidate",
+      "supporting_article_ids": [
+        "art_8d58769d5e4f5daaaceb64a9",
+        "art_4364e7b746dd79104c316359"
+      ],
+      "forbidden_article_ids": [],
+      "attribution_required": false,
+      "uncertainty_expected": false
+    }
+  ],
+  "representative_omit_article_ids": [
+    "art_e7b498edd36cca954174202b",
+    "art_36ec146a508b050912e1ab2d",
+    "art_3add5494ad956124930ece02",
+    "art_d0c4adaadc8418ea80ed64be",
+    "art_c59c0f896e233c941c76a231"
+  ]
+}

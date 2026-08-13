@@ -20,11 +20,14 @@ from ai_curator import (  # noqa: E402
     project_curator_request_for_provider,
 )
 from ai_curator_provider import (  # noqa: E402
+    DEEPSEEK_MODEL,
     DEEPSEEK_PROVIDER_CONFIG,
     DeepSeekCuratorProvider,
+    DeepSeekProviderConfig,
     OpenAICompatibleCuratorProvider,
     OpenAICompatibleProviderConfig,
     OpenAICompatibleProviderError,
+    FULL_PROVIDER_INPUT_MODE,
     PHASE_3B_FIXTURE_INPUT_MODE,
     PHASE_4_LIVE_INPUT_MODE,
     serialize_deepseek_request,
@@ -41,12 +44,13 @@ def candidate(
     *,
     article_id: str = "article-a",
     summary: str = "A concise source summary.",
+    source: str = "Fixture Source",
 ) -> CandidateArticle:
     return CandidateArticle(
         article_id=article_id,
         title=title,
         summary=summary,
-        source="Fixture Source",
+        source=source,
         feed_name="Fixture Feed",
         feed_role="breaking_news",
         published_at=PUBLISHED_AT,
@@ -237,6 +241,17 @@ def test_deepseek_frozen_config_and_exact_body() -> None:
     assert request.get_header("Authorization") == "Bearer fake-deepseek-key"  # type: ignore[attr-defined]
 
 
+def test_deepseek_model_is_fixed_to_flash() -> None:
+    assert DEEPSEEK_PROVIDER_CONFIG.model == DEEPSEEK_MODEL == "deepseek-v4-flash"
+
+    try:
+        DeepSeekProviderConfig(model="deepseek-v4-pro")
+    except ValueError as exc:
+        assert "fixed" in str(exc)
+    else:
+        raise AssertionError("DeepSeek model must remain fixed to Flash")
+
+
 def test_prompt_declares_exact_curator_response_contract() -> None:
     request = build_curator_request([candidate()], REPORT_DATE, max_events=1)
     prompt_payload = json.loads(serialize_deepseek_request(request, DEEPSEEK_PROVIDER_CONFIG))
@@ -292,9 +307,25 @@ def test_phase4_prompt_declares_selected_only_contract() -> None:
     assert "selected-only" in prompt_lower
     assert "do not enumerate unselected candidates" in prompt_lower
     assert "rejection enumeration is disabled" in prompt_lower
-    assert "do not spend tokens on rejection bookkeeping" in prompt_lower
     assert '"rejected_article_ids":[]' in system_instruction
-    assert "reject_reason" not in prompt_lower
+    assert "curatorselectionplan" not in prompt_lower
+
+    for required_quality_rule in (
+        "identify concrete news pegs",
+        "do not rank by source prestige",
+        "routine, repeated, narrow, or background events must not displace",
+        "smallest sufficient set of article ids",
+        "shared context alone is not evidence relevance",
+        "the same country, company, conflict, industry, or broad topic is not the same news peg",
+        "never merge distinct news pegs to save max_events slots",
+        "two actions that can each stand as a separate headline should remain separate",
+        "do not fill request.max_events with low-value events",
+        "preserve material attribution",
+        "do not become independently confirmed facts",
+        "use high confidence only for clear facts",
+        "state the concrete uncertainty",
+    ):
+        assert required_quality_rule in prompt_lower
 
 
 def test_phase4_live_canonicalizes_duplicate_rejections_before_validation() -> None:
@@ -554,6 +585,80 @@ def test_phase4_projection_is_immutable_and_preserves_identity_fields() -> None:
         assert projected_article.published_at == original_article.published_at
 
     assert project_candidate_for_provider(original_articles[2]).summary == "z" * 500
+
+
+def test_phase4_live_excludes_only_daily_main_pool_sources() -> None:
+    must_include_sources = {
+        "art_ce092dfbeb45c4aa0d80a994": "中国新闻网-要闻导读",
+        "art_9ba5a9e894cb34babac3386e": "中国新闻网-国际新闻",
+        "art_54fc02743e09fbbb74624fb9": "中国新闻网-国际新闻",
+        "art_175572351a9c7c6d80e67c97": "中国新闻网-国际新闻",
+        "art_2c188a8fa9aba053befdbdb8": "中国新闻网-国际新闻",
+        "art_2ffaa77ef560ebd0c82c0999": "中国新闻网-时政新闻",
+        "art_aa8ef36ed3a0353bf728e35b": "中国新闻网-国际新闻",
+        "art_10ccfc18b3177e8825a664b5": "中国新闻网-国际新闻",
+        "art_0a111c88cf170afdcfd89d06": "中国新闻网-要闻导读",
+        "art_d433301b0dcaebb93e8f5c81": "OpenAI News",
+        "art_442cf6b601dea899a8ff861b": "CNBC Technology",
+    }
+    kept = [
+        candidate(article_id=article_id, source=source)
+        for article_id, source in must_include_sources.items()
+    ]
+    kept.extend(candidate(article_id=f"kept-{index}") for index in range(119))
+    github_excluded = [
+        candidate(
+            article_id=f"github-{index}",
+            source="GitHub Trending Python Daily",
+        )
+        for index in range(19)
+    ]
+    investing_retained = [
+        candidate(
+            article_id=f"investing-{index}",
+            source="Investing.com 中文财经",
+        )
+        for index in range(10)
+    ]
+    original_request = build_curator_request(
+        [*kept, *github_excluded, *investing_retained],
+        REPORT_DATE,
+        max_events=10,
+    )
+    original_article_ids = tuple(article.article_id for article in original_request.articles)
+    assert len(original_request.articles) == 159
+
+    phase4_provider = deepseek_provider(
+        FakeTransport([]),
+        max_candidate_count=200,
+        max_provider_request_body_bytes=200000,
+        input_mode=PHASE_4_LIVE_INPUT_MODE,
+    )
+    prepared = phase4_provider.prepare_request(original_request)
+    prepared_article_ids = {article.article_id for article in prepared.request.articles}
+
+    assert len(prepared.request.articles) == 140
+    assert set(must_include_sources) <= prepared_article_ids
+    assert not {article.article_id for article in github_excluded} & prepared_article_ids
+    assert {article.article_id for article in investing_retained} <= prepared_article_ids
+    assert tuple(article.article_id for article in original_request.articles) == original_article_ids
+    assert len(prepared.body) <= 200000
+    assert phase4_provider.last_call_metadata is not None
+    assert phase4_provider.last_call_metadata.source_excluded_count == 19
+
+    for input_mode in (FULL_PROVIDER_INPUT_MODE, PHASE_3B_FIXTURE_INPUT_MODE):
+        unchanged_provider = deepseek_provider(
+            FakeTransport([]),
+            max_candidate_count=200,
+            max_provider_request_body_bytes=200000,
+            input_mode=input_mode,
+        )
+        unchanged = unchanged_provider.prepare_request(
+            build_curator_request(github_excluded[:2], REPORT_DATE, max_events=1)
+        )
+        assert len(unchanged.request.articles) == 2
+        assert unchanged_provider.last_call_metadata is not None
+        assert unchanged_provider.last_call_metadata.source_excluded_count == 0
 
 
 def test_phase4_provider_projects_once_and_sends_projected_body() -> None:
@@ -998,6 +1103,7 @@ def test_secret_is_not_exposed_in_error() -> None:
 def main() -> None:
     test_success_and_request_boundary()
     test_deepseek_frozen_config_and_exact_body()
+    test_deepseek_model_is_fixed_to_flash()
     test_prompt_declares_exact_curator_response_contract()
     test_phase4_prompt_declares_selected_only_contract()
     test_phase4_live_canonicalizes_duplicate_rejections_before_validation()
@@ -1009,6 +1115,7 @@ def main() -> None:
     test_default_and_phase3b_duplicate_evidence_contract_remains_strict()
     test_request_limits_fail_before_transport()
     test_phase4_projection_is_immutable_and_preserves_identity_fields()
+    test_phase4_live_excludes_only_daily_main_pool_sources()
     test_phase4_provider_projects_once_and_sends_projected_body()
     test_phase4_candidate_overflow_fails_before_projection_and_transport()
     test_phase4_body_limit_allows_exact_boundary_and_rejects_overflow_without_reshrinking()

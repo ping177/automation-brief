@@ -45,7 +45,9 @@ from project_paths import get_project_paths  # noqa: E402
 
 PHASE_3B_MAX_CANDIDATE_COUNT = 2
 PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES = 4096
+DEFAULT_MAX_EVENTS = 5
 PHASE_4_LIVE_MAX_CANDIDATE_COUNT = 200
+PHASE_4_LIVE_MAX_EVENTS = 10
 PHASE_4_LIVE_MAX_PROVIDER_REQUEST_BODY_BYTES = 200000
 
 
@@ -59,7 +61,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, help="Override shadow artifact directory")
     parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
     parser.add_argument("--date", help="Report date, defaults to today. Example: 2026-07-16")
-    parser.add_argument("--max-events", type=int, default=5)
+    parser.add_argument(
+        "--max-events",
+        type=int,
+        help="Override the input-mode event capacity (default: 5; phase4_live: 10).",
+    )
     parser.add_argument(
         "--real-provider",
         choices=("deepseek",),
@@ -105,7 +111,11 @@ def main() -> None:
         legacy_items = legacy_items_from_candidates(candidates, keywords, feed_mode_by_name, config.max_items_per_feed)
         legacy_evaluation = "keyword_gate_approximation"
         candidate_window_start, candidate_window_end = candidate_collection_window(candidates)
-    request = build_curator_request(candidates, report_date=report_date, max_events=args.max_events)
+    request = build_curator_request(
+        candidates,
+        report_date=report_date,
+        max_events=_max_events_for_args(args),
+    )
     trace_records = candidate_trace_records(candidates, legacy_items)
     if candidate_failures:
         trace_records.append(
@@ -113,11 +123,14 @@ def main() -> None:
                 "trace_type": "fetch_failures",
                 "candidate_failures": list(candidate_failures),
             }
-        )
+    )
 
     output_dir = args.output_dir or paths.ai_curator_shadow_dir
     if args.real_provider == "deepseek" and args.dry_run:
-        _print_deepseek_preflight(request, input_mode=args.input_mode)
+        _print_deepseek_preflight(
+            request,
+            input_mode=args.input_mode,
+        )
         return
 
     run_id = create_run_id()
@@ -194,6 +207,14 @@ def _validate_cli_mode(args: argparse.Namespace) -> None:
         raise ValueError("--input-mode phase4_live requires --real-provider deepseek")
 
 
+def _max_events_for_args(args: argparse.Namespace) -> int:
+    if args.max_events is not None:
+        return args.max_events
+    if args.input_mode == PHASE_4_LIVE_INPUT_MODE:
+        return PHASE_4_LIVE_MAX_EVENTS
+    return DEFAULT_MAX_EVENTS
+
+
 def _provider_limits(input_mode: str) -> tuple[int, int]:
     if input_mode == PHASE_3B_FIXTURE_INPUT_MODE:
         return PHASE_3B_MAX_CANDIDATE_COUNT, PHASE_3B_MAX_PROVIDER_REQUEST_BODY_BYTES
@@ -202,9 +223,14 @@ def _provider_limits(input_mode: str) -> tuple[int, int]:
     raise ValueError(f"unsupported provider input mode: {input_mode}")
 
 
-def _print_deepseek_preflight(request, *, input_mode: str) -> None:  # noqa: ANN001
+def _print_deepseek_preflight(
+    request,
+    *,
+    input_mode: str,
+) -> None:  # noqa: ANN001
     max_candidate_count, max_provider_request_body_bytes = _provider_limits(input_mode)
     provider = DeepSeekCuratorProvider(
+        config=DEEPSEEK_PROVIDER_CONFIG,
         max_candidate_count=max_candidate_count,
         max_provider_request_body_bytes=max_provider_request_body_bytes,
         input_mode=input_mode,
@@ -221,6 +247,8 @@ def _print_deepseek_preflight(request, *, input_mode: str) -> None:  # noqa: ANN
         "input_mode": input_mode,
         "original_candidate_count": len(request.articles),
         "candidate_count": len(prepared.request.articles),
+        "source_excluded_count": metadata.source_excluded_count,
+        "max_events": prepared.request.max_events,
         "max_candidate_count": max_candidate_count,
         "summary_max_chars": metadata.summary_max_chars,
         "summaries_capped_count": metadata.summaries_capped_count,
@@ -254,6 +282,7 @@ def _run_real_provider(
 ) -> None:  # noqa: ANN001
     max_candidate_count, max_provider_request_body_bytes = _provider_limits(input_mode)
     provider = DeepSeekCuratorProvider(
+        config=DEEPSEEK_PROVIDER_CONFIG,
         max_candidate_count=max_candidate_count,
         max_provider_request_body_bytes=max_provider_request_body_bytes,
         input_mode=input_mode,
@@ -287,6 +316,11 @@ def _run_real_provider(
                 candidate_window_end=candidate_window_end,
                 input_mode=input_mode,
                 original_candidate_count=len(request.articles),
+                source_excluded_count=(
+                    metadata.source_excluded_count
+                    if metadata and has_prepared_request
+                    else None
+                ),
                 summary_max_chars=(
                     metadata.summary_max_chars
                     if metadata and has_prepared_request and input_mode == PHASE_4_LIVE_INPUT_MODE
@@ -344,6 +378,7 @@ def _run_real_provider(
             candidate_window_end=candidate_window_end,
             input_mode=input_mode,
             original_candidate_count=len(request.articles),
+            source_excluded_count=metadata.source_excluded_count,
             summary_max_chars=(
                 metadata.summary_max_chars
                 if input_mode == PHASE_4_LIVE_INPUT_MODE

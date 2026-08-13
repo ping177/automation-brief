@@ -179,6 +179,7 @@ def main() -> None:
         assert len(request_payload["articles"]) == 2
         assert any(article["link"] == "" for article in request_payload["articles"])
         assert request_payload["target_language"] == "zh-CN"
+        assert request_payload["max_events"] == 5
         assert all(article["language"] == "und" for article in request_payload["articles"])
 
         trace_payload = json.loads(trace_path.read_text(encoding="utf-8"))
@@ -224,6 +225,7 @@ def main() -> None:
         assert dry_run_summary["model"] == "deepseek-v4-flash"
         assert dry_run_summary["endpoint"] == "https://api.deepseek.com/chat/completions"
         assert dry_run_summary["candidate_count"] == 2
+        assert dry_run_summary["max_events"] == 5
         assert dry_run_summary["max_tokens"] == 8192
         assert dry_run_summary["timeout"] == 90.0
         assert dry_run_summary["max_attempts"] == 2
@@ -272,6 +274,7 @@ def main() -> None:
         assert phase4_summary["input_mode"] == PHASE_4_LIVE_INPUT_MODE
         assert phase4_summary["original_candidate_count"] == 2
         assert phase4_summary["candidate_count"] == 2
+        assert phase4_summary["source_excluded_count"] == 0
         assert phase4_summary["summary_max_chars"] == 500
         assert phase4_summary["summaries_capped_count"] == 1
         assert phase4_summary["summaries_unchanged_count"] == 1
@@ -281,7 +284,8 @@ def main() -> None:
         assert phase4_summary["provider_request_body_bytes"] <= 200000
 
         phase4_report_date, phase4_candidates = load_candidate_fixture(phase4_candidate_path)
-        phase4_request = build_curator_request(phase4_candidates, phase4_report_date, max_events=5)
+        assert phase4_summary["max_events"] == 10
+        phase4_request = build_curator_request(phase4_candidates, phase4_report_date, max_events=10)
         phase4_projected_request = project_curator_request_for_provider(phase4_request)
         assert phase4_summary["curator_request_bytes"] == len(
             serialize_curator_request(phase4_projected_request)
@@ -318,6 +322,7 @@ def main() -> None:
         phase4_request_payload = json.loads(
             (phase4_real_run / "request.json").read_text(encoding="utf-8")
         )
+        assert phase4_request_payload["max_events"] == 10
         assert phase4_request_payload["articles"][0]["summary"] == "x" * 500
         assert not (phase4_real_run / "response.json").exists()
         assert phase4_candidate_path.read_bytes() == phase4_snapshot_bytes
@@ -459,6 +464,27 @@ def main() -> None:
         assert unknown_provider_result.returncode != 0
         assert "invalid choice" in unknown_provider_result.stderr
         assert not run_dirs(temp_path / "unknown-provider-output")
+
+        removed_profile_result = run_shadow_cli(
+            phase4_candidate_path,
+            response_path,
+            temp_path / "removed-profile-output",
+            data_root,
+            include_fixture_response=False,
+            extra_args=[
+                "--real-provider",
+                "deepseek",
+                "--input-mode",
+                PHASE_4_LIVE_INPUT_MODE,
+                "--model-profile",
+                "pro",
+                "--dry-run",
+            ],
+            env_updates={"AUTOMATION_BRIEF_CURATOR_API_KEY": None},
+        )
+        assert removed_profile_result.returncode != 0
+        assert "unrecognized arguments" in removed_profile_result.stderr
+        assert not run_dirs(temp_path / "removed-profile-output")
 
         invalid_response_path = temp_path / "invalid-response.json"
         invalid_response = valid_response_fixture()

@@ -128,6 +128,12 @@
 - 理由：selected-only evidence references 是 set-like；完全相同的重复值没有语义增量，且已在第二次 selected-only live shadow 触发 `duplicate_evidence_article_id`。这是局部产品 canonicalization，不是通用 parser cleanup 或 validator 放宽。
 - 影响：canonicalization 后仍由现有 validator 严格检查 known evidence、非空 evidence、event ID、schema、enum、report date、content policy、finish reason 和 JSON parsing；unknown ID、不同值、不同 event、空列表均不被修正。default/full 与 Phase 3B fixture 的 duplicate evidence contract 保持 fail closed。
 
+### Phase 4 live editorial quality policy and narrow snapshot gate
+
+- 决策：仅对显式 `phase4_live` instruction 增加集中编辑策略，统一定义 importance ranking、direct evidence、attribution preservation、confidence / uncertainty calibration 和 event grouping。第二次 same-snapshot quality validation 证明 attribution / uncertainty 已改善，但 5 条容量仍造成 recall pressure 和跨 news-peg 合并，因此 Phase 4 live runner 的 mode-scoped 默认容量调整为 `max_events=10`；domain、default/full 与 Phase 3B 默认仍为 5。
+- 理由：159-candidate content audit 证明 technical pipeline 正常，但原 instruction 只有泛化的 “important events” 要求，无法约束 background 占位、主题相关 evidence 污染、单方声明事实化、机械式 `high + []` 和过度聚合。
+- 影响：新增绑定 snapshot SHA-256 的紧凑 gold reference 和离线 evaluator，只检查人工明确的 capacity-scoped must-include、priority/background、forbidden evidence、attribution-required 与 uncertainty-expected 条件；它不读取新闻正文、不进入 provider request / production validator，不做 embedding、semantic similarity、事实核查或加权评分。Phase 4 prompt 以一个具体 news peg 为 event 边界，禁止为节省容量合并可独立成标题的行动。schema、validator、selected-only semantics、projection、transport、retry、artifact 和 production paths 均不变。
+
 ### GitHub Trending 不直接作为每日重点内容
 
 - 决策：GitHub Trending 和 `ai_tools` 不适合直接进入 daily digest 的重点栏目。
@@ -149,3 +155,14 @@
 - `docs/TESTING.md`：测试命令、smoke checklist 和验收记录。
 - `docs/DECISIONS.md`：长期产品、架构和工作流决策。
 - `docs/MISSED_CASES.md`：missed coverage、漏报案例和质量追踪。
+## 2026-08-12 — Phase 4 two-pass experiment is abandoned
+
+- Decision: revert explicit `phase4_live` to its simple one-call Curator path and remove the internal selection-plan / synthesis boundary.
+- Rationale: real two-pass validation did not improve the morning-brief product: must-include coverage fell from 4/8 to 3/8, while duplicate events, incorrect grouping, irrelevant evidence selection, and a category regression remained. Pass B containment alone did not justify a second provider call or the additional implementation surface.
+- Impact: retain Phase 4 scoped capacity, projection/limits, selected-only semantics, the general editorial policy, and the narrow final-response gold evaluator. Do not add further stages, semantic validators, scoring systems, or orchestration to address this result; reassess single-pass strategy or model selection before any further live validation. Default/full, Phase 3B, production daily digest, and `market_brief` remain unchanged.
+
+## 2026-08-13 — v0.6.2 Phase 4 closeout
+
+- Decision: close Phase 4 with the simple single-pass Flash shadow path, retaining only the exact `GitHub Trending Python Daily` exclusion from the Phase 4 daily main pool.
+- Rationale: real-provider technical boundaries succeeded. Flash same-snapshot recall remained about 4/8 known major events; Pro improved only marginally at materially higher cost, while GitHub-only cleanup improved grouping/evidence without improving recall. Further prompt, model, source-filter, validation, or orchestration tuning has no demonstrated product value.
+- Impact: remove the one-time Pro runtime profile; historical artifacts retain their recorded model. Keep the gold/evaluator as offline development regression only. AI Curator remains shadow-only and production daily digest / `market_brief` remain unchanged. v0.7 starts only under a separate task.

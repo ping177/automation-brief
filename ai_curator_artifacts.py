@@ -49,6 +49,7 @@ class ShadowRunInfo:
     provider_request_body_bytes: int | None = None
     input_mode: str = ""
     original_candidate_count: int | None = None
+    source_excluded_count: int | None = None
     summary_max_chars: int | None = None
     summaries_capped_count: int | None = None
     summaries_unchanged_count: int | None = None
@@ -144,6 +145,7 @@ def write_shadow_run(
             {
                 "input_mode": _input_mode_token(run_info.input_mode),
                 "original_candidate_count": run_info.original_candidate_count,
+                "source_excluded_count": run_info.source_excluded_count,
                 "summary_max_chars": run_info.summary_max_chars,
                 "summaries_capped_count": run_info.summaries_capped_count,
                 "summaries_unchanged_count": run_info.summaries_unchanged_count,
@@ -222,6 +224,7 @@ def _validate_run_info(
     _input_mode_token(run_info.input_mode)
     for field_name in (
         "original_candidate_count",
+        "source_excluded_count",
         "summary_max_chars",
         "summaries_capped_count",
         "summaries_unchanged_count",
@@ -232,8 +235,11 @@ def _validate_run_info(
         if field_value is not None and field_value < 0:
             raise ValueError(f"{field_name} must be non-negative")
     if run_info.original_candidate_count is not None and request is not None:
-        if run_info.original_candidate_count != len(request.articles):
+        source_excluded_count = run_info.source_excluded_count or 0
+        if run_info.original_candidate_count != len(request.articles) + source_excluded_count:
             raise ValueError("original_candidate_count does not match request")
+    if run_info.source_excluded_count is not None and run_info.original_candidate_count is None:
+        raise ValueError("source_excluded_count requires original_candidate_count")
     if (
         run_info.summaries_capped_count is not None
         and run_info.summaries_unchanged_count is not None
@@ -460,6 +466,8 @@ def _render_review(
         lines.append(f"- Input mode: `{_safe_token(run_info.input_mode)}`")
         if run_info.original_candidate_count is not None:
             lines.append(f"- Original candidate count: `{run_info.original_candidate_count}`")
+        if run_info.source_excluded_count is not None:
+            lines.append(f"- Source-excluded candidates: `{run_info.source_excluded_count}`")
         if run_info.summary_max_chars is not None:
             lines.append(f"- Provider summary cap: `{run_info.summary_max_chars}`")
         if run_info.summaries_capped_count is not None:

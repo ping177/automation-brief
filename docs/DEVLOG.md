@@ -1034,3 +1034,22 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - provider regression 覆盖 `['a', 'a', 'b'] -> ['a', 'b']`、首次出现顺序、unknown/empty evidence、duplicate event、missing canonical title、跨 event reuse、selected-only rejection canonicalization，以及 full/Phase 3B strict duplicate evidence behavior。
 - 同一 snapshot `/private/tmp/automation-brief-live-candidates-20260812T081815290841Z.json` replay 预期保持 `candidate_count=159`、summaries `25 / 134` capped/unchanged、`curator_request_bytes=127574`、`provider_request_body_bytes=138433`、limits=`200 / 200000`、`transport_calls=0`，SHA-256 不变。
 - 本轮完全离线：未调用 DeepSeek、未访问 RSS、未读取 API key / `.env`、未访问 holdings、未修改 prompt、validator、schema、limits、retry、endpoint、model 或 production path，未 commit/push。
+
+## 2026-08-12 — Phase 4 quality tuning retained; two-pass experiment abandoned
+
+- Same-snapshot monolithic runs were technically successful but content quality remained FAIL: attribution/uncertainty improved, while must-include recall and news-peg evidence grouping remained weak. Phase 4 scoped capacity remains 10.
+- The two-pass real validation did not improve the product: must-include coverage fell from 4/8 to 3/8, a duplicate 霍尔木兹 event appeared, grouping/evidence contamination remained, and C919 classification regressed. Pass B containment prevented one unrelated Pass A evidence item from reaching the final response, but that isolated benefit did not justify the added path.
+- `phase4_live` has therefore returned to one projected-candidates → CuratorResponse provider call. Selection-plan parsing, synthesis request handling, containment mapping, second-stage metadata/artifacts, and their smoke coverage were removed. The compact gold/evaluator remains final-response-only.
+- Public Curator schemas, generic validator, provider transport/retry/key boundary, collector, production digest/market brief, feeds/config, and holdings remain unchanged. No real Provider or RSS was used during the simplification.
+
+## 2026-08-13 — Phase 4 allowlisted V4-Pro comparison profile
+
+- Added one explicit shadow CLI switch, `--model-profile flash|pro`. Flash remains the default; Pro maps only to `deepseek-v4-pro` and is accepted only with explicit `phase4_live`.
+- Both profiles reuse the exact endpoint, serializer, prompt, thinking mode, JSON response format, max tokens, timeout, retry, candidate projection/body limits, response validation, and artifact writer. Arbitrary model strings fail closed; the existing artifact `model` field records the selected model.
+- Offline provider/CLI regression proves the serialized request contracts differ only by model ID and Phase 3B remains Flash. Same-snapshot Pro dry-run measured `159 / 127575 / 140127 / 0` (candidates / curator bytes / provider bytes / transport calls), below the existing 200000-byte limit. No real Provider, RSS, API key, `.env`, or holdings was accessed.
+
+## 2026-08-13 — v0.6.2 Phase 4 closeout
+
+- Real Phase 4 shadows established a working large-pool Flash path and validated selected-only response handling, artifacts, failure isolation, and production separation. The final GitHub-only cleaned Flash run processed `159 -> 140` candidates successfully; it improved evidence grouping and removed known forbidden contamination, while known major-event recall remained about `4/8` on this audited snapshot.
+- The one-time Pro comparison reached `5/8` with better grouping/evidence, but only a marginal overall gain at materially higher cost. The runtime `--model-profile` / Pro allowlist was removed; historical Pro artifacts remain intact because each artifact records its actual model.
+- v0.6.2 therefore closes with one simple Flash provider configuration, `phase4_live` scoped `max_events=10`, the exact GitHub Trending daily-main-pool exclusion, and the narrow offline gold/evaluator. No further tuning or production integration is authorized; v0.7 is not started here.

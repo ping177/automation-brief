@@ -67,8 +67,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_contract_smoke.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_cli_smoke.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_provider_smoke.py
 PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_artifacts_smoke.py
+PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_ai_curator_quality_smoke.py
 .venv/bin/python tests/offline_project_paths_smoke.py
 ```
+
+`offline_ai_curator_quality_smoke.py` 加载紧凑的 Phase 4 snapshot gold reference，并验证无加权 evaluator 能识别 `must_include_at_10` 漏选、higher-priority candidate 未选时的 background 占位、人工指定的 forbidden evidence binding、需要 attribution 但标题或摘要未保留，以及预期不确定性却输出 `high + []`。它也锁住窄 attribution phrase boundary，避免普通“数据”或“名称”因单字 substring 被误判。该 evaluator 不读取 snapshot 正文，不做通用 semantic relevance、fact checking、embedding、NLP 或生产 validation；gold 只用于离线同 snapshot 比较。
 
 这些测试必须保持离线：不接真实 AI provider，不调用真实 RSS，不调用 Bark，不写入 Obsidian，不运行 launchd / pmset；真实 holdings 只允许由 validator 做不打印值的校验，其他 smoke 一律使用临时 fixture。Provider smoke 使用 fake transport，覆盖冻结 DeepSeek 配置与 exact body allowlist（`max_tokens`、disabled thinking、JSON mode、无 stream/tools）、完整 CuratorResponse prompt skeleton（包括 `canonical_title` exact key、无 `title` / `headline` alias、target language `zh-CN`）、`choices[0].finish_reason == "stop"` 成功边界，以及 `length`、`content_filter`、`tool_calls`、`insufficient_system_resource`、unknown 和缺失值的 fail-closed / no-retry 行为；同时覆盖 API key 缺失、timeout、瞬态网络错误、429、5xx、不可重试 4xx、空 content、invalid JSON、schema/evidence validation、missing required field、duplicate/overlap、content policy、safe validation diagnostics、max attempts、真实 request-body byte measurement、preflight limit 0-call 和 secret 不泄露。Artifact smoke 使用临时目录，覆盖成功/失败 run、atomic publish、same-day 不覆盖、writer success-boundary revalidation、allowlist、bounded failure diagnostics、content rendering safety、Legacy label、fetch-failure trace、metadata、response.json 只在 validated success 存在和两个 byte measurement 字段语义。
 
@@ -106,6 +109,7 @@ Phase 3B 离线回归至少锁住：恰好 2 个候选通过；超过 2 个候�
 Phase 4 — Live RSS Shadow Evaluation 仍必须显式、shadow-only 地运行：
 
 - `phase4_live` 只能通过 `--input-mode phase4_live` 选择，不能根据 candidate 数量或其他条件自动推断。
+- DeepSeek runtime model 固定为 `deepseek-v4-flash`；离线 regression 必须证明非 Flash model fail closed，Phase 4 dry-run `transport_calls=0` 且 body 不超过 `200000` bytes。
 - 本轮已冻结并验证 Provider-facing limits：summary cap=`500` chars、`max_candidate_count=200`、`max_provider_request_body_bytes=200000`。
 - 第一次真实 RSS candidate window + DeepSeek shadow 已执行并在 response validation 阶段 fail closed；后续 real shadow 仍需另行明确授权，本轮只做 offline replay / body construction。
 - 保持 shadow-only；不切换 daily digest / `market_brief`，不接入 Bark、Obsidian、launchd 或 pmset，AI failure 不影响 production。
@@ -133,11 +137,12 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/run_ai_curator_shadow.py \
 
 验收必须同时满足：
 
-- formal loader 的 `original_candidate_count=159`；projection 后仍为 `candidate_count=159`。
-- `summary_max_chars=500`；`summaries_capped_count=25`；`summaries_unchanged_count=134`。
-- projected `curator_request_bytes=127574`；exact phase4_live provider body `provider_request_body_bytes=138433`；二者均在相应 limits 内。
+- formal loader 的 `original_candidate_count=159`；仅 `phase4_live` 在 Provider preparation 前按 exact source name 排除产品类型天然不匹配的 `GitHub Trending Python Daily`（19），故 `candidate_count=140`、`source_excluded_count=19`。`Investing.com 中文财经` 继续进入每日主选池。原始 CandidateArticle / snapshot 不变，gold 的 8 个 must-includes supporting article IDs 必须全部仍在 provider-facing pool。
+- explicit `phase4_live` 未传 `--max-events` 时 request `max_events=10`；default/full、fixture 和 Phase 3B 仍为 5，validator 继续使用 request value。
+- `summary_max_chars=500`；`summaries_capped_count=6`；`summaries_unchanged_count=134`。
+- projected `curator_request_bytes=108264`；cleaned-pool simple single-pass phase4_live provider body `provider_request_body_bytes=119868`；二者均在相应 limits 内。
 - `transport_calls=0`，不读取 API key，不创建 artifact，不访问 RSS / holdings，原始 snapshot 的 SHA-256 不变化。
-- Phase 4 provider preparation 顺序为完整 candidate count check → projection → exact body construction/serialization → body check → API-key lookup/transport；candidate/body overflow 都是 0-call fail-closed。
+- Phase 4 provider preparation 顺序为 exact source exclusion → provider-facing candidate count check → projection → exact body construction/serialization → body check → API-key lookup/transport；candidate/body overflow 都是 0-call fail-closed。default/full 与 Phase 3B 不应用该 source exclusion。
 - `request.json`（仅未来真实 Phase 4 artifact）必须保存 projected request，而不是原始完整 summary；原始 snapshot 仍保持独立完整输入。
 - phase4_live system instruction 必须明确 selected-only semantics、rejection enumeration disabled、`rejected_article_ids=[]`，并要求模型只选择/聚合重要 events 与 evidence；default/full 和 Phase 3B prompt 保持原 rejection contract。
 - phase4_live provider boundary 在 generic validator 前将非权威 rejection 字段 canonicalize 为 `[]`，并仅按 event 对完全相同的 evidence ID 做保序 exact-dedupe；不 dedupe rejection、不选 reason、不保存 rejection bookkeeping。canonicalization 后 selected event 的 known evidence、非空 evidence、event ID、schema、enum、report date、content policy、finish_reason 和 JSON parsing 仍严格 fail closed。

@@ -4,7 +4,7 @@ automation-brief 是一个低成本的个人早间简报（Morning Brief）：�
 
 v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 production 链路当前仍不调用真实 AI provider。
 
-当前开发阶段为 `v0.7 — Morning Brief（Phase A MVP）`。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。Phase 4 live shadow 必须显式使用 `--input-mode phase4_live`；该模式采用 single-pass selected-only Curator semantics，只返回重要事件及其 evidence，`rejected_article_ids` 在 provider boundary canonicalize 为 `[]`，同一 event 内完全相同的 evidence ID 保留首次出现并去重，不再要求模型枚举未选 candidate。真实 large-pool shadow 已验证技术链路，但内容实验显示 major-event recall / ranking 仍不稳定；shadow CLI 路径继续保持显式、独立。v0.7 Phase A 的显式 `overnight_brief` 可复用同一 `phase4_live` Provider，技术失败整份回退到 legacy 新闻层，默认 production 仍保持不变。
+当前开发阶段为 `v0.7.2 — Production Cutover`；`v0.7.1` Morning Brief MVP 已 CLOSED。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。Phase 4 live shadow 必须显式使用 `--input-mode phase4_live`；该模式采用 single-pass selected-only Curator semantics，只返回重要事件及其 evidence，`rejected_article_ids` 在 provider boundary canonicalize 为 `[]`，同一 event 内完全相同的 evidence ID 保留首次出现并去重，不再要求模型枚举未选 candidate。真实 large-pool shadow 已验证技术链路，但内容实验显示 major-event recall / ranking 仍不稳定；shadow CLI 路径继续保持显式、独立。v0.7.1 的显式 `overnight_brief` 可复用同一 `phase4_live` Provider，技术失败整份回退到 legacy 新闻层，默认 production 仍保持不变。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## 当前产品合同
@@ -38,6 +38,9 @@ v0.6.1 已完成产品与语言合同文档，以及 feed language normalization
 v0.6.1 — Product Reset + Language Boundary
 v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Morning Brief
+v0.7.1 — Morning Brief MVP（CLOSED）
+v0.7.2 — Production Cutover
+v0.7.3 — Morning Brief Long-term Usage Validation（planned）
 ```
 
 历史文档中的既有 legacy version token 保持原样，不回写历史。输入可以是多语言 RSS，最终 reader-facing 输出统一为简体中文：
@@ -187,7 +190,7 @@ AI 和科技产业词也不再单独触发“昨日市场信号”。标题或�
 
 免责声明固定保留：本报告仅用于个人市场观察和复盘，不构成投资建议。
 
-`overnight_brief` 是 v0.7 Phase A 的显式统一晨报 MVP，不改变默认 `digest`、显式 `market_brief` 或自动化发布链。它输出“昨夜最重要的事 / 隔夜市场 / 今日值得关注”，以及仅在异常或高精度持仓新闻触发时出现的“持仓异常”。显式人工运行时，已有 single-pass AI Curator 负责 CuratedEvent 的新闻选择、事件聚合和简体中文 reader-facing 文本；Provider 技术失败时整份新闻层回退到现有 legacy 输出。结构化行情当前主要是前一交易日 A 股指数数据，不包装成完整全球隔夜行情；英文来源只保留原文链接，不新增翻译 pipeline。输出文件为：
+`overnight_brief` 是 v0.7.1 的显式统一晨报 MVP，不改变默认 `digest`、显式 `market_brief` 或自动化发布链。它输出“昨夜最重要的事 / 隔夜市场 / 今日值得关注”，以及仅在异常或高精度持仓新闻触发时出现的“持仓异常”。显式人工运行时，已有 single-pass AI Curator 负责 CuratedEvent 的新闻选择、事件聚合和简体中文 reader-facing 文本；Provider 技术失败时整份新闻层回退到现有 legacy 输出。结构化行情当前主要是前一交易日 A 股指数数据，不包装成完整全球隔夜行情；英文来源只保留原文链接，不新增翻译 pipeline。输出文件为：
 
 ```text
 ~/Projects/_project-data/automation-brief/reports/morning-brief-YYYY-MM-DD.md
@@ -306,7 +309,7 @@ scripts/run_market_brief.sh
 python3 main.py --report-type market_brief --date 2026-06-11
 ```
 
-如需手动生成 v0.7 Phase A Morning Brief，使用显式 CLI；这只生成一份 canonical Markdown，不接入 Obsidian、Bark 或 08:00 自动链。该命令会使用当前 Terminal 环境中的既有 `AUTOMATION_BRIEF_CURATOR_API_KEY` 调用一次 `phase4_live` single-pass Provider；没有 key 或 Provider 技术失败时会自动回退到 legacy 新闻层：
+如需手动生成 v0.7.1 Morning Brief，使用显式 CLI；这只生成一份 canonical Markdown，不接入 Obsidian、Bark 或 08:00 自动链。该命令会使用当前 Terminal 环境中的既有 `AUTOMATION_BRIEF_CURATOR_API_KEY` 调用一次 `phase4_live` single-pass Provider；没有 key 或 Provider 技术失败时会自动回退到 legacy 新闻层：
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python main.py --report-type overnight_brief --date 2026-06-11

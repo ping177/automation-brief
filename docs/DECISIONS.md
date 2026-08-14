@@ -13,8 +13,8 @@
 
 ### Numeric version route
 
-- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation、`v0.7` Morning Brief。
-- 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token。
+- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover 和 `v0.7.3` Morning Brief Long-term Usage Validation；后续不再新增字母阶段标签作为正式阶段命名。
+- 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token 或字母阶段标签。
 
 ### 多语言输入与简体中文输出
 
@@ -188,8 +188,8 @@
 - Rationale: real-provider technical boundaries succeeded. Flash same-snapshot recall remained about 4/8 known major events; Pro improved only marginally at materially higher cost, while GitHub-only cleanup improved grouping/evidence without improving recall. Further prompt, model, source-filter, validation, or orchestration tuning has no demonstrated product value.
 - Impact: remove the one-time Pro runtime profile; historical artifacts retain their recorded model. Keep the gold/evaluator as offline development regression only. AI Curator remains shadow-only and production daily digest / `market_brief` remain unchanged. v0.7 starts only under a separate task.
 
-## v0.7 Phase A explicit Curator projection and fallback
+## v0.7.1 Morning Brief explicit Curator projection and fallback
 
 - 决策：显式手动 `overnight_brief` 复用 v0.6.2 已冻结的 `phase4_live` single-pass Curator；AI success 时 CuratedEvent 是 reader-facing 新闻的唯一选择、事件聚合和简体中文文本来源，现有行情与持仓异常能力继续由本地模块负责。
-- 理由：Phase A 真实验收显示 legacy reader-facing 新闻会重新引入重复、英文摘要和 Market Brief 模板化表达；CuratorResponse 已有 canonical title、summary、category 和 evidence ids，不需要新增 schema、translation pipeline 或第二次 AI 调用。
-- 影响：`financial_markets` / `energy_commodities` 与其他 event 只做既有 category 的互斥 section 投影；evidence ids 回查 CandidateArticle source/link。Provider 技术失败时整份新闻层回退到 legacy renderer，不混合、不投票、不补位。此路径仅由显式 `overnight_brief` 触发，默认 `digest`、显式 `market_brief`、feeds、launchd、pmset、Bark 和 Obsidian 保持不变；不进入 Phase B 前不做生产切换。
+- 理由：v0.7.1 真实验收显示 legacy reader-facing 新闻会重新引入重复、英文摘要和 Market Brief 模板化表达；CuratorResponse 已有 canonical title、summary、category 和 evidence ids，不需要新增 schema、translation pipeline 或第二次 AI 调用。
+- 影响：`financial_markets` / `energy_commodities` 与其他 event 只做既有 category 的互斥 section 投影；evidence ids 回查 CandidateArticle source/link。Provider 技术失败时整份新闻层回退到 legacy renderer，不混合、不投票、不补位。此路径仅由显式 `overnight_brief` 触发，默认 `digest`、显式 `market_brief`、feeds、launchd、pmset、Bark 和 Obsidian 保持不变；在 v0.7.2 Production Cutover 获得明确授权前不做生产切换。

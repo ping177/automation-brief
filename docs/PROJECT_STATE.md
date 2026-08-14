@@ -8,15 +8,15 @@
 
 ## Current version
 
-v0.7 — Morning Brief
+v0.7.2 — Production Cutover
 
 ## Current status
 
-v0.7 Phase A CLOSED：显式 `overnight_brief` 复用现有 phase4_live single-pass AI Curator 和 canonical artifact writer；AI success 的 Morning Brief 只投影 `must_know` / `important`，完整 artifact 仍保留 `background`。phase4_live prompt、整层 fallback、market data 和 holdings anomaly 已完成人工验收；`max_events=20` 保持 ceiling，默认 `digest`、显式 `market_brief`、feeds 和自动化发布链未切换。Prompt 与 reader-facing 业务行为在 Phase A 收口后冻结。
+v0.7.1 — CLOSED：显式 `overnight_brief` 复用现有 phase4_live single-pass AI Curator 和 canonical artifact writer；AI success 的 Morning Brief 只投影 `must_know` / `important`，完整 artifact 仍保留 `background`。phase4_live prompt、整层 fallback、market data 和 holdings anomaly 已完成人工验收；`max_events=20` 保持 ceiling，默认 `digest`、显式 `market_brief`、feeds 和自动化发布链未切换。Prompt 与 reader-facing 业务行为在 v0.7.1 收口后冻结。
 
 ## Latest completed
 
-v0.7 Phase A closeout：同一 `CandidateArticle` pool 进入现有 `phase4_live` single-pass Curator；validated response 完整持久化后，Morning Brief writer 以现有 importance enum 过滤 `background`，再按既有 category 互斥投影并回查 evidence source/link。Prompt 补充 same-event aggregation 和跨字段 factual/entity consistency；10/15/20 sensitivity 仅作为 `max_events=20` 的历史决策依据保留，临时 runner 已删除。未新增 schema、semantic validator、dedupe 或 AI stage，默认链路未切换。
+v0.7.1 closeout：同一 `CandidateArticle` pool 进入现有 `phase4_live` single-pass Curator；validated response 完整持久化后，Morning Brief writer 以现有 importance enum 过滤 `background`，再按既有 category 互斥投影并回查 evidence source/link。Prompt 补充 same-event aggregation 和跨字段 factual/entity consistency；10/15/20 sensitivity 仅作为 `max_events=20` 的历史决策依据保留，临时 runner 已删除。未新增 schema、semantic validator、dedupe 或 AI stage，默认链路未切换。
 
 ## Deployment
 
@@ -50,7 +50,10 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.6.0-alpha — AI Curator shadow foundation
 - v0.6.1 — Product Reset + Language Boundary
 - v0.6.2 — AI Curator Shadow Evaluation（completed / shadow-only）
-- v0.7 — Morning Brief（Phase A completed）
+- v0.7 — Morning Brief
+- v0.7.1 — Morning Brief MVP（CLOSED）
+- v0.7.2 — Production Cutover（current）
+- v0.7.3 — Morning Brief Long-term Usage Validation（planned）
 
 ## Last verified
 
@@ -58,7 +61,7 @@ Notes: 暂无人工维护的公网部署信息。
 
 ## Next Action
 
-Phase B — 在用户明确授权后评估是否将 Morning Brief 接入生产发布链；在此之前保持 `overnight_brief` 显式手动、默认 `digest`、显式 `market_brief` 兼容路径和现有自动化发布链不变，不继续进行 AI tuning。
+v0.7.2 — Production Cutover：在用户明确授权后评估是否将 Morning Brief 接入生产发布链；在此之前保持 `overnight_brief` 显式手动、默认 `digest`、显式 `market_brief` 兼容路径和现有自动化发布链不变，不继续进行 AI tuning。后续真实晨间长期使用验证归入 v0.7.3。
 
 ## Blockers
 
@@ -87,7 +90,7 @@ Phase B — 在用户明确授权后评估是否将 Morning Brief 接入生产�
 - `config/holdings.json` is ignored by Git and retained only as legacy source data. Runtime lookup uses canonical `manual-inputs/holdings.json`, then `config/holdings.example.json`, then an empty config. The example must not contain real cost, position size, market value, or loss amounts.
 - Initialize local holdings with `python3 scripts/init_holdings_config.py`; validate with `python3 scripts/validate_holdings_config.py`.
 - `market_brief` now uses RSS news plus a lightweight A-share quote snapshot when explicitly generated. It still does not calculate complex strategy, sector strength, or trading actions.
-- v0.7 Phase A adds explicit Morning Brief (`overnight_brief`) output at `reports/morning-brief-YYYY-MM-DD.md`; it reuses existing digest/market capabilities, labels structured quotes as prior-trading-day A-share data, and does not connect Obsidian, Bark, launchd or pmset. The explicit manual path may call the existing phase4_live single-pass AI Curator; Provider technical failure falls back to the whole legacy news layer.
+- v0.7.1 adds explicit Morning Brief (`overnight_brief`) output at `reports/morning-brief-YYYY-MM-DD.md`; it reuses existing digest/market capabilities, labels structured quotes as prior-trading-day A-share data, and does not connect Obsidian, Bark, launchd or pmset. The explicit manual path may call the existing phase4_live single-pass AI Curator; Provider technical failure falls back to the whole legacy news layer.
 - `tests/offline_overnight_brief_smoke.py` covers cross-section dedupe, 0–3 watch variables, conditional holdings, missing market data, no holdings, feed failures and explicit dispatch; all offline smoke tests passed on 2026-08-13.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
 - Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.
@@ -111,4 +114,4 @@ Phase B — 在用户明确授权后评估是否将 Morning Brief 接入生产�
 
 ## Handoff Prompt
 
-v0.7 Phase A Morning Brief is closed as an explicit manual/offline path. Phase B requires explicit user approval and should evaluate production integration separately; do not continue AI tuning. Preserve the v0.6.2 shadow-only boundary: single-pass Flash, scoped `phase4_live max_events=20`, GitHub Trending Python Daily exact exclusion only, and no automatic AI production integration. Keep default `digest`, explicit `market_brief`, feeds, launchd, pmset, Bark and Obsidian behavior unchanged until Phase B is explicitly approved. Known Phase 4 recall/ranking limitations are accepted documented evidence; marginal Flash ordering variance is not a reason to add prompt, source-filter, model, validator, ranking, or orchestration systems. Blockers remain `暂无明确阻塞。`.
+v0.7.1 Morning Brief is closed as an explicit manual/offline path. v0.7.2 requires explicit user approval and should evaluate production integration separately; do not continue AI tuning. Preserve the v0.6.2 shadow-only boundary: single-pass Flash, scoped `phase4_live max_events=20`, GitHub Trending Python Daily exact exclusion only, and no automatic AI production integration. Keep default `digest`, explicit `market_brief`, feeds, launchd, pmset, Bark and Obsidian behavior unchanged until v0.7.2 is explicitly approved. The later real-morning long-term usage validation belongs to v0.7.3. Known Phase 4 recall/ranking limitations are accepted documented evidence; marginal Flash ordering variance is not a reason to add prompt, source-filter, model, validator, ranking, or orchestration systems. Blockers remain `暂无明确阻塞。`.

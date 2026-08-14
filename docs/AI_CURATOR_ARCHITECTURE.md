@@ -6,7 +6,7 @@ This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/l
 
 v0.6.0-alpha adds the data boundary, validation contract, fixture provider, candidate trace, and explicit preview renderer for a future Global Event Curator. v0.6.1 freezes the Morning Brief product boundary, source-language metadata, Simplified Chinese reader output, and legacy/candidate isolation, then wires feed language into the candidate contract without changing production output behavior. v0.6.2 Phase 2 adds an explicit OpenAI-compatible adapter boundary and filesystem artifacts for offline shadow evaluation. v0.6.2 Phase 3A freezes one DeepSeek one-shot request profile and adds explicit real-provider opt-in plus a no-transport preflight. Phase 3B adds a fixture-only hard-limit gate shared by the explicit dry-run and real-provider paths; the offline preparation path itself remains non-networking, and the successful real-provider run remains an explicit fixture-only shadow gate.
 
-The v0.7 Phase A correction adds one explicit manual consumer: `main.py --report-type overnight_brief` may invoke the existing `phase4_live` single-pass Provider and use its validated events for that one report. This is still an opt-in/manual path, not the default production automation or a replacement for the v0.6.2 shadow CLI/artifacts.
+The v0.7.1 correction adds one explicit manual consumer: `main.py --report-type overnight_brief` may invoke the existing `phase4_live` single-pass Provider and use its validated events for that one report. This is still an opt-in/manual path, not the default production automation or a replacement for the v0.6.2 shadow CLI/artifacts.
 
 It does not:
 
@@ -327,6 +327,9 @@ The formal route is:
 v0.6.1 — Product Reset + Language Boundary
 v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Morning Brief
+v0.7.1 — Morning Brief MVP（CLOSED）
+v0.7.2 — Production Cutover
+v0.7.3 — Morning Brief Long-term Usage Validation（planned）
 ```
 
 v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator remains shadow-only and does not replace daily digest, `market_brief`, or production automation.

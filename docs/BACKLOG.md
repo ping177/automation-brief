@@ -10,6 +10,9 @@
 v0.6.1 — Product Reset + Language Boundary
 v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Morning Brief
+v0.7.1 — Morning Brief MVP（CLOSED）
+v0.7.2 — Production Cutover
+v0.7.3 — Morning Brief Long-term Usage Validation（planned）
 ```
 
 历史条目中的既有 `-alpha` / `-beta` token 是 legacy 事实，保留原样，不回写历史。

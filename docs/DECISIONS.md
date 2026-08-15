@@ -13,7 +13,7 @@
 
 ### Numeric version route
 
-- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）和 `v0.7.3` Morning Brief Long-term Usage Validation（next）；后续不再新增字母阶段标签作为正式阶段命名。
+- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）、`v0.7.3` Morning Brief Long-term Usage Validation（next）和 `v0.7.4` Legacy Product Retirement & Capability Consolidation（planned after v0.7.3）；后续不再新增字母阶段标签作为正式阶段命名。
 - 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token 或字母阶段标签。
 
 ### 多语言输入与简体中文输出
@@ -199,3 +199,11 @@
 - 决策：复用同一个 `run_daily_digest.sh`、LaunchAgent label、08:00 schedule、working directory、日志、Obsidian 和 Bark 链路；shell 只接受 `digest` / `overnight_brief`，无参数默认 `digest`，并把同一 report type 显式传给所有 downstream。仓库 plist example 仅追加 `overnight_brief` 参数，不引入 feature flag。
 - 凭据：Morning Brief 优先使用已有进程环境中的 `AUTOMATION_BRIEF_CURATOR_API_KEY`；缺失时仅从项目根目录 `.env` 以非执行方式读取并 export 到当前任务进程。`.env` 缺失或 key 缺失不泄露或中断任务，继续进入既有 `missing_api_key` whole-layer fallback。
 - 影响：Obsidian/Bark 对 `digest` 使用 `daily-news-*`，对 `overnight_brief` 使用 `morning-brief-*`，未知 report type fail closed。用户已于 2026-08-15 完成人工 Terminal acceptance，确认实际 LaunchAgent、真实 provider、Obsidian 和 Bark 链路成功；rollback 只需恢复 plist 的无参数 shell 调用。
+
+## v0.7.4 Legacy Product Retirement & Capability Consolidation
+
+- 决策：只有 v0.7.3 真实晨间长期使用证明 Morning Brief 稳定后，才开始 v0.7.4。最终 reader-facing 产品只保留 Morning Brief；Daily Digest 和 Market Brief 作为独立产品正式退役。
+- 目标架构：`RSS / feeds → CandidateArticle → single-pass AI Curator → CuratedEvent → Morning Brief → canonical report → Obsidian / Bark`，并由独立、中性的 shared market data、holdings anomaly、technical whole-layer fallback 和 delivery capabilities 提供支撑。
+- read-only audit 已确认 Morning 当前仍依赖 `main.py` 中的 legacy fallback projection / digest summary-time helpers，以及 `market_brief_writer.py` 中的公共行情与持仓渲染 helpers；这些依赖必须先完成最小迁移，不能把旧文件名直接当作可删除的 product-only surface。
+- 约束：本轮只冻结边界，不修改 Python、shell、plist、tests、config、runtime data 或 production behavior；不预先决定替代文件名、模块名、package hierarchy 或新的 orchestration。v0.7.3 期间保留 Daily rollback；v0.8 不提前冻结内容。
+- 完成条件：删除旧产品容器后，Morning 仍完整支持 AI Curator、market context、holdings anomaly、provider technical fallback、canonical writer、Obsidian 和 Bark；只有确认无消费者的旧 entry、writer、routing、tests、docs surface 才可删除。

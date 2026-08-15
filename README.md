@@ -41,6 +41,7 @@ v0.7 — Morning Brief
 v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（next）
+v0.7.4 — Legacy Product Retirement & Capability Consolidation（planned after v0.7.3）
 ```
 
 历史文档中的既有 legacy version token 保持原样，不回写历史。输入可以是多语言 RSS，最终 reader-facing 输出统一为简体中文：
@@ -54,6 +55,12 @@ v0.7.3 — Morning Brief Long-term Usage Validation（next）
 - `language` 不进入 `stable_article_id()`、canonical URL、dedup identity 或 legacy keyword gate。
 
 v0.6.1 Phase 1 固定上述合同，Phase 2 已实现 feed metadata normalization 和 candidate wiring；下一阶段是 v0.6.2 的 shadow-only AI Curator evaluation。
+
+## v0.7.4 架构冻结（仅规划，不实施）
+
+`v0.7.4 — Legacy Product Retirement & Capability Consolidation` 必须等 v0.7.3 真实晨间长期使用验证稳定后再实施。目标是只保留一个 Morning Brief reader-facing product；RSS/feed collection、CandidateArticle、single-pass AI Curator、market data、holdings anomaly、technical fallback、canonical report、Obsidian 和 Bark 都作为独立、中性的 shared capabilities，由 Morning Brief 组合使用。
+
+本轮只冻结边界，不删除当前 Daily rollback 或 Market Brief 入口，不修改 production behavior，也不提前规定 Python 文件重命名、package hierarchy、feature flag 或 v0.8 内容。v0.7.4 实施时必须先做当时 tree 的 read-only dependency audit，再按真实消费者迁移并删除旧产品 surface。
 
 ## 项目文档
 

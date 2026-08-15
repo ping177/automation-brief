@@ -138,6 +138,12 @@ targeted production smoke 使用临时 repo、临时项目 `.env`、fake Python�
 - 真实 artifact `overnight-20260815T143736.428601Z-f8958055f793` 的非敏感字段为：`status=succeeded`、`provider_id=deepseek`、`model=deepseek-v4-flash`、`validation_status=passed`、`failure_code=""`、`ai_event_count=20`。
 - 已生成 `morning-brief-2026-08-15.md`，并确认 Obsidian 同步与 Bark 通知成功；生产链路确认通过。记录不包含 API key、`.env` 内容或其他 secret。
 
+## v0.7.3 / v0.7.4 boundary
+
+v0.7.3 只验证真实晨间长期稳定性：08:00 launchd production run、DeepSeek provider、Obsidian/Bark delivery、明显重大新闻漏报、高频重复、分类/事实基本正确，以及 20-event 长期阅读体验。v0.7.3 不删除 Daily rollback、不迁移旧模块、不开始 v0.7.4 implementation。
+
+v0.7.4 只有在上述观察稳定后才开始。实施前必须对当时 tree 做 read-only dependency audit；删除或改名任何旧 product surface 前，必须先证明 Morning 仍覆盖 AI Curator、market context、holdings anomaly、provider technical fallback、canonical report、Obsidian 和 Bark。测试迁移应跟随真实消费者迁移，不能先按文件名批量删除；v0.8 内容不在本轮测试合同中预先定义。
+
 Phase 3B fixture one-shot gate 的最终离线 dry-run 命令为：
 
 ```bash

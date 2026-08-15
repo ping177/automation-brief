@@ -13,6 +13,7 @@ v0.7 — Morning Brief
 v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（next）
+v0.7.4 — Legacy Product Retirement & Capability Consolidation（planned after v0.7.3）
 ```
 
 历史条目中的既有 `-alpha` / `-beta` token 是 legacy 事实，保留原样，不回写历史。
@@ -29,6 +30,24 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 用户已在真实 Terminal 完成项目 `.env` 配置并将权限设为 `0600`，reload 实际 LaunchAgent，并以 `run_daily_digest.sh overnight_brief` 成功完成受控 production smoke；不得在自动化测试中调用真实 DeepSeek、读取 secret、修改 pmset 或覆盖用户 plist。
 - 已确认 `morning-brief-2026-08-15.md`、真实 provider succeeded artifact `overnight-20260815T143736.428601Z-f8958055f793`、Obsidian Morning 文件和 Bark Morning 通知均成功；artifact 仅记录非敏感验收字段：`succeeded / deepseek / deepseek-v4-flash / passed / empty failure_code / 20 events`。
 - 真实链路失败时，移除实际 plist 的 `overnight_brief` 参数并 reload，即恢复历史无参数 Daily Digest；v0.7.3 只做真实晨间长期稳定性观察，不重新打开新闻质量 tuning。
+
+### v0.7.4 Legacy Product Retirement & Capability Consolidation（架构冻结，待 v0.7.3 稳定后实施）
+
+v0.7.4 的目标是让 Morning Brief 成为唯一 reader-facing 晨报产品，同时把仍被 Morning 使用的能力收敛为独立、中性的 shared capabilities。v0.7.4 不在 v0.7.3 期间实施，也不提前删除 rollback。
+
+本轮完成的 read-only dependency audit 结论：
+
+- Daily Digest product-only surface 包括 `digest` 默认/显式 dispatch、`main.py` 中的 `DigestSections` / `write_digest_markdown` reader-facing contract、无参数 `run_daily_digest.sh` 的 rollback 入口、`daily-news-*` canonical naming、publisher/Bark 的 Daily 分支、Daily 专属测试和运行说明。
+- Market Brief product-only surface 包括 `market_brief` dispatch、`market_brief_writer.py` 的完整 Market Brief writer、`market-brief-*` canonical naming、`scripts/run_market_brief.sh`、Market Brief 专属 tests/docs。`market_data.py`、`market_news.py`、`holdings.py` 和 `market_analysis.py` 的能力仍被 Morning 使用，不能按旧产品 surface 直接删除。
+- Morning Brief 当前仍依赖旧模块中的能力：`main.py` 的 `legacy_items_from_candidates()`、`build_digest_sections()`、`digest_item_summary()` 和 `format_digest_item_time()` 支撑 fallback/reader rendering；`overnight_brief_writer.py` 还导入 `market_brief_writer.py` 中的行情、持仓、safe rendering helpers。当前 `market_brief_writer.py` 同时承载 Market product writer 与这些公共 helper。
+- 已可按语义视为 shared capability、但部分仍物理位于 `main.py` 的包括 RSS/feed collection、normalization、`CandidateArticle` / Curator request/provider/artifact boundary、market data、market news、holdings anomaly、project paths，以及最终 report publishing/delivery 的公共机制。它们的中性化方式不在本轮固定文件名。
+
+v0.7.4 实施前后的边界：
+
+- v0.7.3 只观察 08:00 production 稳定性、DeepSeek、Obsidian/Bark、明显漏报、重复、分类/事实和 20-event 长期阅读体验。
+- v0.7.4 实施第一步必须重新进行针对当时 tree 的 read-only consumer audit；随后才制定具体 removal plan，先迁移 Morning 仍需的 fallback / market / delivery capability，再删除确认无消费者的 Daily/Market entry、writer、routing、tests 和 docs surface。
+- 删除旧产品后，Morning 必须继续覆盖 AI Curator、market context、holdings anomaly、provider technical fallback、canonical report、Obsidian 和 Bark；fallback 保留为 neutral technical capability，不再作为 Daily Digest 产品容器。
+- 不预先规定 Python 文件重命名、package hierarchy、feature flag 或新的 orchestration；v0.8 内容也不提前冻结。
 
 ### Canonical runtime data migration follow-up
 

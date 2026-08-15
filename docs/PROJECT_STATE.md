@@ -54,6 +54,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v0.7.1 — Morning Brief MVP（CLOSED）
 - v0.7.2 — Production Cutover（CLOSED）
 - v0.7.3 — Morning Brief Long-term Usage Validation（next）
+- v0.7.4 — Legacy Product Retirement & Capability Consolidation（planned after v0.7.3）
 
 ## Last verified
 
@@ -61,7 +62,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-v0.7.3 — 真实晨间长期使用验证：观察已切换的 Morning Brief 在连续真实晨间运行中的稳定性，以及报告、Obsidian 和 Bark 的持续可用性。保持现有 production routing 和 fallback，不重新打开 Prompt、AI Curator、新闻质量或架构实现；如需紧急恢复，移除实际 plist 的 `overnight_brief` 参数并 reload，回到无参数 `digest`。
+v0.7.3 — 真实晨间长期使用验证：观察已切换的 Morning Brief 在连续真实晨间运行中的稳定性，以及报告、Obsidian 和 Bark 的持续可用性。保持现有 production routing 和 fallback，不重新打开 Prompt、AI Curator、新闻质量或架构实现；如需紧急恢复，移除实际 plist 的 `overnight_brief` 参数并 reload，回到无参数 `digest`。v0.7.4 仅作为 v0.7.3 稳定后的后续架构/退役里程碑，不在当前版本开始实现。
 
 ## Blockers
 
@@ -92,6 +93,8 @@ v0.7.3 — 真实晨间长期使用验证：观察已切换的 Morning Brief 在
 - `market_brief` now uses RSS news plus a lightweight A-share quote snapshot when explicitly generated. It still does not calculate complex strategy, sector strength, or trading actions.
 - v0.7.1 adds explicit Morning Brief (`overnight_brief`) output at `reports/morning-brief-YYYY-MM-DD.md`; it reuses existing digest/market capabilities, labels structured quotes as prior-trading-day A-share data, and does not connect Obsidian, Bark, launchd or pmset. The explicit manual path may call the existing phase4_live single-pass AI Curator; Provider technical failure falls back to the whole legacy news layer.
 - v0.7.2 production acceptance confirms one explicit report type now runs through the existing stable shell / Obsidian / Bark chain. No-argument shell execution remains `digest`; the checked-in and accepted LaunchAgent path selects `overnight_brief`; unknown report types fail closed. Curator credentials use process-env-first, project-root `.env` second without logging secret material, and missing `.env`/key preserves the existing legacy fallback.
+- v0.7.4 architecture freeze is planning-only and gated on stable v0.7.3 usage. The target is one Morning Brief reader-facing product plus neutral shared capabilities; the initial read-only audit found current Morning dependencies on `main.py` legacy fallback helpers and generic helpers physically located in `market_brief_writer.py`. Those dependencies require a minimal migration audit before any old product-only surface is deleted; no fixed replacement module names or package hierarchy are prescribed.
+- v0.7.4 acceptance must prove that Morning Brief still supports the AI Curator path, market context, holdings anomaly, provider technical whole-layer fallback, canonical report writing, Obsidian delivery, and Bark delivery after Daily Digest and Market Brief product containers are retired. The v0.7.3 rollback path remains protected until that version is stable.
 - `tests/offline_overnight_brief_smoke.py` covers cross-section dedupe, 0–3 watch variables, conditional holdings, missing market data, no holdings, feed failures and explicit dispatch; all offline smoke tests passed on 2026-08-13.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
 - Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.

@@ -1,6 +1,6 @@
 # AI Curator Architecture
 
-This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/language contract, the v0.6.2 Phase 2 provider/artifact foundation, the v0.6.2 Phase 3A DeepSeek preflight boundary, the successful Phase 3B fixture-only real-provider gate, and the Phase 4B live selected-only provider boundary. It is not a production AI integration.
+This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/language contract, the v0.6.2 Phase 2 provider/artifact foundation, the v0.6.2 Phase 3A DeepSeek preflight boundary, the successful Phase 3B fixture-only real-provider gate, and the Phase 4B live selected-only provider boundary. v0.7.2 now uses the existing `phase4_live` provider boundary in the accepted Morning Brief production path; the v0.7.4 section below freezes only the later product-retirement boundary and does not prescribe concrete module names.
 
 ## Scope
 
@@ -16,6 +16,27 @@ It does not:
 - send holdings, positions, costs, profit/loss, or market quotes to the curator
 
 The explicit manual `overnight_brief` call uses the existing provider boundary only; Provider technical failure falls back to the whole legacy reader-facing news layer. It does not add a second pass, new schema, translation pipeline, ranking system, or quality threshold.
+
+## v0.7.4 Post-validation Architecture Freeze
+
+This is a governance target, not an implementation plan for v0.7.3. After stable real-morning validation, the intended product boundary is:
+
+```text
+RSS / feeds
+-> CandidateArticle collection and normalization
+-> single-pass AI Curator
+-> validated CuratedEvent
+-> Morning Brief reader projection
+   + shared market data
+   + shared holdings anomaly
+   + shared provider technical fallback
+-> canonical Morning report
+-> Obsidian / Bark delivery
+```
+
+Morning Brief is the only reader-facing product in the target architecture. Daily Digest and Market Brief are retired as product containers; their still-useful capabilities become neutral shared capabilities selected by Morning Brief. The current audit found that Morning still reaches legacy fallback and generic rendering helpers located in `main.py` and `market_brief_writer.py`; v0.7.4 must migrate those consumers before deleting old product-only surfaces.
+
+The freeze intentionally does not choose replacement filenames, Python module names, package hierarchy, feature flags, or a new orchestration model. It also does not remove the v0.7.3 rollback path or predefine v0.8 content.
 
 ## Product Reset
 
@@ -328,8 +349,9 @@ v0.6.1 — Product Reset + Language Boundary
 v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Morning Brief
 v0.7.1 — Morning Brief MVP（CLOSED）
-v0.7.2 — Production Cutover
-v0.7.3 — Morning Brief Long-term Usage Validation（planned）
+v0.7.2 — Production Cutover（CLOSED）
+v0.7.3 — Morning Brief Long-term Usage Validation（next）
+v0.7.4 — Legacy Product Retirement & Capability Consolidation（planned after v0.7.3）
 ```
 
-v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator remains shadow-only and does not replace daily digest, `market_brief`, or production automation.
+v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator shadow CLI remains separate, while v0.7.2 uses the existing `phase4_live` boundary only through the accepted `overnight_brief` production path. v0.7.4 may retire the old product containers only after v0.7.3 stability and the required consumer audit.

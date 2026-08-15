@@ -1128,3 +1128,11 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - 用户已完成真实 macOS acceptance：项目 `.env` 配置了 `AUTOMATION_BRIEF_CURATOR_API_KEY`，文件权限为 `0600`，实际 LaunchAgent 已 reload，`ProgramArguments` 使用 `run_daily_digest.sh overnight_brief`，受控 `launchctl kickstart` 成功。
 - 真实链路成功生成 `morning-brief-2026-08-15.md` 并同步到既有 Obsidian 目录，Bark 已发送。对应 artifact `overnight-20260815T143736.428601Z-f8958055f793` 的非敏感验收字段为 `status=succeeded`、`provider_id=deepseek`、`model=deepseek-v4-flash`、`validation_status=passed`、空 `failure_code`、`ai_event_count=20`。
 - 确认生产链路为 `launchd → project .env → DeepSeek → AI Curator → Morning Brief → Obsidian → Bark`。v0.7.2 标记为 CLOSED；无参数 `digest` 继续作为 rollback。下一版本 v0.7.3 只做真实晨间长期使用验证，不新增 AI、Prompt、新闻质量或 production 架构实现。
+
+## 2026-08-15 — v0.7.4 architecture freeze（docs-only）
+
+- 在 v0.7.2 production closeout 后完成 read-only dependency audit；未修改 Python、shell、plist、tests、config、runtime data 或 production behavior，未开始 v0.7.3 implementation。
+- Daily Digest 的 product-only surface 是 `digest` dispatch、`DigestSections` / `write_digest_markdown` reader contract、无参数 `run_daily_digest.sh` rollback、`daily-news-*` naming、Daily publisher/Bark 分支以及对应 tests/docs。Market Brief 的 product-only surface 是 `market_brief` dispatch、完整 `market_brief_writer.py` product writer、`market-brief-*` naming、`scripts/run_market_brief.sh` 及对应 tests/docs。
+- Morning 当前仍真实依赖 `main.py` 的 `legacy_items_from_candidates()`、`build_digest_sections()`、`digest_item_summary()`、`format_digest_item_time()`，以及 `market_brief_writer.py` 中被 `overnight_brief_writer.py` 导入的 market/holdings/safe-rendering helpers；因此这些模块不能在没有迁移的情况下删除。
+- 已识别的 shared capability 包括 RSS/feed collection 与 normalization、CandidateArticle / single-pass Curator / provider / artifact boundary、market data、market news、holdings anomaly、project paths 和最终 publishing/delivery 机制；部分能力当前物理位于旧产品模块中，具体迁移位置留待 v0.7.4 实施时的再次 audit。
+- v0.7.4 冻结为“一个 Morning Brief reader-facing product + 多个独立中性 shared capabilities”。实施必须先在 v0.7.3 稳定后重新做 consumer audit，再制定具体 removal plan；不提前固定文件重命名、package hierarchy、feature flag、Agent、RAG、多模型或多阶段 ranking/dedupe。v0.8 继续不预先冻结。

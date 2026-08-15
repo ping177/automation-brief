@@ -13,7 +13,7 @@
 
 ### Numeric version route
 
-- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover 和 `v0.7.3` Morning Brief Long-term Usage Validation；后续不再新增字母阶段标签作为正式阶段命名。
+- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）和 `v0.7.3` Morning Brief Long-term Usage Validation（next）；后续不再新增字母阶段标签作为正式阶段命名。
 - 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token 或字母阶段标签。
 
 ### 多语言输入与简体中文输出
@@ -193,3 +193,9 @@
 - 决策：显式手动 `overnight_brief` 复用 v0.6.2 已冻结的 `phase4_live` single-pass Curator；AI success 时 CuratedEvent 是 reader-facing 新闻的唯一选择、事件聚合和简体中文文本来源，现有行情与持仓异常能力继续由本地模块负责。
 - 理由：v0.7.1 真实验收显示 legacy reader-facing 新闻会重新引入重复、英文摘要和 Market Brief 模板化表达；CuratorResponse 已有 canonical title、summary、category 和 evidence ids，不需要新增 schema、translation pipeline 或第二次 AI 调用。
 - 影响：`financial_markets` / `energy_commodities` 与其他 event 只做既有 category 的互斥 section 投影；evidence ids 回查 CandidateArticle source/link。Provider 技术失败时整份新闻层回退到 legacy renderer，不混合、不投票、不补位。此路径仅由显式 `overnight_brief` 触发，默认 `digest`、显式 `market_brief`、feeds、launchd、pmset、Bark 和 Obsidian 保持不变；在 v0.7.2 Production Cutover 获得明确授权前不做生产切换。
+
+## v0.7.2 Production routing and credential boundary
+
+- 决策：复用同一个 `run_daily_digest.sh`、LaunchAgent label、08:00 schedule、working directory、日志、Obsidian 和 Bark 链路；shell 只接受 `digest` / `overnight_brief`，无参数默认 `digest`，并把同一 report type 显式传给所有 downstream。仓库 plist example 仅追加 `overnight_brief` 参数，不引入 feature flag。
+- 凭据：Morning Brief 优先使用已有进程环境中的 `AUTOMATION_BRIEF_CURATOR_API_KEY`；缺失时仅从项目根目录 `.env` 以非执行方式读取并 export 到当前任务进程。`.env` 缺失或 key 缺失不泄露或中断任务，继续进入既有 `missing_api_key` whole-layer fallback。
+- 影响：Obsidian/Bark 对 `digest` 使用 `daily-news-*`，对 `overnight_brief` 使用 `morning-brief-*`，未知 report type fail closed。用户已于 2026-08-15 完成人工 Terminal acceptance，确认实际 LaunchAgent、真实 provider、Obsidian 和 Bark 链路成功；rollback 只需恢复 plist 的无参数 shell 调用。

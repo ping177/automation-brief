@@ -8,22 +8,22 @@
 
 ## Current version
 
-v0.7.2 — Production Cutover
+v0.7.2 — Production Cutover（CLOSED）
 
 ## Current status
 
-v0.7.1 — CLOSED：显式 `overnight_brief` 复用现有 phase4_live single-pass AI Curator 和 canonical artifact writer；AI success 的 Morning Brief 只投影 `must_know` / `important`，完整 artifact 仍保留 `background`。phase4_live prompt、整层 fallback、market data 和 holdings anomaly 已完成人工验收；`max_events=20` 保持 ceiling，默认 `digest`、显式 `market_brief`、feeds 和自动化发布链未切换。Prompt 与 reader-facing 业务行为在 v0.7.1 收口后冻结。
+v0.7.2 已完成并 CLOSED：用户已通过真实 macOS production acceptance。实际 LaunchAgent 已使用 `run_daily_digest.sh overnight_brief`，shell 从项目 `.env` 获得 Curator credential，真实 DeepSeek provider 成功，Morning Brief 已生成并同步 Obsidian，Bark 已发送。`run.json` 的非敏感结果为 `status=succeeded`、`provider_id=deepseek`、`model=deepseek-v4-flash`、`validation_status=passed`、空 `failure_code`、`ai_event_count=20`。无参数仍默认 `digest`，保留为最小 rollback；下一版本为 v0.7.3 真实晨间长期使用验证。
 
 ## Latest completed
 
-v0.7.1 closeout：同一 `CandidateArticle` pool 进入现有 `phase4_live` single-pass Curator；validated response 完整持久化后，Morning Brief writer 以现有 importance enum 过滤 `background`，再按既有 category 互斥投影并回查 evidence source/link。Prompt 补充 same-event aggregation 和跨字段 factual/entity consistency；10/15/20 sensitivity 仅作为 `max_events=20` 的历史决策依据保留，临时 runner 已删除。未新增 schema、semantic validator、dedupe 或 AI stage，默认链路未切换。
+v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-20260815T143736.428601Z-f8958055f793`，canonical report 为 `morning-brief-2026-08-15.md`，Obsidian 与 Bark 均已确认成功。实现边界保持冻结：`config.json` 仍默认 `digest`，`main.py` / `overnight_brief_writer.py`、Prompt、`max_events=20`、schema、ranking/dedupe/scoring、market data 和 holdings anomaly 均未修改；Curator credential 仍为 process-env-first、项目根目录 `.env` second，缺失时保留 whole-layer legacy fallback。
 
 ## Deployment
 
-Status: unknown
+Status: local macOS production accepted
 Public URL: none
-Provider: none
-Notes: 暂无人工维护的公网部署信息。
+Provider: DeepSeek `deepseek-v4-flash`; real production success accepted
+Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。顶层 v0.7 仍待 v0.7.3 长期使用验证后再整体关闭。
 
 ## Version Index
 
@@ -52,16 +52,16 @@ Notes: 暂无人工维护的公网部署信息。
 - v0.6.2 — AI Curator Shadow Evaluation（completed / shadow-only）
 - v0.7 — Morning Brief
 - v0.7.1 — Morning Brief MVP（CLOSED）
-- v0.7.2 — Production Cutover（current）
-- v0.7.3 — Morning Brief Long-term Usage Validation（planned）
+- v0.7.2 — Production Cutover（CLOSED）
+- v0.7.3 — Morning Brief Long-term Usage Validation（next）
 
 ## Last verified
 
-2026-08-13
+2026-08-15
 
 ## Next Action
 
-v0.7.2 — Production Cutover：在用户明确授权后评估是否将 Morning Brief 接入生产发布链；在此之前保持 `overnight_brief` 显式手动、默认 `digest`、显式 `market_brief` 兼容路径和现有自动化发布链不变，不继续进行 AI tuning。后续真实晨间长期使用验证归入 v0.7.3。
+v0.7.3 — 真实晨间长期使用验证：观察已切换的 Morning Brief 在连续真实晨间运行中的稳定性，以及报告、Obsidian 和 Bark 的持续可用性。保持现有 production routing 和 fallback，不重新打开 Prompt、AI Curator、新闻质量或架构实现；如需紧急恢复，移除实际 plist 的 `overnight_brief` 参数并 reload，回到无参数 `digest`。
 
 ## Blockers
 
@@ -91,6 +91,7 @@ v0.7.2 — Production Cutover：在用户明确授权后评估是否将 Morning 
 - Initialize local holdings with `python3 scripts/init_holdings_config.py`; validate with `python3 scripts/validate_holdings_config.py`.
 - `market_brief` now uses RSS news plus a lightweight A-share quote snapshot when explicitly generated. It still does not calculate complex strategy, sector strength, or trading actions.
 - v0.7.1 adds explicit Morning Brief (`overnight_brief`) output at `reports/morning-brief-YYYY-MM-DD.md`; it reuses existing digest/market capabilities, labels structured quotes as prior-trading-day A-share data, and does not connect Obsidian, Bark, launchd or pmset. The explicit manual path may call the existing phase4_live single-pass AI Curator; Provider technical failure falls back to the whole legacy news layer.
+- v0.7.2 production acceptance confirms one explicit report type now runs through the existing stable shell / Obsidian / Bark chain. No-argument shell execution remains `digest`; the checked-in and accepted LaunchAgent path selects `overnight_brief`; unknown report types fail closed. Curator credentials use process-env-first, project-root `.env` second without logging secret material, and missing `.env`/key preserves the existing legacy fallback.
 - `tests/offline_overnight_brief_smoke.py` covers cross-section dedupe, 0–3 watch variables, conditional holdings, missing market data, no holdings, feed failures and explicit dispatch; all offline smoke tests passed on 2026-08-13.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
 - Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.
@@ -114,4 +115,4 @@ v0.7.2 — Production Cutover：在用户明确授权后评估是否将 Morning 
 
 ## Handoff Prompt
 
-v0.7.1 Morning Brief is closed as an explicit manual/offline path. v0.7.2 requires explicit user approval and should evaluate production integration separately; do not continue AI tuning. Preserve the v0.6.2 shadow-only boundary: single-pass Flash, scoped `phase4_live max_events=20`, GitHub Trending Python Daily exact exclusion only, and no automatic AI production integration. Keep default `digest`, explicit `market_brief`, feeds, launchd, pmset, Bark and Obsidian behavior unchanged until v0.7.2 is explicitly approved. The later real-morning long-term usage validation belongs to v0.7.3. Known Phase 4 recall/ranking limitations are accepted documented evidence; marginal Flash ordering variance is not a reason to add prompt, source-filter, model, validator, ranking, or orchestration systems. Blockers remain `暂无明确阻塞。`.
+v0.7.2 is CLOSED after the 2026-08-15 real macOS acceptance. Do not continue AI tuning or modify `main.py`, the Morning Brief writer, Prompt, `max_events=20`, schema, ranking, dedupe, scoring, feeds, pmset, or the user's installed LaunchAgent in an automated task. The accepted production path is `launchd → project .env → DeepSeek → AI Curator → Morning Brief → Obsidian → Bark`; no-argument `digest` remains the rollback path. The next scoped work is v0.7.3 real-morning long-term usage validation, not a new implementation. Blockers remain `暂无明确阻塞。`.

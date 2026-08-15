@@ -109,6 +109,35 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_market_brief_smoke.py
 
 v0.7.1 不要求默认自动链、Obsidian/Bark 发布、全球行情补齐、第二次 AI 调用、AI 质量阈值或 weekly AI/tools digest。真实 AI-backed 样例必须由用户在自己的 Terminal 环境显式运行，不作为离线测试前置条件。
 
+## v0.7.2 Production Cutover offline checklist
+
+本阶段只验证 production routing、`.env` credential boundary 和 rollback compatibility，不调用真实 DeepSeek、不读取用户真实 `.env`、不复制到真实 Obsidian、不发送真实 Bark，也不操作 launchd / pmset：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 tests/offline_production_routing_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_holdings_config_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_project_paths_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_overnight_brief_smoke.py
+```
+
+targeted production smoke 使用临时 repo、临时项目 `.env`、fake Python、临时 canonical data root / mobile directory 和 monkeypatched Bark sender，至少锁住：
+
+- `run_daily_digest.sh` 无参数显式下传 `digest`，`overnight_brief` 同时下传给 `main.py`、Obsidian 和 Bark，未知 report type fail closed。
+- digest 不读取 Curator `.env` key；Morning 已有环境变量时不覆盖，环境变量缺失时从项目 `.env` 读取，`.env` 缺失或无 key 时不泄露 fixture secret、任务继续并保留 legacy fallback。
+- env 变量与 `.env` 中的不同 fixture key 用于锁定 precedence；所有 fixture secret 都不出现在 stdout/stderr。
+- publisher 对 digest 读取 `daily-news-*`，对 Morning 读取 `morning-brief-*`；即使当天 Daily 文件存在，Morning 也不会误复制旧 Daily。
+- Bark digest 保留原 title 和 `Displayed items`；Morning 使用“早间简报已生成”、不依赖 `Displayed items`，body / Obsidian URI 均引用实际 `morning-brief-*`。
+- plist example 保留 label、08:00 schedule 和既有路径，只在 `ProgramArguments` 追加 `overnight_brief`，不包含 API key 或 credential loader。
+- 现有 overnight missing-key artifact 仍记录 `failure_code=missing_api_key`，reader-facing 报告继续 whole-layer legacy fallback。
+
+真实 macOS acceptance 只能由用户在 Terminal 显式执行；本次 acceptance 已由用户于 2026-08-15 完成，记录见下节。离线 checklist 本身仍不调用真实 DeepSeek、不读取用户真实 `.env`，也不替代用户环境验收。
+
+### v0.7.2 real macOS acceptance record
+
+- 项目 `.env` 已配置 `AUTOMATION_BRIEF_CURATOR_API_KEY`，权限为 `0600`；实际 LaunchAgent 已 reload，`ProgramArguments` 为 `run_daily_digest.sh overnight_brief`，受控 `launchctl kickstart` 成功。
+- 真实 artifact `overnight-20260815T143736.428601Z-f8958055f793` 的非敏感字段为：`status=succeeded`、`provider_id=deepseek`、`model=deepseek-v4-flash`、`validation_status=passed`、`failure_code=""`、`ai_event_count=20`。
+- 已生成 `morning-brief-2026-08-15.md`，并确认 Obsidian 同步与 Bark 通知成功；生产链路确认通过。记录不包含 API key、`.env` 内容或其他 secret。
+
 Phase 3B fixture one-shot gate 的最终离线 dry-run 命令为：
 
 ```bash
@@ -266,7 +295,7 @@ v0.6.0-alpha adds the original shadow plumbing; v0.6.2 Phase 2 adds provider and
 - Failed provider/parser/validator runs record safe `run.json` metadata plus available request/trace artifacts and never write `response.json`; validator/content-policy failures may record only bounded rule/path diagnostics (and a known candidate id when needed), never raw exception text or the full model response; successful `response.json` is an explicit allowlist of validated domain fields.
 - Each run lives under `runs/ai-curator-shadow/<run_id>/`; repeated same-day runs do not overwrite prior runs. Artifacts contain no API key value, Authorization header, holdings, or raw provider envelope.
 - `run.json` records `candidate_count`, `curator_request_bytes`, and `provider_request_body_bytes`; fixture provider body bytes are `null`, and the Phase 3B candidate/body hard limits apply only to the explicit DeepSeek fixture gate, not the generic provider or production paths.
-- `scripts/run_daily_digest.sh` 仍只生成普通 digest；`scripts/run_market_brief.sh` 不再硬编码仓库 `output/`，由 resolver 选择 canonical `reports/`。
+- `scripts/run_daily_digest.sh` 无参数仍生成普通 digest；显式 `overnight_brief` 才进入 Morning production routing。`scripts/run_market_brief.sh` 不再硬编码仓库 `output/`，由 resolver 选择 canonical `reports/`。
 
 ## market_brief smoke checklist
 

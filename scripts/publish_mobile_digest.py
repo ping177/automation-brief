@@ -13,6 +13,10 @@ from project_paths import get_project_paths  # noqa: E402
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = PROJECT_DIR / ".env"
+REPORT_PREFIXES = {
+    "digest": "daily-news",
+    "overnight_brief": "morning-brief",
+}
 
 
 def load_env_value(path: Path, key: str) -> str:
@@ -36,7 +40,25 @@ def load_env_value(path: Path, key: str) -> str:
     return ""
 
 
-def main(*, data_root: Path | None = None, env_file: Path | None = None) -> int:
+def resolve_report_name(report_type: str, report_date: date) -> str:
+    prefix = REPORT_PREFIXES.get(report_type)
+    if prefix is None:
+        raise ValueError(f"Unsupported report type: {report_type}")
+    return f"{prefix}-{report_date.isoformat()}.md"
+
+
+def main(
+    *,
+    data_root: Path | None = None,
+    env_file: Path | None = None,
+    report_type: str = "digest",
+) -> int:
+    try:
+        report_name = resolve_report_name(report_type, date.today())
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
     paths = get_project_paths(repo_root=PROJECT_DIR, data_root=data_root)
     resolved_env_file = Path(env_file) if env_file is not None else ENV_FILE
     mobile_digest_dir = load_env_value(resolved_env_file, "MOBILE_DIGEST_DIR")
@@ -44,9 +66,9 @@ def main(*, data_root: Path | None = None, env_file: Path | None = None) -> int:
         print("MOBILE_DIGEST_DIR is not set; skip mobile digest sync.")
         return 0
 
-    report_path = paths.reports_dir / f"daily-news-{date.today().isoformat()}.md"
+    report_path = paths.reports_dir / report_name
     if not report_path.exists():
-        print(f"Daily report not found: {report_path}", file=sys.stderr)
+        print(f"Report not found: {report_path}", file=sys.stderr)
         return 1
 
     target_dir = Path(mobile_digest_dir).expanduser()
@@ -67,5 +89,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sync the canonical daily report to a mobile directory.")
     parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
     parser.add_argument("--env-file", type=Path, help="Override local environment file")
+    parser.add_argument(
+        "--report-type",
+        choices=tuple(REPORT_PREFIXES),
+        default="digest",
+        help="Select the canonical report to sync (default: digest)",
+    )
     cli_args = parser.parse_args()
-    raise SystemExit(main(data_root=cli_args.data_root, env_file=cli_args.env_file))
+    raise SystemExit(
+        main(
+            data_root=cli_args.data_root,
+            env_file=cli_args.env_file,
+            report_type=cli_args.report_type,
+        )
+    )

@@ -167,8 +167,8 @@ def main() -> None:
     assert "Mode: market_brief" in market_output.read_text(encoding="utf-8")
 
     daily_script_text = RUN_DAILY_SCRIPT.read_text(encoding="utf-8")
-    assert '"$PYTHON_BIN" "$PROJECT_DIR/main.py"' in daily_script_text
-    assert "--report-type" not in daily_script_text
+    assert 'REPORT_TYPE=${1:-digest}' in daily_script_text
+    assert '"$PYTHON_BIN" "$PROJECT_DIR/main.py" --report-type "$REPORT_TYPE"' in daily_script_text
     assert "market_brief" not in daily_script_text
 
     print("offline holdings config smoke passed")

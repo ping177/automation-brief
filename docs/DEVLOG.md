@@ -1114,3 +1114,17 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - Morning Brief 已通过真人 reader-facing acceptance；v0.7.1 永久路径保持 `CandidateArticle → phase4_live single-pass Curator → validated CuratedEvent → thin reader projection → market data / holdings anomaly → canonical artifact/report`，Provider 技术失败仍使用整层 legacy 新闻 fallback。
 - 已删除仅用于已完成 10/15/20 same-snapshot sensitivity 实验的 development-only runner 与 offline smoke；10/15/20 结果和 `max_events=20` 决策依据保留在历史 DECISIONS / DEVLOG 记录中，canonical artifacts 不变。
 - v0.7.1 业务行为、Prompt、schema、feeds、model/provider、默认 report type 和自动化发布链不再继续调整；Next Action 转为用户明确授权后的 v0.7.2 评估。
+
+## 2026-08-14 — v0.7.2 Production Cutover implementation
+
+- `scripts/run_daily_digest.sh` 增加唯一可选 report type 参数：无参数默认 `digest`，另允许 `overnight_brief`，未知值 exit 2；同一值显式传给 `main.py`、`publish_mobile_digest.py` 和 `send_bark_notification.py`，既有 caffeinate、stage timing、main failure exit 与 downstream best-effort 行为保持不变。
+- Morning Brief credential 使用 process-env-first / project `.env`-second：已有 `AUTOMATION_BRIEF_CURATOR_API_KEY` 不覆盖；缺失时以非执行方式从项目根目录 `.env` 读取。`.env` 缺失或 key 缺失时只记录 available / unavailable，并继续现有 `missing_api_key` whole-layer legacy fallback。
+- Obsidian publisher 和 Bark sender 以显式 report type 选择 `daily-news-*` / `morning-brief-*`，未知值 fail closed。Morning Bark 标题为“早间简报已生成”，body 不读取 Daily 专属 `Displayed items`，Obsidian URI 使用实际 Morning 文件名；Daily 默认行为保持兼容。
+- checked-in plist example 只在既有 `ProgramArguments` 追加 `overnight_brief`，未修改 label、08:00、working directory 或日志路径；未覆盖/reload 用户实际 LaunchAgent，也未修改 pmset。
+- 新增 `tests/offline_production_routing_smoke.py`，使用 fake Python / 临时项目 `.env` / 临时 data root / monkeypatched Bark 覆盖 shell、env precedence、缺失 fallback、routing、旧 Daily 防误读、unknown fail-closed 和 plist cutover；同步更新旧 shell 默认断言。未调用真实 DeepSeek，未读取或打印真实 secret，v0.7.2 等待用户 macOS production acceptance，不标记 CLOSED。
+
+## 2026-08-15 — v0.7.2 Production Cutover closeout
+
+- 用户已完成真实 macOS acceptance：项目 `.env` 配置了 `AUTOMATION_BRIEF_CURATOR_API_KEY`，文件权限为 `0600`，实际 LaunchAgent 已 reload，`ProgramArguments` 使用 `run_daily_digest.sh overnight_brief`，受控 `launchctl kickstart` 成功。
+- 真实链路成功生成 `morning-brief-2026-08-15.md` 并同步到既有 Obsidian 目录，Bark 已发送。对应 artifact `overnight-20260815T143736.428601Z-f8958055f793` 的非敏感验收字段为 `status=succeeded`、`provider_id=deepseek`、`model=deepseek-v4-flash`、`validation_status=passed`、空 `failure_code`、`ai_event_count=20`。
+- 确认生产链路为 `launchd → project .env → DeepSeek → AI Curator → Morning Brief → Obsidian → Bark`。v0.7.2 标记为 CLOSED；无参数 `digest` 继续作为 rollback。下一版本 v0.7.3 只做真实晨间长期使用验证，不新增 AI、Prompt、新闻质量或 production 架构实现。

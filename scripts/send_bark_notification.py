@@ -18,7 +18,10 @@ from project_paths import get_project_paths  # noqa: E402
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = PROJECT_DIR / ".env"
-TITLE = "每日早间回顾已生成"
+REPORT_SETTINGS = {
+    "digest": ("daily-news", "每日早间回顾已生成"),
+    "overnight_brief": ("morning-brief", "早间简报已生成"),
+}
 MAX_ATTEMPTS = 3
 RETRY_DELAYS_SECONDS = (10, 20)
 
@@ -87,7 +90,26 @@ def format_notification_error(exc: BaseException) -> str:
     return str(exc)
 
 
-def main(*, data_root: Path | None = None, env_file: Path | None = None) -> int:
+def resolve_report_settings(report_type: str, report_date: date) -> tuple[str, str]:
+    settings = REPORT_SETTINGS.get(report_type)
+    if settings is None:
+        raise ValueError(f"Unsupported report type: {report_type}")
+    prefix, title = settings
+    return f"{prefix}-{report_date.isoformat()}.md", title
+
+
+def main(
+    *,
+    data_root: Path | None = None,
+    env_file: Path | None = None,
+    report_type: str = "digest",
+) -> int:
+    try:
+        report_name, title = resolve_report_settings(report_type, date.today())
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
     paths = get_project_paths(repo_root=PROJECT_DIR, data_root=data_root)
     resolved_env_file = Path(env_file) if env_file is not None else ENV_FILE
     bark_url = load_env_value(resolved_env_file, "BARK_URL")
@@ -95,16 +117,17 @@ def main(*, data_root: Path | None = None, env_file: Path | None = None) -> int:
         print("BARK_URL is not set; skip Bark notification.")
         return 0
 
-    report_path = paths.reports_dir / f"daily-news-{date.today().isoformat()}.md"
+    report_path = paths.reports_dir / report_name
     if not report_path.exists():
-        print(f"Daily report not found: {report_path}", file=sys.stderr)
+        print(f"Report not found: {report_path}", file=sys.stderr)
         return 1
 
     relative_report_path = Path("reports") / report_path.name
     body_parts = [str(relative_report_path)]
-    displayed_items = find_displayed_items(report_path)
-    if displayed_items:
-        body_parts.append(f"Displayed items: {displayed_items}")
+    if report_type == "digest":
+        displayed_items = find_displayed_items(report_path)
+        if displayed_items:
+            body_parts.append(f"Displayed items: {displayed_items}")
 
     obsidian_uri = ""
     vault_name = load_env_value(resolved_env_file, "OBSIDIAN_VAULT_NAME")
@@ -115,7 +138,7 @@ def main(*, data_root: Path | None = None, env_file: Path | None = None) -> int:
     body = "\n".join(body_parts)
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
-            send_notification(bark_url, TITLE, body, obsidian_uri)
+            send_notification(bark_url, title, body, obsidian_uri)
             break
         except (HTTPError, URLError, TimeoutError, OSError) as exc:
             error_message = format_notification_error(exc)
@@ -145,5 +168,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Send the canonical daily report through Bark.")
     parser.add_argument("--data-root", type=Path, help="Override canonical runtime data root")
     parser.add_argument("--env-file", type=Path, help="Override local environment file")
+    parser.add_argument(
+        "--report-type",
+        choices=tuple(REPORT_SETTINGS),
+        default="digest",
+        help="Select the canonical report to announce (default: digest)",
+    )
     cli_args = parser.parse_args()
-    raise SystemExit(main(data_root=cli_args.data_root, env_file=cli_args.env_file))
+    raise SystemExit(
+        main(
+            data_root=cli_args.data_root,
+            env_file=cli_args.env_file,
+            report_type=cli_args.report_type,
+        )
+    )

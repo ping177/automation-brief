@@ -2,9 +2,9 @@
 
 automation-brief 是一个低成本的个人早间简报（Morning Brief）：从 `feeds.json` 配置的 RSS 源抓取多语言文章，根据既有规则和后续 AI Curator 合同整理成适合早晨约 5 分钟扫读的 Markdown 简报。
 
-v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 production 链路当前仍不调用真实 AI provider。
+v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 `digest` 与显式 `market_brief` 链路仍不调用真实 AI provider。
 
-当前开发阶段为 `v0.7.2 — Production Cutover`；`v0.7.1` Morning Brief MVP 已 CLOSED。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。Phase 4 live shadow 必须显式使用 `--input-mode phase4_live`；该模式采用 single-pass selected-only Curator semantics，只返回重要事件及其 evidence，`rejected_article_ids` 在 provider boundary canonicalize 为 `[]`，同一 event 内完全相同的 evidence ID 保留首次出现并去重，不再要求模型枚举未选 candidate。真实 large-pool shadow 已验证技术链路，但内容实验显示 major-event recall / ranking 仍不稳定；shadow CLI 路径继续保持显式、独立。v0.7.1 的显式 `overnight_brief` 可复用同一 `phase4_live` Provider，技术失败整份回退到 legacy 新闻层，默认 production 仍保持不变。
+当前已完成并关闭 `v0.7.2 — Production Cutover`；`v0.7.1` Morning Brief MVP 已 CLOSED，下一版本为 `v0.7.3 — Morning Brief Long-term Usage Validation`。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。Phase 4 live shadow 必须显式使用 `--input-mode phase4_live`；该模式采用 single-pass selected-only Curator semantics，只返回重要事件及其 evidence，`rejected_article_ids` 在 provider boundary canonicalize 为 `[]`，同一 event 内完全相同的 evidence ID 保留首次出现并去重，不再要求模型枚举未选 candidate。真实 large-pool shadow 已验证技术链路，但内容实验显示 major-event recall / ranking 仍不稳定；shadow CLI 路径继续保持显式、独立。v0.7.2 的实际 production 已由用户验收通过：`run_daily_digest.sh overnight_brief` 将同一 report type 传给 `main.py`、Obsidian 和 Bark，并从项目根目录 `.env` 加载 Curator key（进程环境变量优先，`.env` 为第二来源）；实际 LaunchAgent 已 reload，Morning Brief、Obsidian 和 Bark 均成功。无参数 `digest` 继续保留为 rollback；v0.7.3 只做真实晨间长期使用验证。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## 当前产品合同
@@ -39,8 +39,8 @@ v0.6.1 — Product Reset + Language Boundary
 v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Morning Brief
 v0.7.1 — Morning Brief MVP（CLOSED）
-v0.7.2 — Production Cutover
-v0.7.3 — Morning Brief Long-term Usage Validation（planned）
+v0.7.2 — Production Cutover（CLOSED）
+v0.7.3 — Morning Brief Long-term Usage Validation（next）
 ```
 
 历史文档中的既有 legacy version token 保持原样，不回写历史。输入可以是多语言 RSS，最终 reader-facing 输出统一为简体中文：
@@ -317,7 +317,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python main.py --report-type overnight_brief
 
 输出文件为 `~/Projects/_project-data/automation-brief/reports/morning-brief-YYYY-MM-DD.md`。
 
-`python3 main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief` 或 `overnight_brief`。`scripts/run_daily_digest.sh` 也不受影响，仍服务每天 08:00 的普通 digest、Obsidian 同步和 Bark 推送链路。
+`python3 main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief` 或 `overnight_brief`。`scripts/run_daily_digest.sh` 无参数时同样保持普通 `digest` rollback 行为；显式传入 `overnight_brief` 时，才会让生成、Obsidian 同步和 Bark 推送统一读取 Morning Brief。仓库 plist example 已传入 `overnight_brief`，实际 production 是否切换由用户安装/reload LaunchAgent 决定。
 
 ## RSS 源健康检查
 
@@ -624,10 +624,17 @@ chmod +x scripts/run_daily_digest.sh
 scripts/run_daily_digest.sh
 ```
 
-生成结果会写入：
+无参数命令是 Daily Digest rollback 路径。要手动验证完整 Morning Brief production routing，可显式运行：
+
+```bash
+scripts/run_daily_digest.sh overnight_brief
+```
+
+两种入口的 canonical 生成结果分别写入：
 
 ```text
-~/Projects/_project-data/automation-brief/reports/daily-news-YYYY-MM-DD.md
+digest          → ~/Projects/_project-data/automation-brief/reports/daily-news-YYYY-MM-DD.md
+overnight_brief → ~/Projects/_project-data/automation-brief/reports/morning-brief-YYYY-MM-DD.md
 ```
 
 程序日志仍写入：
@@ -635,6 +642,18 @@ scripts/run_daily_digest.sh
 ```text
 ~/Projects/_project-data/automation-brief/runs/daily-news.log
 ```
+
+### 配置 Morning Brief Curator key
+
+v0.7.2 从项目根目录 `.env` 读取 `AUTOMATION_BRIEF_CURATOR_API_KEY`。已存在的进程环境变量优先，不会被 `.env` 覆盖；只有环境变量缺失时才读取项目 `.env`。`.env` 不存在或缺少该字段时，仍进入现有 `missing_api_key` whole-layer legacy fallback，不会让任务整体失败。
+
+不要把 Curator key 写入 repo、plist、日志、artifact 或命令参数。请在本地 `.env` 中填写该字段，并保持文件仅用户可读：
+
+```bash
+chmod 600 /Users/wp/Projects/自动化简报/.env
+```
+
+`.env` 已被 `.gitignore` 排除；[.env.example](/Users/wp/Projects/自动化简报/.env.example) 仅提供空占位，不包含真实 key。
 
 ### 配置 Bark 推送
 
@@ -664,6 +683,7 @@ Bark 推送依赖网络。如果 Mac 早上刚唤醒时网络或 SSL 连接短�
 
 ```bash
 .venv/bin/python scripts/send_bark_notification.py
+.venv/bin/python scripts/send_bark_notification.py --report-type overnight_brief
 ```
 
 ### 配置 Obsidian iCloud 同步
@@ -676,10 +696,11 @@ MOBILE_DIGEST_DIR="~/Library/Mobile Documents/iCloud~md~obsidian/Documents/MindP
 
 路径包含空格或中文时，建议用双引号包裹。真实路径只写在本地 `.env`，不要提交。
 
-同步脚本会在 `main.py` 成功生成日报后，把当天文件复制到该目录，文件名保持：
+同步脚本会在 `main.py` 成功生成报告后，根据传入的 report type 复制当天 canonical 文件：
 
 ```text
-daily-news-YYYY-MM-DD.md
+digest          → daily-news-YYYY-MM-DD.md
+overnight_brief → morning-brief-YYYY-MM-DD.md
 ```
 
 如果 `MOBILE_DIGEST_DIR` 为空，程序会跳过同步，不影响日报生成，也不影响 Bark 推送。同步失败会写到 stderr，方便在 launchd err log 中查看。
@@ -737,6 +758,7 @@ cp scripts/com.ping.automation-brief.daily.plist.example ~/Library/LaunchAgents/
   <key>ProgramArguments</key>
   <array>
     <string>/Users/wp/Projects/自动化简报/scripts/run_daily_digest.sh</string>
+    <string>overnight_brief</string>
   </array>
 
   <key>WorkingDirectory</key>
@@ -804,11 +826,11 @@ v0.3.5 已验证 `pmset` 自动唤醒配合 launchd 可以完成无人值守运�
 Mac 睡眠
 → 07:58 pmset 自动唤醒
 → 08:00 launchd 自动运行
-→ scripts/run_daily_digest.sh
-→ main.py 生成每日早间回顾 Markdown
-→ publish_mobile_digest.py 同步到 Obsidian iCloud
-→ send_bark_notification.py 发送 Bark 推送
-→ 点击 Bark 通知直达 iPhone Obsidian 当天日报
+→ scripts/run_daily_digest.sh overnight_brief
+→ main.py --report-type overnight_brief 生成 Morning Brief
+→ publish_mobile_digest.py --report-type overnight_brief 同步到 Obsidian iCloud
+→ send_bark_notification.py --report-type overnight_brief 发送 Bark 推送
+→ 点击 Bark 通知直达 iPhone Obsidian 当天 Morning Brief
 ```
 
 已验证在不合盖、睡眠状态下，Mac 可以自动唤醒并在 08:00 由 launchd 成功运行。该链路不需要 Codex、浏览器或终端保持打开。

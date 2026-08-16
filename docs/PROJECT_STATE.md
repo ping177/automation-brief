@@ -8,22 +8,22 @@
 
 ## Current version
 
-v0.7.2 — Production Cutover（CLOSED）
+v0.7.3 — Morning Brief Long-term Usage Validation（IN PROGRESS）
 
 ## Current status
 
-v0.7.2 已完成并 CLOSED：用户已通过真实 macOS production acceptance。实际 LaunchAgent 已使用 `run_daily_digest.sh overnight_brief`，shell 从项目 `.env` 获得 Curator credential，真实 DeepSeek provider 成功，Morning Brief 已生成并同步 Obsidian，Bark 已发送。`run.json` 的非敏感结果为 `status=succeeded`、`provider_id=deepseek`、`model=deepseek-v4-flash`、`validation_status=passed`、空 `failure_code`、`ai_event_count=20`。无参数仍默认 `digest`，保留为最小 rollback；下一版本为 v0.7.3 真实晨间长期使用验证。
+v0.7.2 已完成并 CLOSED：用户已通过真实 macOS production acceptance。实际 LaunchAgent 已使用 `run_daily_digest.sh overnight_brief`，shell 从项目 `.env` 获得 Curator credential，真实 DeepSeek provider 成功，Morning Brief 已生成并同步 Obsidian，Bark 已发送。`run.json` 的非敏感结果为 `status=succeeded`、`provider_id=deepseek`、`model=deepseek-v4-flash`、`validation_status=passed`、空 `failure_code`、`ai_event_count=20`。当前进入 v0.7.3 真实晨间长期使用验证；2026-08-16 删除持续失效的 36 氪 feed 是窄范围 broken-feed production hygiene 修复，不代表重新进入新闻质量调优。无参数仍默认 `digest`，保留为最小 rollback。
 
 ## Latest completed
 
-v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-20260815T143736.428601Z-f8958055f793`，canonical report 为 `morning-brief-2026-08-15.md`，Obsidian 与 Bark 均已确认成功。实现边界保持冻结：`config.json` 仍默认 `digest`，`main.py` / `overnight_brief_writer.py`、Prompt、`max_events=20`、schema、ranking/dedupe/scoring、market data 和 holdings anomaly 均未修改；Curator credential 仍为 process-env-first、项目根目录 `.env` second，缺失时保留 whole-layer legacy fallback。
+v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-20260815T143736.428601Z-f8958055f793`，canonical report 为 `morning-brief-2026-08-15.md`，Obsidian 与 Bark 均已确认成功。v0.7.3 于 2026-08-16 完成 broken-feed production hygiene：仅从 `feeds.json` 删除失效 36 氪 feed，并同步 live 文案与治理记录；未修改 `main.py` / `overnight_brief_writer.py`、Prompt、`max_events=20`、schema、ranking/dedupe/scoring、market data、holdings anomaly、fallback 或其它 feed。
 
 ## Deployment
 
 Status: local macOS production accepted
 Public URL: none
 Provider: DeepSeek `deepseek-v4-flash`; real production success accepted
-Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。顶层 v0.7 仍待 v0.7.3 长期使用验证后再整体关闭。
+Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。2026-08-16 的 36 氪删除是仓库级 production hygiene，未做真实 RSS/DeepSeek acceptance。顶层 v0.7 仍待 v0.7.3 长期使用验证后再整体关闭。
 
 ## Version Index
 
@@ -53,16 +53,16 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v0.7 — Morning Brief
 - v0.7.1 — Morning Brief MVP（CLOSED）
 - v0.7.2 — Production Cutover（CLOSED）
-- v0.7.3 — Morning Brief Long-term Usage Validation（next）
+- v0.7.3 — Morning Brief Long-term Usage Validation（IN PROGRESS）
 - v0.7.4 — Legacy Product Retirement & Capability Consolidation（planned after v0.7.3）
 
 ## Last verified
 
-2026-08-15
+2026-08-16
 
 ## Next Action
 
-v0.7.3 — 真实晨间长期使用验证：观察已切换的 Morning Brief 在连续真实晨间运行中的稳定性，以及报告、Obsidian 和 Bark 的持续可用性。保持现有 production routing 和 fallback，不重新打开 Prompt、AI Curator、新闻质量或架构实现；如需紧急恢复，移除实际 plist 的 `overnight_brief` 参数并 reload，回到无参数 `digest`。v0.7.4 仅作为 v0.7.3 稳定后的后续架构/退役里程碑，不在当前版本开始实现。
+v0.7.3 — 真实晨间长期使用验证：观察已切换的 Morning Brief 在连续真实晨间运行中的稳定性，以及报告、Obsidian 和 Bark 的持续可用性。2026-08-16 的 broken-feed production hygiene 已完成且不代表重新进入新闻质量调优；继续保持现有 production routing 和 fallback，不重新打开 Prompt、AI Curator、新闻质量或架构实现；如需紧急恢复，移除实际 plist 的 `overnight_brief` 参数并 reload，回到无参数 `digest`。v0.7.4 仅作为 v0.7.3 稳定后的后续架构/退役里程碑，不在当前版本开始实现。
 
 ## Blockers
 
@@ -99,7 +99,8 @@ v0.7.3 — 真实晨间长期使用验证：观察已切换的 Morning Brief 在
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
 - Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.
 - v0.6.1 产品与语言合同已完成：输入可为 `zh-CN` / `en` / `und`，最终 Curator 输出为 `zh-CN`；语言不进入 article identity，也不进入 legacy path。
-- v0.6.1 已为 `feeds.json` / `feeds.example.json` 增加可选 language metadata；旧配置缺失、空或非法 language 时归一化为 `und`，所有 16 个 active feed 的 name / url / mode / role / 顺序保持不变。
+- v0.6.1 已为 `feeds.json` / `feeds.example.json` 增加可选 language metadata；旧配置缺失、空或非法 language 时归一化为 `und`。当时 16 个 active feed 的 name / url / mode / role / 顺序保持不变；2026-08-16 v0.7.3 另移除持续 malformed 的 36 氪 feed，剩余 15 个 active feed 保持不变。
+- 2026-08-16 v0.7.3 broken-feed production hygiene 仅删除 `feeds.json` 中失效的 36 氪配置；不增加 replacement，不改变 AI Curator、Prompt、`max_events`、ranking、dedupe、fallback、其它 feed 或 `feeds.example.json`，也不代表重新进入新闻质量调优。
 - v0.6.2 Phase 3A 已完成配置与 preflight boundary；Phase 3B real-provider one-shot gate 已用 exactly 2-candidate fixture 成功完成，整体 shadow evaluation 尚未完成，也未进行 production 切换。
 - Phase 3B 成功样例的 Phase 4 evaluation item：检查 `why_important` 的 fact / interpretation boundary、unsupported causal inference、unsupported market implication 和 uncertainty handling；当前不修改 validator、关键词或 content scoring。
 - Phase 4 provider behavior remains unchanged and its limits are shared by the explicit manual `overnight_brief` path; Bark、Obsidian、launchd、pmset、daily digest 和 `market_brief` 生产行为不变，AI failure 不得影响 production. Phase 3B 的 `2 / 4096` fixture limits 不得直接复用为 live RSS / production limits。
@@ -118,4 +119,4 @@ v0.7.3 — 真实晨间长期使用验证：观察已切换的 Morning Brief 在
 
 ## Handoff Prompt
 
-v0.7.2 is CLOSED after the 2026-08-15 real macOS acceptance. Do not continue AI tuning or modify `main.py`, the Morning Brief writer, Prompt, `max_events=20`, schema, ranking, dedupe, scoring, feeds, pmset, or the user's installed LaunchAgent in an automated task. The accepted production path is `launchd → project .env → DeepSeek → AI Curator → Morning Brief → Obsidian → Bark`; no-argument `digest` remains the rollback path. The next scoped work is v0.7.3 real-morning long-term usage validation, not a new implementation. Blockers remain `暂无明确阻塞。`.
+v0.7.3 is in progress after the 2026-08-15 real macOS acceptance. The 2026-08-16 broken-feed production hygiene fix removed only the persistent 36 氪 feed; it is not a return to AI or news-quality tuning. Do not continue AI tuning or modify `main.py`, the Morning Brief writer, Prompt, `max_events=20`, schema, ranking, dedupe, scoring, pmset, or the user's installed LaunchAgent in an automated task. The accepted production path is `launchd → project .env → DeepSeek → AI Curator → Morning Brief → Obsidian → Bark`; no-argument `digest` remains the rollback path. The next scoped work is v0.7.3 real-morning long-term usage validation, not a new implementation. Blockers remain `暂无明确阻塞。`.

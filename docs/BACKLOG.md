@@ -61,7 +61,7 @@ v0.7.4 实施前后的边界：
 - Phase 2（本轮已完成）实现可选顶层 feed `language` metadata：正式语义为 `zh-CN`、`en`、`und`，缺失、空值或非法值归一化为 `und`；旧配置继续可加载。
 - v0.6.1 已正式完成；下一阶段是 v0.6.2 AI Curator Shadow Evaluation，仍只做 real-provider shadow evaluation，不替换生产输出。
 - candidate path 读取 `language` 并写入现有 `CandidateArticle.language`；`CuratorRequest.target_language` 固定为 `zh-CN`。语言不进入 `stable_article_id()`、canonical URL、dedup identity 或 legacy keyword gate。
-- 当前 16 个 active feed 全部保持启用，不删除、不改变 `mode` / `role`、不新增 `priority`，也不实现 `candidate_only` 配置。英文来源不因语言被删除。
+- v0.6.1 当时 16 个 active feed 全部保持启用，不删除、不改变 `mode` / `role`、不新增 `priority`，也不实现 `candidate_only` 配置；英文来源不因语言被删除。2026-08-16 v0.7.3 仅因持续 malformed 的 36 氪 feed 做 broken-feed production hygiene 删除，当前剩余 15 个 active feed 的 `mode` / `role` 未变，也未增加 replacement。
 - `keep`、`keep_but_lower_priority`、`candidate_only`、`needs_review` 仅作为未来 source policy 的设计建议，不是本版本 runtime config；当前没有真实 feed health / 重复率验证，因此不改变运行行为。
 - v0.6.1 不接真实 AI provider、不切换 daily digest 或 `market_brief` 生产输出、不正式生成 Morning Brief 输出，不删除 legacy runtime data，也不修改 launchd / pmset / Bark / Obsidian 路径。
 

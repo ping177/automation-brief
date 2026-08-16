@@ -80,14 +80,6 @@
     "language": "zh-CN"
   },
   {
-    "name": "36氪",
-    "url": "https://36kr.com/feed",
-    "category": "科技产业",
-    "mode": "keyword",
-    "role": "tech_industry",
-    "language": "zh-CN"
-  },
-  {
     "name": "OpenAI News",
     "url": "https://openai.com/news/rss.xml",
     "category": "AI产业",

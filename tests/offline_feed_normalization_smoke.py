@@ -24,13 +24,12 @@ def main() -> None:
 
     normalized_main = normalize_main_feeds(raw_feeds)
     normalized_check = normalize_check_feeds(raw_feeds)
-    assert len(normalized_main) == len(raw_feeds) == 16
+    assert len(normalized_main) == len(raw_feeds) == 15
     assert len(normalized_check) == len(raw_feeds)
     assert [core_fields(feed) for feed in normalized_main] == [
         core_fields(feed) for feed in normalized_check
     ]
     assert [feed["language"] for feed in normalized_main] == [
-        "zh-CN",
         "zh-CN",
         "zh-CN",
         "zh-CN",

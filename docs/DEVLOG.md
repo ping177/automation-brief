@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 从 v0.2 到 v0.3.3-beta 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-16 — v0.7.3 broken-feed production hygiene fix
+
+- 基于只读审计，从 `feeds.json` 删除唯一持续返回 `not well-formed (invalid token)` 的 36 氪 feed：`https://36kr.com/feed`。
+- 这是 v0.7.3 真实晨间长期使用期间的 production hygiene 修复；不寻找或增加 replacement，不重新进入新闻质量调优。
+- 未修改 AI Curator、Prompt、`max_events`、ranking、dedupe、fallback、其它 feed、`feeds.example.json` 或 synthetic 36 氪测试 fixture。
+- README 的 live feed 描述同步改为泛化表述；JSON/config validation、Python syntax compile、feed normalization、digest、overnight brief、market news 和 production routing 离线 smoke tests 均通过；未调用真实 RSS、DeepSeek 或生产发送链路。
+
 ## 2026-07-30
 
 ### Project State Push Gate 正在接入与待验收

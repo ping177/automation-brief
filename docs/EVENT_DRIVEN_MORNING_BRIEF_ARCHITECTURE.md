@@ -1,8 +1,8 @@
 # v1.0 — Event-driven Morning Brief Architecture
 
-> Status: Architecture Freeze COMPLETE；Core Data Contract Freeze COMPLETE（docs-only，2026-08-26）
+> Status: Architecture Freeze COMPLETE；Core Data Contract Freeze COMPLETE；Runtime / Failure Contract Freeze COMPLETE（docs-only，2026-08-26）
 >
-> 这是 v1.0 下一代 Morning Brief 的 canonical architecture contract。它冻结产品边界、职责边界和迁移时机，不创建业务代码。canonical object、identity、ownership、provenance 和最小局部结果 envelope 见 [`EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)；Runtime / Failure Contract 仍待下一 narrative stage 冻结。
+> 这是 v1.0 下一代 Morning Brief 的 canonical architecture contract。它冻结产品边界、职责边界和迁移时机，不创建业务代码。canonical object、identity、ownership、provenance 和最小局部结果 envelope 见 [`EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)；run、failure isolation、retry、batch、artifact、delivery 与 fallback 见 [`EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
 
 ## 1. 产品定位
 
@@ -72,7 +72,7 @@ orchestrator.py
 llm_gateway.py
 ```
 
-以上名称是架构职责建议，不是要求立即创建、重命名或拆分成对应 Python 文件。READ-ONLY Dependency Audit 与 Core Data Contract Freeze 已完成；正式实现前仍必须完成 Runtime / Failure Contract Freeze。
+以上名称是架构职责建议，不是要求立即创建、重命名或拆分成对应 Python 文件。READ-ONLY Dependency Audit、Core Data Contract Freeze 与 Runtime / Failure Contract Freeze 已完成；尚未进入 implementation。
 
 ## 4. Domain object lifecycle
 
@@ -110,7 +110,7 @@ EventCandidate 还没有经过当天相对选择，也不应被当作最终 read
 
 ### Event
 
-Event 是 v1.0 的核心业务对象。它由 EventCandidate 经过 selection、classification 和 writing 逐步补齐：
+Event 是 v1.0 的核心业务对象。它由 EventCandidate 经过 selection 后，由 classification 与 writing 两个独立 owner 补齐 optional derived sections：
 
 - selector 决定是否进入 Brief 以及相对顺序；
 - classifier 在 selection 之后提供语义 category；
@@ -187,7 +187,7 @@ Renderer 不重新 ranking、classification、semantic dedup 或新闻理解。
 
 ### `delivery.py`
 
-负责最终报告保存与推送，包括 Markdown、Bark 和未来 delivery channel。
+接收已由 artifact boundary durable persist 的 canonical report，负责 Obsidian/mobile copy、Bark 和未来 delivery channel。canonical report persistence 是 delivery 的前置条件，不是通知 channel 的 side effect。
 
 Delivery 不参与内容判断，不改变 Event 顺序或文字。
 
@@ -226,7 +226,7 @@ LLM 主要负责：event selection、event classification、event writing
 
 单个 Event 或 batch 的 LLM output failure 只能影响最小合理单元。一个非法 category、单个事件的写作失败或一个局部 batch 的 validation failure，不得自动使整个 AI news layer 作废，也不得触发 whole-layer legacy fallback 作为 v1.0 architecture 的默认设计。
 
-retry policy、batch failure、partial success、validation failure handling、artifact semantics 和 runtime error taxonomy 留到 Runtime / Failure Contract Freeze 正式设计。本轮只冻结故障隔离方向。
+Runtime / Failure Contract 已正式冻结 StageResult invariant、合法 empty、selector global boundary、classifier / writer item-local isolation、bounded retry/batch、artifact/delivery 与 cutover fallback。classifier failure 不阻止 writer；v1.0 不使用 whole-layer legacy semantic fallback。详细规范只以 [`EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md) 为准。
 
 v0.x 现有 rollback / fallback 是当前生产安全边界，v1.0 开发期间继续保留并可运行；它不构成 v1.0 的新业务架构。
 
@@ -268,8 +268,8 @@ Legacy retirement 不是 Architecture Freeze 的动作。只有新架构完成�
 1. Architecture Freeze：冻结本文件的产品、主链、模块职责和非目标。
 2. READ-ONLY Dependency Audit（COMPLETE）：已核对真实消费者、当前模块耦合和可迁移边界，迁移路线为 preserve mature infrastructure + rewrite news core。
 3. Core Data Contract Freeze（COMPLETE）：已正式确定 Article、EventCandidate、Event、Brief schema、enum、identity、provenance 和最小局部结果 envelope。
-4. Runtime / Failure Contract Freeze：正式确定 retry、partial success、validation、artifact、observability 和局部失败行为。
-5. Implementation：在旧 production 可运行的前提下实现 v1.0 pipeline。
+4. Runtime / Failure Contract Freeze（COMPLETE）：已正式确定 run、StageResult、合法 empty、retry、batch、validation、artifact、delivery、observability 和局部失败行为。
+5. Implementation：先完成 Implementation Planning / first implementation slice，再在旧 production 可运行的前提下逐步实现 v1.0 pipeline。
 6. Offline / Snapshot Validation：用 deterministic fixtures / snapshots 验证模块合同和跨阶段 provenance。
 7. Shadow / Parallel Validation：与 Generation 1 结果做真实 shadow / parallel comparison。
 8. Production Cutover：经过 acceptance 后切换 production routing，并保留可回滚路径。
@@ -291,4 +291,4 @@ Legacy retirement 不是 Architecture Freeze 的动作。只有新架构完成�
 
 ## 13. 文档治理
 
-本文件是 v1.0 Event-driven Morning Brief 的详细 architecture contract；[`EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md) 是唯一 canonical core data contract。长期决策在 `docs/DECISIONS.md` 记录，当前 dashboard 状态在 `docs/PROJECT_STATE.md` 记录，后续任务在 `docs/BACKLOG.md` 记录，过程和验证在 `docs/DEVLOG.md` 与 `docs/TESTING.md` 记录。其它文档不得创建一套相互竞争的 v1.0 架构、数据合同或版本治理。
+本文件是 v1.0 Event-driven Morning Brief 的详细 architecture contract；[`EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md) 是唯一 canonical core data contract；[`EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md) 是唯一 canonical runtime / failure contract。长期决策在 `docs/DECISIONS.md` 记录，当前 dashboard 状态在 `docs/PROJECT_STATE.md` 记录，后续任务在 `docs/BACKLOG.md` 记录，过程和验证在 `docs/DEVLOG.md` 与 `docs/TESTING.md` 记录。其它文档不得创建一套相互竞争的 v1.0 architecture、data、runtime 或版本治理。

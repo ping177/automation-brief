@@ -4,7 +4,7 @@ automation-brief 是一个低成本的个人早间简报（Morning Brief）：�
 
 v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 `digest` 与显式 `market_brief` 链路仍不调用真实 AI provider。
 
-当前已完成并关闭 `v0.7.2 — Production Cutover` 和 `v0.7.3 — Morning Brief Long-term Usage Validation`。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 production 仍运行 Generation 1 pipeline。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。无参数 `digest` 继续保留为 rollback。v1.0 — Event-driven Morning Brief 已完成 docs-only Architecture Freeze、READ-ONLY Dependency Audit 和 Core Data Contract Freeze；下一步是 `Runtime / Failure Contract Freeze`。尚未进入 implementation，在 v1.0 shadow / cutover 前不删除 legacy。
+当前已完成并关闭 `v0.7.2 — Production Cutover` 和 `v0.7.3 — Morning Brief Long-term Usage Validation`。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 production 仍运行 Generation 1 pipeline。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。无参数 `digest` 继续保留为 rollback。v1.0 — Event-driven Morning Brief 已完成 docs-only Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze；下一步是 `Implementation Planning / first implementation slice`。尚未进入 implementation，在 v1.0 shadow / cutover 前不删除 legacy。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## Generation 1 当前产品合同（legacy production）
@@ -44,7 +44,7 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data Contract Freeze COMPLETE；next stage Runtime / Failure Contract Freeze）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；next task Implementation Planning / first implementation slice）
 ```
 
 历史文档中的既有 legacy version token 保持原样，不回写历史。输入可以是多语言 RSS，最终 reader-facing 输出统一为简体中文：
@@ -59,11 +59,11 @@ v1.0 — Event-driven Morning Brief（Architecture + Core Data Contract Freeze C
 
 v0.6.1 Phase 1 固定上述合同，Phase 2 已实现 feed metadata normalization 和 candidate wiring；下一阶段是 v0.6.2 的 shadow-only AI Curator evaluation。
 
-## v1.0 — Event-driven Morning Brief（Architecture Freeze，仅治理文档）
+## v1.0 — Event-driven Morning Brief（core contracts frozen，仅治理文档）
 
 下一代产品继续叫 Morning Brief，核心架构原则是：**Article 是输入，Event 是核心业务对象，Brief 是输出。** v1.0 冻结 Sources → collection → normalization → Article-level dedup → event-level clustering → relative selection → post-selection classification → event writing → deterministic rendering → delivery 的主链；`orchestrator` 与 `llm_gateway` 只提供基础设施边界。
 
-v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 已完成 Architecture Freeze、READ-ONLY Dependency Audit 和 Core Data Contract Freeze，迁移路线为 preserve mature infrastructure + rewrite news core。当前仍未创建业务模块、未改 production routing、未删除 legacy。下一步唯一任务是 `Runtime / Failure Contract Freeze`；架构职责见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical object contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)。
+v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 已完成 Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze，迁移路线为 preserve mature infrastructure + rewrite news core。当前仍未创建业务模块、未改 production routing、未删除 legacy。下一步唯一任务是 `Implementation Planning / first implementation slice`；架构职责见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical object contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)，runtime / failure contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
 
 原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。旧产品 retirement 必须等 v1.0 完成 shadow / parallel validation 和 production cutover 后才开始。
 
@@ -76,6 +76,7 @@ v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留�
 - `docs/DECISIONS.md`：长期产品、架构和工作流决策。
 - `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`：v1.0 Event-driven Morning Brief canonical architecture contract。
 - `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`：v1.0 news core canonical data contract。
+- `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`：v1.0 canonical runtime / failure contract。
 - `docs/MISSED_CASES.md`：missed coverage、漏报案例和质量追踪。
 
 ## Project State Push Gate

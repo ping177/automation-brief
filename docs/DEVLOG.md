@@ -2,6 +2,15 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-26 — v1.0 Runtime / Failure Contract Freeze（docs-only）
+
+- 基于真实 Generation 1 runtime 完成 read-only inventory：production shell / env boundary、main orchestration、per-source RSS retry、provider transport / validation / retry、artifact identity / atomic persistence、canonical paths、Markdown / Obsidian / Bark delivery 与相关 offline smoke。
+- 新增唯一 canonical runtime / failure contract，冻结 run identity、StageResult invariant、合法 empty / partial / failed、逐 component isolation / continuation、minimal failure taxonomy、artifact 与 pre/post-cutover fallback。
+- selector 保持独立 global logical operation并只做安全 item salvage；classifier / writer 按 event_id 独立 validation，可在各自 stage 内 batch但禁止 cross-stage response coalescing。classifier failure 不阻止 writer，classification 不自动改成 `other`。
+- LLM physical request 最多两次 bounded attempts；transport/timeout/429/5xx 可 retry，parse/schema/item failure不进入repair。Brief generation与delivery outcome分离，post-cutover无automatic Generation 1 semantic fallback。
+- Core Data identity、Brief identity和UTC/inclusive window semantics原本完整；只最小修正了“written必须先classified”的真实矛盾，使classification与writing两个optional owners可独立成功。
+- 未修改Python、config、dependency、prompt、feed、shell、plist、production routing或runtime data；未调用RSS/DeepSeek/Bark/Obsidian，未删除legacy/tests。下一步唯一任务是`v1.0 Implementation Planning / first implementation slice`。
+
 ## 2026-08-26 — v1.0 Core Data Contract Freeze（docs-only）
 
 - 基于真实仓库完成 READ-ONLY contract inventory，读取现有 `CandidateArticle` / `CuratedEvent`、request/response validator、stable Article identity、artifact serialization、Morning writer evidence projection、whole-layer fallback 及对应 tests；迁移路线确认为 preserve mature infrastructure + rewrite news core。

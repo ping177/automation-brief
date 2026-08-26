@@ -25,11 +25,23 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 ## v1.0 Core Data Contract Freeze docs-only checklist
 
 - canonical contract 只存在于 `EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`；architecture/Decisions/Project State 只做摘要和链接，不复制竞争 schema。
-- Article → EventCandidate → selected/classified/written Event → Brief 的 producer-consumer chain 闭合，所有 provenance ID 均可 deterministic 回取 Article。
+- Article → EventCandidate → selected Event → classified and/or written Event → Brief 的 producer-consumer chain 闭合，所有 provenance ID 均可 deterministic 回取 Article。
 - deterministic-owned Article identity/source/URL/time 与 LLM-owned selection/category/writing 无重叠 write authority。
 - Event 使用一个 immutable derived lifecycle，不复制三套 Event schema；selector 不输出 score/importance tier，category 不影响 selection，writer 只输出三项简体中文文本。
-- StageResult 只冻结 success/partial/failed、retained outputs、item failure 与 opaque diagnostic ref；timeout、retry、batch、provider recovery、artifact layout 和 production fallback 不在本阶段冻结。
+- Core Data stage 只冻结 StageResult envelope；timeout、retry、batch、provider recovery、artifact 与 production fallback 后续由 Runtime / Failure Contract 冻结，不回写 domain schema。
 - Holdings、Market data/context、watch point 和 speculative full content 不进入 v1.0 core；没有修改 Python、config、dependency、prompt、shell、plist 或 production routing。
+
+## v1.0 Runtime / Failure Contract Freeze docs-only checklist
+
+- 唯一 canonical runtime contract 是 `EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`；其它治理文档只做摘要和链接。
+- StageResult 必须满足：succeeded = no failures；partial = retained output + failure；failed = no output + failure。合法 empty success 由无 failure 的 stage semantics 证明。
+- collector per-source、normalizer/dedup/cluster item-local、selector global-with-safe-salvage、classifier/writer event-local、delivery per-target 的 failure boundary 不互相扩散。
+- classifier failure 不阻止 writer；classification 保持 null，不自动改为 `other`。writer failure 不使用 raw English、placeholder、legacy writer 或 backfill。
+- selector/classifier/writer logical boundary 与 physical API call 分离；只允许 same-stage batching，禁止 cross-stage response coalescing；一个 batch failed 不删除其它 batch outputs。
+- LLM physical request 最多两次 bounded attempts；parse/schema/item failure 不进入 repair stage。具体 provider timeout秒数、batch size、prompt/model/embedding threshold仍是 implementation/config tuning。
+- Brief complete/partial只从generation stages推导；renderer failure不创建failed Brief；delivery failure不污染generation_status。
+- post-cutover没有automatic Generation 1 semantic fallback；pre-cutover Generation 1 production与legacy surface保持不变。
+- 检查 Architecture ↔ Data ↔ Runtime producer/consumer、ownership与fallback一致性；检查没有Python/config/prompt/feed/shell/plist/runtime-data改动或真实外部调用。
 
 ## Project State Push Gate 验证
 

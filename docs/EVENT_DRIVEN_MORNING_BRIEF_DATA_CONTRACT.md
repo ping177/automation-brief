@@ -2,7 +2,7 @@
 
 > Status: Core Data Contract Freeze（docs-only，2026-08-26）
 >
-> 本文件是 v1.0 news core 的 canonical data contract。它补充而不替代 [`EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)：architecture contract 冻结产品与职责边界，本文件冻结跨组件数据、identity、ownership、derivation 和最小局部失败边界。Runtime / Failure Contract、实现方式和 production routing 不在本文件中冻结。
+> 本文件是 v1.0 news core 的 canonical data contract。它补充而不替代 [`EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)：architecture contract 冻结产品与职责边界，本文件冻结跨组件数据、identity、ownership、derivation 和最小局部失败边界。Runtime / Failure semantics 由已冻结的 [`EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md) 定义；实现方式和 production routing 不在本文件中冻结。
 
 ## 1. Scope 与冻结原则
 
@@ -12,8 +12,7 @@ v1.0 core lifecycle 保持：
 Article
   → EventCandidate
   → selected Event
-  → classified Event
-  → written Event
+  → classified and/or written Event
   → Brief
 ```
 
@@ -177,7 +176,7 @@ other
 |---|---|---|---|
 | `event_selector` | EventCandidates + referenced Articles + report window | ordered Events；`event_id/article_ids` deterministic copy，`selection_order=1..N`，classification/writing 为 null | score、importance tier、category、中文文案、provenance mutation |
 | `event_classifier` | selected Events + referenced Articles | same Events with classification filled | selection/order change、writing、provenance mutation |
-| `event_writer` | classified Events + referenced Articles | same Events with writing filled | selection/order/category change、Evidence creation、provenance mutation |
+| `event_writer` | selected Events + referenced Articles；valid classification 可作为 optional read-only context | same Events with writing filled；classification 可为 null | selection/order/category change、Evidence creation、provenance mutation |
 
 Selector 可以合法返回零个 Event；数量 ceiling 不是 quota。本合同不保留 `must_know` / `important` / `background`，因为 relative selection 已表达进入 Brief 与顺序，现有证据不足以证明另一个 importance tier 是必要 authority。
 
@@ -185,8 +184,9 @@ Selector 可以合法返回零个 Event；数量 ceiling 不是 quota。本合�
 
 - 同一 selected result 中 `event_id` 必须 unique，`selection_order` 必须 unique 且从 1 contiguous；序列化顺序必须与 `selection_order` 相同；
 - `article_ids` 必须 non-empty、unique、可 resolve，且与 source EventCandidate 完全相同；
-- selected state 要求 classification/writing 均为 null；classified state 要求 classification non-null、writing null；written state 两者均 non-null；
+- selected state 要求 classification/writing 均为 null；classified-only state 要求 classification non-null、writing null；written-unclassified state 允许 classification null、writing non-null；classified-and-written state 两者均 non-null；`written` 的充分必要条件是 writing non-null；
 - classifier 或 writer 对一个 Event 失败时，失败 Event 的上一阶段 value 保留在该 stage result/artifact 中；其它成功 Events 继续进入下一 stage；
+- classifier failure 不阻止同一 selected Event 进入 writer；classification 保持 null，不得自动改成 `other`；
 - Brief 只引用已达到 written state 的 Events。未完成 Event 不伪造占位文案，不触发 whole-layer legacy fallback。
 
 ## 6. `Evidence` / provenance
@@ -240,7 +240,7 @@ Article.article_id
 
 `brief_id` basis 为 `report_date|window_start UTC|window_end UTC|target_language` 的 SHA-256 前 24 个 lowercase hex 加 `brief_`。同一 report slot 的 rerun 保持同一 Brief identity；run/attempt identity 属于 Runtime / Failure Contract。
 
-`complete` 包括 selector 合法选择零个 Event 且没有 item failure 的 empty Brief。`partial` 表示至少一个 upstream selected Event 因局部 classification/writing/validation failure 未进入 Brief，而其余 written Events 仍被保留。若 renderer 无法产生 valid Brief，则不存在 Brief object，由外层 failed `StageResult` 表达；不创建结构不完整的“failed Brief”。
+`complete` 包括 selector 合法选择零个 Event 且没有 generation-stage failure 的 empty Brief。`partial` 表示存在 retained upstream coverage / item failure，但仍可由可信 selector outcome 与 valid written Events 产生 Brief；classification failure 不必使 writer 失败，classification 为 null 的 valid written Event 可以进入 Brief。若 renderer 无法产生 valid Brief，则不存在 Brief object，由外层 failed `StageResult` 表达；不创建结构不完整的“failed Brief”。完整推导见 Runtime / Failure Contract。
 
 Renderer 必须从 referenced Event 和 Article deterministic 生成 section、Markdown、source display 和 layout；Brief 不包含或执行 ranking、classification、semantic dedup、writing、market composition、holdings、fallback 或 delivery 决策。
 
@@ -276,7 +276,7 @@ Invariants：
 - 后序 stage 只消费前序成功 outputs。失败 item 的最后一个 valid prior-stage value 由 orchestrator/artifact 保留，不由失败 stage 覆盖；
 - 一个 Event 的 failure 不得删除其它 outputs，不得把已有成功 Event 替换为 Generation 1 output，也不得触发 whole-layer fallback。
 
-本 envelope 不冻结 timeout、retry、batching、backoff、provider recovery、physical API call 数量、fallback routing、artifact retention 或完整 error taxonomy。
+本 envelope 的 timeout、retry、batching、backoff、provider recovery、fallback routing、artifact 与 error taxonomy 约束见 [`EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
 
 ## 9. Producer-consumer closure 与 authority matrix
 
@@ -285,8 +285,8 @@ normalizer → Article
   → article_dedup → Articles
   → event_cluster → EventCandidates
   → event_selector → selected Events
-  → event_classifier → classified Events
-  → event_writer → written Events
+  → event_classifier → classified Events where valid
+  → event_writer → written Events（classification optional）
   → brief_renderer → Brief
   → delivery
 ```
@@ -297,11 +297,11 @@ normalizer → Article
 | exact duplicate decision | article_dedup | event_cluster/orchestrator |
 | Event membership | event_cluster | selector/classifier/writer/renderer |
 | selected membership and relative order | event_selector | classifier/writer/renderer |
-| category | event_classifier | writer/renderer |
+| category | event_classifier | writer（optional read-only context）/renderer |
 | `title_zh` / `summary_zh` / `why_it_matters_zh` | event_writer | renderer/delivery |
 | Brief composition/status | deterministic brief_renderer | artifact/delivery |
 
-No field has overlapping write authority. Batching or one physical provider call may carry multiple logical stage payloads later, but validation and ownership remain separable by this matrix.
+No field has overlapping write authority. Same-stage batching does not change ownership；v1.0 Runtime / Failure Contract 禁止 cross-stage physical response coalescing，避免 classification / writing validation 与 retry ownership 重新耦合。
 
 ## 10. Explicit exclusions and next contract
 
@@ -311,11 +311,11 @@ No field has overlapping write authority. Batching or one physical provider call
 - 修改 `CandidateArticle`、`CuratedEvent`、prompt、provider 或 Generation 1 runtime；
 - 选择 local embedding model、安装 dependency 或冻结 embedding vector schema；
 - 引入 Holdings、Market data/context、watch point、importance tier、confidence、uncertainty、novelty 或 speculative full content；
-- 冻结 timeout、retry、batch size、physical API call 数量、backoff、provider-specific recovery、production fallback routing、artifact file layout 或完整 failure taxonomy；
+- 实现已冻结的 timeout、retry、batch、provider recovery、production fallback、artifact 或 failure taxonomy；
 - 改变 production、delivery、LaunchAgent、pmset 或 legacy retirement timing。
 
-下一项唯一任务是：
+Runtime / Failure Contract Freeze 已完成。下一项唯一任务是：
 
 ```text
-Runtime / Failure Contract Freeze
+v1.0 Implementation Planning / first implementation slice
 ```

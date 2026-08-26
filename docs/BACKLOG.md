@@ -14,7 +14,7 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data Contract Freeze COMPLETE；next stage Runtime / Failure Contract Freeze）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；next task Implementation Planning / first implementation slice）
 ```
 
 历史条目中的既有 `-alpha` / `-beta` token 是 legacy 事实，保留原样，不回写历史。
@@ -38,13 +38,20 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - Closeout 不是“Generation 1 完全达到长期产品目标”；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。
 - 这些 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 `v1.0 — Event-driven Morning Brief` architecture rebuild。
 - 当前 production 仍运行 Generation 1 pipeline；在 v1.0 shadow / parallel validation 和 production cutover 前不删除或退役旧 production / legacy surface。
-- READ-ONLY Dependency Audit 与 Core Data Contract Freeze 已完成；下一步唯一任务是 `v1.0 Runtime / Failure Contract Freeze`，不是 implementation，也不是重新实施 superseded 的 v0.7.4 路线。
+- READ-ONLY Dependency Audit、Core Data Contract Freeze 与 Runtime / Failure Contract Freeze 已完成；下一步唯一任务是 `v1.0 Implementation Planning / first implementation slice`。在独立审批前不实现，也不重新实施 superseded 的 v0.7.4 路线。
 
 ### v1.0 Core Data Contract Freeze — COMPLETE
 
 - READ-ONLY Dependency Audit 确认迁移路线为 preserve mature infrastructure + rewrite news core；当前没有删除 legacy tracked file，Generation 1 production 保持运行。
 - canonical contract 已冻结 Article、EventCandidate、single immutable-lifecycle Event、deterministic Evidence projection、Brief 和最小 component-local StageResult；不复用 legacy CuratedEvent 作为 rename-only schema。
-- 下一步只冻结 Runtime / Failure Contract，包括 retry、batch、validation/recovery、artifact 和 observability；尚未进入 implementation，不选择 embedding model，不安装 dependency。
+- Runtime / Failure Contract 已完成并与本合同交叉引用；尚未进入 implementation，不选择 embedding model，不安装 dependency。
+
+### v1.0 Runtime / Failure Contract Freeze — COMPLETE
+
+- canonical runtime contract 已冻结 run identity、StageResult invariant、合法 empty / partial / failed、逐 component failure isolation 与 continuation matrix。
+- selector 保持独立 global logical operation；classifier / writer 在各自 stage 内支持 batch 与 event_id item-local validation，classification failure 不阻止 writing，禁止 cross-stage provider response coalescing。
+- LLM physical request 最多两次 bounded attempts；delivery 与 Brief generation 分离；post-cutover 不存在 automatic Generation 1 semantic fallback。
+- 下一步只做 `v1.0 Implementation Planning / first implementation slice`，不在本 freeze 中实现 pipeline、retry、fallback、artifact 或 delivery behavior。
 - actual LaunchAgent / pmset / runtime 现场状态留作后续 follow-up，不是当前 blocker。
 
 ### v0.7.4 Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
@@ -66,7 +73,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 删除旧产品后，Morning 必须继续覆盖 v1.0 已批准的核心 Event pipeline 及必要的 delivery capability；不得把 whole-layer legacy fallback 重新设计为下一代业务架构。
 - v1.0 不预先规定 Python 文件重命名、package hierarchy、feature flag 或新的 orchestration；未来 `v1.1` 只有在 v1.0 正式 CLOSED 后出现独立产品增量时再考虑，v1.0 内容之外不提前冻结其它版本。
 
-v1.0 的 canonical architecture contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical core data contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)。
+v1.0 的 canonical architecture contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical core data contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)，canonical runtime / failure contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
 
 ### Canonical runtime data migration follow-up
 

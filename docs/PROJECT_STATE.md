@@ -8,7 +8,7 @@
 
 ## Current version
 
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x implementation roadmap FROZEN）
+v1.1 — Canonical Domain & Runtime Foundation（implementation COMPLETE / CLOSED；v1.x implementation roadmap FROZEN）
 
 ## Current status
 
@@ -16,9 +16,11 @@ v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不�
 
 当前 production 仍运行 Generation 1 pipeline；在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
 
-READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；尚未开始 v1.1 implementation。Generation 1 继续作为正式 baseline，直到 v1.9 production cutover。
+READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；v1.1 canonical domain foundation 已实现并 CLOSED。Generation 1 继续作为正式 baseline，直到 v1.9 production cutover；本次实现未接入 production routing。
 
 ## Latest completed
+
+2026-08-26 完成 `v1.1 — Canonical Domain & Runtime Foundation`：新增独立 `canonical_domain.py` 与离线 `tests/offline_canonical_domain_smoke.py`，实现冻结字段、stable identity、UTC/window validation、immutable Event lifecycle、`StageResult`/`ItemFailure` 和 deterministic serialization round-trip。未修改 Gen1 contract、生产路由、外部 API、依赖或 legacy 文件；下一步为 v1.2 Deterministic Ingest。
 
 v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-20260815T143736.428601Z-f8958055f793`，canonical report 为 `morning-brief-2026-08-15.md`，Obsidian 与 Bark 均已确认成功。2026-08-16 的 broken-feed production hygiene 仅从 `feeds.json` 删除失效 36 氪 feed。
 
@@ -28,14 +30,14 @@ v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-202608
 
 2026-08-26 完成 v1.0 Runtime / Failure Contract Freeze（docs-only）：冻结 run identity、StageResult invariant、合法 empty / partial / failed、逐组件 failure isolation、selector global salvage boundary、classifier / writer item-local validation、bounded retry/batch、artifact、renderer、delivery/idempotency 与 post-cutover no automatic legacy semantic fallback。未实现上述行为，未改变 Generation 1 production。
 
-2026-08-26 完成 `v1.x Implementation Version Roadmap` governance freeze（docs-only）：冻结 v1.0 governance baseline 以及 v1.1–v1.10 numeric implementation milestones。v1.1 尚未开始；不选择 embedding model、不改变三份 v1.0 canonical contracts、不改变 Generation 1 production 或 legacy retirement timing。
+2026-08-26 完成 `v1.x Implementation Version Roadmap` governance freeze（docs-only）：冻结 v1.0 governance baseline 以及 v1.1–v1.10 numeric implementation milestones。v1.1 已按冻结范围完成；不选择 embedding model、不改变三份 v1.0 canonical contracts、不改变 Generation 1 production 或 legacy retirement timing。
 
 ## Deployment
 
 Status: local macOS production accepted
 Public URL: none
 Provider: DeepSeek `deepseek-v4-flash`; real production success accepted
-Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。2026-08-16 的 36 氪删除是仓库级 production hygiene，未做真实 RSS/DeepSeek acceptance。v0.7.3 七天真实使用验证现已 CLOSED；production 仍运行 Generation 1，v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 production cutover；v1.10 才进行 legacy retirement。本次 docs-only roadmap freeze 未重新检查 actual LaunchAgent / pmset / runtime 现场状态，该 follow-up 不是当前 blocker。
+Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。2026-08-16 的 36 氪删除是仓库级 production hygiene，未做真实 RSS/DeepSeek acceptance。v0.7.3 七天真实使用验证现已 CLOSED；production 仍运行 Generation 1，v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 production cutover；v1.10 才进行 legacy retirement。v1.1 仅新增 side-by-side domain foundation 与离线验证，未改变实际部署或自动化链路；actual LaunchAgent / pmset / runtime 现场状态仍不是本任务 blocker。
 
 ## Version Index
 
@@ -68,7 +70,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 - v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 - v1.0 — Event-driven Morning Brief（governance baseline COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
-- v1.1 — Canonical Domain & Runtime Foundation（PLANNED）
+- v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 - v1.2 — Deterministic Ingest（PLANNED）
 - v1.3 — Event Clustering（PLANNED）
 - v1.4 — Event Selector（PLANNED）
@@ -85,7 +87,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-v1.1 — Canonical Domain & Runtime Foundation：实现 Article、EventCandidate、Event、classification / writing sections、Brief、StageResult、ItemFailure、stable identity、datetime/window validation、serialization/deserialization 与 offline unit tests；不改变 Generation 1 production，不重新启用 superseded 的 v0.7.4 路线。
+v1.2 — Deterministic Ingest：基于已完成的 v1.1 canonical foundation 设计并实现 collector/normalizer 输入边界；继续不改变 Generation 1 production，不重新启用 superseded 的 v0.7.4 路线。
 
 ## Blockers
 

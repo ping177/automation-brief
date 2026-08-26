@@ -2,6 +2,15 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-26 — v1.1 Canonical Domain & Runtime Foundation（implementation complete / closed）
+
+- 在不修改三份 frozen v1.0 contract 的前提下，新增独立 `canonical_domain.py`，集中实现 `Article`、`EventCandidate`、single immutable-lifecycle `Event`、`EventClassification`、`EventWriting`、`Brief`、`StageResult` 和 `ItemFailure`。
+- 实现 deterministic Article/EventCandidate/Brief identity、canonical HTTP(S) URL、source language normalization、timezone-aware UTC datetime、inclusive report window、严格 ID/enum/text validation，以及 UTF-8 JSON serialization envelope（`contract_version` 只出现一次）。
+- Event 采用 frozen dataclass + copy-on-write derived value，保留 selected、classified、written-unclassified 和 classified-written 四种合法状态；未创建 `Run` entity，`run_id` 继续属于未来 runtime metadata。
+- 新增 `tests/offline_canonical_domain_smoke.py`，覆盖实际 invariant：URL/linkless stable identity、duplicate membership、naive datetime reject、四种 Event lifecycle、全部 9 个 category、全部 12 个 failure code、StageResult 三态和 deterministic serialization/deserialization round-trip。
+- 实现只使用 Python 标准库，没有引入第三方依赖、embedding、collector/normalizer/business stage，也没有接 RSS、provider、Bark、Obsidian 或 production routing。Gen1 `CandidateArticle` / `CuratedEvent`、现有 writer/artifacts 和 legacy files 保持不变；本轮未发现 frozen contract contradiction。
+- targeted canonical smoke、Python AST/syntax validation 和既有离线 regression suite 均通过；下一步唯一任务为 `v1.2 — Deterministic Ingest`。
+
 ## 2026-08-26 — v1.x Implementation Version Roadmap Freeze（docs-only）
 
 - 正式冻结同一 v1.x 产品世代内的 numeric implementation milestones：`v1.0` governance baseline、`v1.1` Canonical Domain & Runtime Foundation、`v1.2` Deterministic Ingest、`v1.3` Event Clustering、`v1.4` Event Selector、`v1.5` Event Classifier + Writer、`v1.6` Renderer + Artifacts + Orchestrator Integration、`v1.7` Offline / Snapshot Validation、`v1.8` Shadow / Parallel Validation、`v1.9` Production Cutover、`v1.10` Legacy Retirement & v1.x Closeout。

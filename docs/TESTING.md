@@ -49,7 +49,20 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
 - v1.3 不选择具体 embedding model；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
-- roadmap freeze 不修改三份 v1.0 canonical contract semantics，不创建 v1.1 Python module，不运行业务 pipeline 或真实外部 API。
+- roadmap freeze 当时不修改三份 v1.0 canonical contract semantics、不创建 v1.1 Python module、不运行业务 pipeline 或真实外部 API；后续 v1.1 implementation verification 见下节。
+
+## v1.1 Canonical Domain & Runtime Foundation verification
+
+v1.1 的实现验证保持离线、side-by-side，不启动 collector、provider、delivery 或现有 production route：
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp .venv/bin/python -m py_compile canonical_domain.py tests/offline_canonical_domain_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_canonical_domain_smoke.py
+```
+
+`offline_canonical_domain_smoke.py` 覆盖 Article URL/linkless identity、canonical URL、timezone-aware UTC、naive datetime reject、EventCandidate membership identity/duplicate policy、Event 四种 lifecycle（包括 `written-unclassified`）、全部 9 个 category、Brief report-slot identity 与 inclusive window、StageResult succeeded/partial/failed invariants、全部 12 个 `ItemFailure` code、optional sections 和 deterministic serialization round-trip。v1.1 不新增 Run entity；`run_id` 仍属于 runtime metadata。实现不读取 `.env` 或 holdings，不调用 RSS/DeepSeek/Bark/Obsidian，不修改 Gen1 production behavior、production routing、legacy artifacts 或 frozen contracts。
+
+完成 canonical smoke 后，应继续运行既有 Gen1 regression / governance checks，确认 `CandidateArticle`、`CuratedEvent`、AI Curator、artifacts、Morning Brief routing 和 Project-State Push Gate 未受影响；这些测试仍使用临时 fixture，不读取真实 secrets 或 runtime holdings。
 
 ## Project State Push Gate 验证
 

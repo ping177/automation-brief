@@ -15,7 +15,7 @@ v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.1）
-v1.1 — Canonical Domain & Runtime Foundation（PLANNED）
+v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（PLANNED）
 v1.3 — Event Clustering（PLANNED）
 v1.4 — Event Selector（PLANNED）
@@ -64,13 +64,21 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 下一步进入 `v1.1 — Canonical Domain & Runtime Foundation`，不在本 freeze 中实现 pipeline、retry、fallback、artifact 或 delivery behavior。
 - actual LaunchAgent / pmset / runtime 现场状态留作后续 follow-up，不是当前 blocker。
 
+### v1.1 Canonical Domain & Runtime Foundation — COMPLETE / CLOSED
+
+- 新增独立 `canonical_domain.py`，实现冻结的 `Article`、`EventCandidate`、single immutable-lifecycle `Event`、classification / writing sections、`Brief`、`StageResult` 和 `ItemFailure`。
+- 完成 stable identity、canonical URL、language / datetime normalization、UTC inclusive window validation、严格 enum/ID/text validation，以及带单一 `contract_version` envelope 的 deterministic JSON round-trip。
+- `written-unclassified` 保持合法；未创建 `Run` entity，不接入 RSS/provider，不修改 Gen1、production routing、artifact/delivery、legacy 文件或三份 frozen v1.0 contract。
+- 新增独立离线 smoke，覆盖 identity、四种 Event 状态、StageResult 三态、全部 category/failure code、naive datetime reject、ordering 和 serialization invariants。
+- 下一步唯一任务为 `v1.2 — Deterministic Ingest`；v1.2 之前不创建 collector/normalizer 之外的后续业务 stage。
+
 ### v1.x Implementation Version Roadmap — FROZEN
 
 完整路线与治理规则以 [`docs/DECISIONS.md`](DECISIONS.md) 的 `v1.x Implementation Version Roadmap（FROZEN）` 为 canonical source；这里保留执行索引：
 
 ```text
 v1.0  governance baseline（COMPLETED / CLOSED）
-v1.1  Canonical Domain & Runtime Foundation
+v1.1  Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2  Deterministic Ingest
 v1.3  Event Clustering
 v1.4  Event Selector

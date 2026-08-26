@@ -132,6 +132,12 @@ def _normalize_datetime(value: datetime, field_name: str) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def normalize_canonical_datetime(value: datetime, field_name: str = "datetime") -> datetime:
+    """Normalize an aware datetime using the canonical UTC contract."""
+
+    return _normalize_datetime(value, field_name)
+
+
 def _parse_datetime(value: Any, field_name: str) -> datetime:
     if not isinstance(value, str) or not value:
         raise _contract_error(f"{field_name} must be an ISO-8601 datetime string")
@@ -1012,6 +1018,7 @@ __all__ = [
     "deserialize_item_failure",
     "deserialize_stage_result",
     "normalize_canonical_url",
+    "normalize_canonical_datetime",
     "normalize_language",
     "serialize_article",
     "serialize_brief",

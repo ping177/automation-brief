@@ -2,6 +2,15 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-26 — v1.2 Deterministic Ingest（implementation complete / closed）
+
+- 在不修改三份 frozen v1.0 canonical contract、`main.py`、feeds 配置或 Generation 1 production routing 的前提下，新增 side-by-side `collector.py`、`normalizer.py` 和 `article_dedup.py`。
+- collector 只读取 source name / URL / language，复用 Gen1 `parse_feed_with_retry` boundary，并输出最小 `RawFeedEntry` 与 source-scoped `SourceBatch`；成功但 0 entries 的 source batch 保留，以满足 `StageResult.partial` invariant。单源失败被隔离为 `timeout` / `transport_failed` / `source_fetch_failed`，全失败才是 failed。
+- normalizer 只通过 `Article.from_source` 生成 canonical Article，复用 canonical URL、identity、language 和 datetime validation；source timestamp malformed / naive fail closed，linked Article 可缺 published_at，linkless Article 必须有 aware timestamp。
+- article_dedup 只按 canonical URL 或 stable article_id 做 exact dedup，保留 first-valid、stable ingest order；不同 canonical URL 的同事件报道、相似标题和不同来源不会被合并。
+- 新增离线 `tests/offline_deterministic_ingest_smoke.py` 与非权威 `docs/V1.2_DETERMINISTIC_INGEST_SPEC.md`；覆盖 source isolation、empty batch、timestamp/summary/language normalization、linkless Article、exact dedup、deterministic integrated pipeline 和 canonical field boundary。
+- 未新增依赖、未调用真实 RSS/API、未实现 embedding / event clustering / LLM stages、未删除 legacy；v1.2 未发现 frozen contract gap。下一步唯一任务为 `v1.3 — Event Clustering`。
+
 ## 2026-08-26 — v1.1 Canonical Domain & Runtime Foundation（implementation complete / closed）
 
 - 在不修改三份 frozen v1.0 contract 的前提下，新增独立 `canonical_domain.py`，集中实现 `Article`、`EventCandidate`、single immutable-lifecycle `Event`、`EventClassification`、`EventWriting`、`Brief`、`StageResult` 和 `ItemFailure`。

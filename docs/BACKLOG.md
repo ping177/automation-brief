@@ -14,9 +14,9 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.1）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.3）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
-v1.2 — Deterministic Ingest（PLANNED）
+v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（PLANNED）
 v1.4 — Event Selector（PLANNED）
 v1.5 — Event Classifier + Writer（PLANNED）
@@ -70,7 +70,16 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 完成 stable identity、canonical URL、language / datetime normalization、UTC inclusive window validation、严格 enum/ID/text validation，以及带单一 `contract_version` envelope 的 deterministic JSON round-trip。
 - `written-unclassified` 保持合法；未创建 `Run` entity，不接入 RSS/provider，不修改 Gen1、production routing、artifact/delivery、legacy 文件或三份 frozen v1.0 contract。
 - 新增独立离线 smoke，覆盖 identity、四种 Event 状态、StageResult 三态、全部 category/failure code、naive datetime reject、ordering 和 serialization invariants。
-- 下一步唯一任务为 `v1.2 — Deterministic Ingest`；v1.2 之前不创建 collector/normalizer 之外的后续业务 stage。
+- v1.2 已在 side-by-side 范围内完成；下一步唯一任务为 `v1.3 — Event Clustering`，不提前创建 selector/classifier/writer/orchestrator 或其它后续业务 stage。
+
+### v1.2 Deterministic Ingest — COMPLETE / CLOSED
+
+- 新增 `collector.py`、`normalizer.py` 和 `article_dedup.py`，形成 `Sources → source-scoped raw batches → canonical Article[] → exact dedup` 的最小 deterministic foundation。
+- collector 复用 `feeds.json` 与 Gen1 bounded fetch/retry boundary，只保留 source name / URL / language；source-level failure isolation、合法 empty batch 和 `StageResult` 三态均由离线 fixture 覆盖。
+- normalizer 通过 `Article.from_source` 唯一生成 canonical Article；naive/malformed timestamp fail closed，linked missing timestamp 合法，linkless missing timestamp item-local reject；language 和 collected_at 遵守 canonical UTC vocabulary。
+- dedup 只使用 canonical URL / stable article_id，保留 first-valid 和 stable ingest order，不做 semantic title/event/source ranking。
+- 未修改 `main.py`、feeds 配置、Gen1 production routing、三份 frozen canonical contract 或 dependency；未调用真实 RSS/API，未实现 v1.3+ stages，未删除 legacy。
+- 下一步唯一任务为 `v1.3 — Event Clustering`。
 
 ### v1.x Implementation Version Roadmap — FROZEN
 
@@ -79,7 +88,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 ```text
 v1.0  governance baseline（COMPLETED / CLOSED）
 v1.1  Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
-v1.2  Deterministic Ingest
+v1.2  Deterministic Ingest（COMPLETED / CLOSED）
 v1.3  Event Clustering
 v1.4  Event Selector
 v1.5  Event Classifier + Writer

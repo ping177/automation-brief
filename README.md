@@ -4,7 +4,7 @@ automation-brief 是一个低成本的个人早间简报（Morning Brief）：�
 
 v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 `digest` 与显式 `market_brief` 链路仍不调用真实 AI provider。
 
-当前已完成并关闭 `v0.7.2 — Production Cutover`、`v0.7.3 — Morning Brief Long-term Usage Validation` 和 `v1.1 — Canonical Domain & Runtime Foundation`。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 production 仍运行 Generation 1 pipeline。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。无参数 `digest` 继续保留为 rollback。v1.0 — Event-driven Morning Brief 已完成 docs-only Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze；v1.1 已以独立 `canonical_domain.py` 和离线 smoke test 落地，未改变 production routing。下一步是 `v1.2 — Deterministic Ingest`；在 v1.8 shadow / v1.9 cutover 前不删除 legacy。
+当前已完成并关闭 `v0.7.2 — Production Cutover`、`v0.7.3 — Morning Brief Long-term Usage Validation`、`v1.1 — Canonical Domain & Runtime Foundation` 和 `v1.2 — Deterministic Ingest`。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 production 仍运行 Generation 1 pipeline。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。无参数 `digest` 继续保留为 rollback。v1.0 — Event-driven Morning Brief 已完成 docs-only Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze；v1.1 已以独立 `canonical_domain.py` 和离线 smoke test 落地，v1.2 已以 side-by-side deterministic ingest components 和离线 fixtures 落地，均未改变 production routing。下一步是 `v1.3 — Event Clustering`；在 v1.8 shadow / v1.9 cutover 前不删除 legacy。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## Generation 1 当前产品合同（legacy production）
@@ -46,7 +46,7 @@ v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 v1.0 — Event-driven Morning Brief（governance baseline COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
-v1.2 — Deterministic Ingest
+v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering
 v1.4 — Event Selector
 v1.5 — Event Classifier + Writer
@@ -73,7 +73,7 @@ v0.6.1 Phase 1 固定上述合同，Phase 2 已实现 feed metadata normalizatio
 
 下一代产品继续叫 Morning Brief，核心架构原则是：**Article 是输入，Event 是核心业务对象，Brief 是输出。** v1.0 冻结 Sources → collection → normalization → Article-level dedup → event-level clustering → relative selection → post-selection classification → event writing → deterministic rendering → delivery 的主链；`orchestrator` 与 `llm_gateway` 只提供基础设施边界。
 
-v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 已完成 Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze，v1.x implementation roadmap 已冻结，迁移路线为 preserve mature infrastructure + rewrite news core。v1.1 已完成独立 canonical domain foundation，但未改 production routing、未删除 legacy。下一步唯一任务是 `v1.2 — Deterministic Ingest`；v1.8 shadow 前后 Generation 1 继续作为正式 baseline，直到 v1.9 cutover，v1.10 才进行 legacy retirement。架构职责见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical object contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)，runtime / failure contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
+v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 已完成 Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze，v1.x implementation roadmap 已冻结，迁移路线为 preserve mature infrastructure + rewrite news core。v1.1 已完成独立 canonical domain foundation，v1.2 已完成 side-by-side deterministic ingest，但均未改 production routing、未删除 legacy。下一步唯一任务是 `v1.3 — Event Clustering`；v1.8 shadow 前后 Generation 1 继续作为正式 baseline，直到 v1.9 cutover，v1.10 才进行 legacy retirement。架构职责见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical object contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)，runtime / failure contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
 
 ## v1.1 — Canonical Domain & Runtime Foundation（implementation complete / closed）
 
@@ -81,9 +81,15 @@ v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留�
 
 `tests/offline_canonical_domain_smoke.py` 覆盖 URL/linkless identity、duplicate membership、四种 Event lifecycle、九类 category、简体中文 writing、Brief report-slot identity、inclusive UTC window、StageResult 三态、十二类 failure code、naive datetime rejection 和 deterministic round-trip。该 foundation 只与 Gen1 并存，不接 RSS/provider、不会改变 `main.py` production routing，也不实现 v1.2 及后续 stages。
 
+## v1.2 — Deterministic Ingest（implementation complete / closed）
+
+v1.2 新增 side-by-side `collector.py`、`normalizer.py` 和 `article_dedup.py`，形成 `Sources → source-scoped raw batches → canonical Article → exact Article dedup` 的 deterministic offline-capable foundation。collector 只读取 `feeds.json` 的 source name / URL / language，复用 Gen1 的 bounded fetch/retry boundary，不传播 legacy `mode` / `role` / `category` / keyword semantics；normalizer 唯一通过 `Article.from_source` 生成 canonical Article；dedup 只依据 canonical URL / stable article ID，保留 first-valid、stable ingest order。
+
+新增 `tests/offline_deterministic_ingest_smoke.py` 覆盖 source failure isolation、合法空 batch、timestamp fail-closed、UTC collected time、language / summary normalization、linkless Article、exact dedup 和完整离线组合链路。v1.2 不修改 `main.py`、feeds 配置、Gen1 production routing、三份 frozen canonical contract 或依赖，不调用真实 RSS/API，不实现 event clustering、embedding 或 LLM stages。实现边界说明见非权威的 [`docs/V1.2_DETERMINISTIC_INGEST_SPEC.md`](docs/V1.2_DETERMINISTIC_INGEST_SPEC.md)。
+
 ## v1.x Implementation Version Roadmap（FROZEN）
 
-正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1 已完成并关闭，下一步唯一正式开发任务是 v1.2。v1.3 不选择具体 embedding model，v1.6 仍不做 production cutover，v1.8 不发送 reader-facing v1.x output，v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1 与 v1.2 已完成并关闭，下一步唯一正式开发任务是 v1.3。v1.3 不选择具体 embedding model，v1.6 仍不做 production cutover，v1.8 不发送 reader-facing v1.x output，v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。旧产品 retirement 必须等 v1.8 完成 shadow / parallel validation、v1.9 完成 production cutover 后，进入 v1.10 才开始。
 

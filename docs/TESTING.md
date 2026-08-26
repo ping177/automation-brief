@@ -45,7 +45,7 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 ## v1.x Implementation Version Roadmap Freeze docs-only checklist
 
-- `v1.0` governance baseline 为 COMPLETED / CLOSED；下一步唯一正式开发任务为 `v1.1 — Canonical Domain & Runtime Foundation`。
+- `v1.0` governance baseline 与 `v1.1 — Canonical Domain & Runtime Foundation` 为 COMPLETED / CLOSED；v1.2 implementation verification 已完成，下一步唯一正式开发任务为 `v1.3 — Event Clustering`。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
 - v1.3 不选择具体 embedding model；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
@@ -63,6 +63,31 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_canonical_domain_smoke.
 `offline_canonical_domain_smoke.py` 覆盖 Article URL/linkless identity、canonical URL、timezone-aware UTC、naive datetime reject、EventCandidate membership identity/duplicate policy、Event 四种 lifecycle（包括 `written-unclassified`）、全部 9 个 category、Brief report-slot identity 与 inclusive window、StageResult succeeded/partial/failed invariants、全部 12 个 `ItemFailure` code、optional sections 和 deterministic serialization round-trip。v1.1 不新增 Run entity；`run_id` 仍属于 runtime metadata。实现不读取 `.env` 或 holdings，不调用 RSS/DeepSeek/Bark/Obsidian，不修改 Gen1 production behavior、production routing、legacy artifacts 或 frozen contracts。
 
 完成 canonical smoke 后，应继续运行既有 Gen1 regression / governance checks，确认 `CandidateArticle`、`CuratedEvent`、AI Curator、artifacts、Morning Brief routing 和 Project-State Push Gate 未受影响；这些测试仍使用临时 fixture，不读取真实 secrets 或 runtime holdings。
+
+## v1.2 Deterministic Ingest verification
+
+v1.2 保持 side-by-side、offline-only，不接管 `main.py` production routing，不调用真实 RSS/API，不创建正式 orchestrator。source-scoped batch 是 collector 的唯一 raw boundary；成功但 0 entries 的 source 仍保留为空 batch，以便 mixed source success/failure 表达合法 `StageResult.partial`。
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-pyc .venv/bin/python -m py_compile canonical_domain.py collector.py normalizer.py article_dedup.py tests/offline_deterministic_ingest_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_deterministic_ingest_smoke.py
+```
+
+离线 smoke 覆盖：active `feeds.json` 的 name / URL / language-only projection；source success/failure isolation、malformed feed、timeout、all-success empty batch、aware UTC `collected_at`；canonical URL/tracking normalization、linked/linkless Article、naive/malformed timestamp fail-closed、language/summary/text cleanup；以及只按 canonical URL / stable article ID 的 exact first-valid dedup、stable ingest order、相似标题/不同 URL 保留和完整 collector → normalizer → dedup 组合。
+
+v1.2 implementation note `docs/V1.2_DETERMINISTIC_INGEST_SPEC.md` 不是第四份 canonical contract；Article、StageResult、identity、URL、datetime 和 runtime semantics 仍以三份 frozen v1.0 contract 与 `canonical_domain.py` 为准。collector production fetch path 只委托既有 `main.parse_feed_with_retry`，因此 bounded retry / timeout infrastructure 未复制、未改变；所有 acceptance fetcher 均为 fake/local fixture。
+
+## v1.2 regression checklist
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_canonical_domain_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_feed_normalization_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_digest_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_ai_curator_candidate_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest tests.test_project_state_push_gate
+```
+
+上述 regression 继续验证 Gen1 feed normalization、CandidateArticle、现有 exact dedup、digest routing 与 Project-State Push Gate；不读取 `.env`、真实 holdings 或 secrets。
 
 ## Project State Push Gate 验证
 

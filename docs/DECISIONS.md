@@ -248,10 +248,19 @@
 - serialization/deserialization
 - offline unit tests
 
-### v1.2 — Deterministic Ingest
+### v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 
 - collector、normalizer、article_dedup
 - 目标：`Sources → canonical Article`
+
+### v1.2 implementation closeout
+
+- 决策：v1.2 以 side-by-side `collector.py`、`normalizer.py`、`article_dedup.py` 落地；collector 输出 source-scoped raw batches，normalizer 通过唯一的 canonical `Article.from_source` 生成 Article，dedup 只做 canonical URL / stable article ID exact dedup。
+- 决策：成功但 0 entries 的 source 仍保留为空 batch；因此 A 成功空 batch、B technical failure 可以表达为 `StageResult.partial`，同时展开给 normalizer 的 raw entries 仍为空。
+- 决策：timestamp 只接受可解析且 timezone-aware 的 source value，并统一 UTC；naive 或 malformed value item-local fail closed。linked Article 可缺 `published_at`，linkless Article 继续服从 canonical contract 的 timestamp 要求。
+- 影响：只读取 `feeds.json` 的 source name / URL / language，忽略 legacy `mode` / `role` / `category` / keyword metadata；复用 Gen1 `parse_feed_with_retry` boundary，不修改 `main.py` 行为或 production routing。没有 semantic dedup、event clustering、embedding、LLM、orchestrator 或 dependency change。
+- 权威性：`docs/V1.2_DETERMINISTIC_INGEST_SPEC.md` 只是本 milestone 的 implementation note，不是第四份 canonical contract；Article、StageResult、identity、URL、datetime 与 runtime semantics 仍以三份 frozen v1.0 contract 和 `canonical_domain.py` 为准。
+- 验证：`tests/offline_deterministic_ingest_smoke.py` 只使用 fake/local fixtures；v1.1 canonical、Gen1 feed/CandidateArticle/digest 与 Project-State gate regressions 均保持通过。下一步唯一任务为 `v1.3 — Event Clustering`。
 
 ### v1.3 — Event Clustering
 
@@ -325,5 +334,5 @@ Market 不属于 v1.x core；Holdings 不进入 v1.x。v1.8 之前 Generation 1 
 1. 正式版本 token 只使用纯数字：`v1.0`、`v1.1`、`v1.2` … `v1.10`；不使用 alpha、beta、Phase A/B 或其它阶段型 version token。
 2. v1.0 已冻结的 Architecture、Core Data Contract、Runtime / Failure Contract 默认不在 implementation 中重新打开。
 3. 如果真实实现发现 frozen contract 存在不可实现矛盾，不得在业务代码中静默改变；必须先报告证据，做最小、显式、可审计的 contract amendment，不扩大架构范围。
-4. v1.1 是下一步唯一正式开发任务；不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
+4. v1.2 已完成；v1.3 是下一步唯一正式开发任务。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
 5. 本路线不提前选择 embedding model、模型迁移、prompt、token budget 或其它 implementation tuning。

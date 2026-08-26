@@ -8,19 +8,21 @@
 
 ## Current version
 
-v1.1 — Canonical Domain & Runtime Foundation（implementation COMPLETE / CLOSED；v1.x implementation roadmap FROZEN）
+v1.2 — Deterministic Ingest（implementation COMPLETE / CLOSED；v1.x implementation roadmap FROZEN）
 
 ## Current status
 
 v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不是 Generation 1 完全达到长期产品目标；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。该 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 v1.0 Event-driven architecture rebuild。
 
-当前 production 仍运行 Generation 1 pipeline；在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
+当前 production 仍运行 Generation 1 pipeline；v1.2 仅以 side-by-side 组件和离线 fixtures 落地，在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
 
-READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；v1.1 canonical domain foundation 已实现并 CLOSED。Generation 1 继续作为正式 baseline，直到 v1.9 production cutover；本次实现未接入 production routing。
+READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；v1.1 canonical domain foundation 与 v1.2 deterministic ingest 已实现并 CLOSED。Generation 1 继续作为正式 baseline，直到 v1.9 production cutover；v1.2 未接入 production routing。
 
 ## Latest completed
 
-2026-08-26 完成 `v1.1 — Canonical Domain & Runtime Foundation`：新增独立 `canonical_domain.py` 与离线 `tests/offline_canonical_domain_smoke.py`，实现冻结字段、stable identity、UTC/window validation、immutable Event lifecycle、`StageResult`/`ItemFailure` 和 deterministic serialization round-trip。未修改 Gen1 contract、生产路由、外部 API、依赖或 legacy 文件；下一步为 v1.2 Deterministic Ingest。
+2026-08-26 完成 `v1.2 — Deterministic Ingest`：新增 side-by-side `collector.py`、`normalizer.py`、`article_dedup.py`、离线 smoke 与非权威 implementation note，完成 source-scoped batch / StageResult isolation、canonical Article normalization、fail-closed timestamp、UTC collected time、language normalization 和 exact first-valid dedup。未修改 `main.py`、feeds 配置、Gen1 contract、生产路由、外部 API、依赖或 legacy 文件；下一步为 v1.3 Event Clustering。
+
+2026-08-26 完成 `v1.1 — Canonical Domain & Runtime Foundation`：新增独立 `canonical_domain.py` 与离线 `tests/offline_canonical_domain_smoke.py`，实现冻结字段、stable identity、UTC/window validation、immutable Event lifecycle、`StageResult`/`ItemFailure` 和 deterministic serialization round-trip。未修改 Gen1 contract、生产路由、外部 API、依赖或 legacy 文件。
 
 v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-20260815T143736.428601Z-f8958055f793`，canonical report 为 `morning-brief-2026-08-15.md`，Obsidian 与 Bark 均已确认成功。2026-08-16 的 broken-feed production hygiene 仅从 `feeds.json` 删除失效 36 氪 feed。
 
@@ -71,7 +73,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 - v1.0 — Event-driven Morning Brief（governance baseline COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
 - v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
-- v1.2 — Deterministic Ingest（PLANNED）
+- v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 - v1.3 — Event Clustering（PLANNED）
 - v1.4 — Event Selector（PLANNED）
 - v1.5 — Event Classifier + Writer（PLANNED）
@@ -87,7 +89,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-v1.2 — Deterministic Ingest：基于已完成的 v1.1 canonical foundation 设计并实现 collector/normalizer 输入边界；继续不改变 Generation 1 production，不重新启用 superseded 的 v0.7.4 路线。
+v1.3 — Event Clustering：在 v1.2 deterministic Article ingest 基础上设计下一阶段 event-level clustering；继续不改变 Generation 1 production，不重新启用 superseded 的 v0.7.4 路线。
 
 ## Blockers
 
@@ -122,7 +124,7 @@ v1.2 — Deterministic Ingest：基于已完成的 v1.1 canonical foundation 设
 - The v1.0 canonical architecture is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`; it does not prescribe immediate Python filenames, package hierarchy, feature flags, or business implementation. `Article` is input, `Event` is the core object, and `Brief` is output; Article dedup and event clustering remain separate.
 - The v1.0 canonical core data contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`; it freezes Article/EventCandidate/Event/Brief identity and ownership, deterministic Evidence projection, immutable Event stage derivation, and the minimal component-local result envelope without implementing runtime behavior.
 - The v1.0 canonical runtime / failure contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`; it freezes run identity, StageResult semantics, per-component isolation, LLM batch/retry boundaries, Brief status, artifact/delivery behavior and no automatic post-cutover legacy semantic fallback. The contract is docs-only and not implemented.
-- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 is the next and only formal development task. v1.3 does not choose an embedding model, v1.6 does not cut over production, v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
+- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.2 is complete and v1.3 is the next and only formal development task. v1.3 does not choose a specific embedding model, v1.6 does not cut over production, v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
 - v0.7.3 closeout is a product-review decision to stop patching the Generation 1 core news architecture, not a claim that Generation 1 fully met the long-term product target. The evidence is retained as historical input to v1.0 and is not being re-designed in this closeout.
 - `tests/offline_overnight_brief_smoke.py` covers cross-section dedupe, 0–3 watch variables, conditional holdings, missing market data, no holdings, feed failures and explicit dispatch; all offline smoke tests passed on 2026-08-13.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
@@ -148,4 +150,4 @@ v1.2 — Deterministic Ingest：基于已完成的 v1.1 canonical foundation 设
 
 ## Handoff Prompt
 
-v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains `launchd → project .env → DeepSeek → AI Curator → Generation 1 Morning Brief → Obsidian → Bark`; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete and docs-only; the v1.x implementation roadmap is frozen. The next and only scoped work is `v1.1 — Canonical Domain & Runtime Foundation`; implementation has not started. Generation 1 remains the formal baseline through v1.9 production cutover, and legacy retirement starts only at v1.10 after consumer audit. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0. Blockers remain `暂无明确阻塞。`.
+v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains `launchd → project .env → DeepSeek → AI Curator → Generation 1 Morning Brief → Obsidian → Bark`; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete; v1.1 and v1.2 side-by-side implementation milestones are COMPLETE / CLOSED, and the v1.x implementation roadmap remains frozen. The next and only scoped work is `v1.3 — Event Clustering`; it must preserve canonical Article identity and keep Generation 1 production unchanged. Generation 1 remains the formal baseline through v1.9 production cutover, and legacy retirement starts only at v1.10 after consumer audit. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0. Blockers remain `暂无明确阻塞。`.

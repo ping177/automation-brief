@@ -1,0 +1,534 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+import sys
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from canonical_domain import Article, FailureCode, StageName, StageStatus  # noqa: E402
+from collector import (  # noqa: E402
+    RawFeedEntry,
+    SourceBatch,
+    SourceConfig,
+    collect_sources,
+    flatten_source_batches,
+    load_sources,
+    normalize_sources,
+)
+from normalizer import normalize_source_batches  # noqa: E402
+from article_dedup import deduplicate_articles  # noqa: E402
+
+
+COLLECTED_AT = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
+
+
+@dataclass
+class FakeFeed:
+    entries: list[dict[str, str]]
+
+
+def source(name: str) -> SourceConfig:
+    return SourceConfig(name=name, url=f"https://{name.lower()}.example/feed.xml", language="en")
+
+
+def test_source_config_drops_legacy_metadata() -> None:
+    sources = normalize_sources(
+        [
+            {
+                "name": "Fixture Feed",
+                "url": "https://example.com/feed.xml",
+                "language": "zh-cn",
+                "category": "legacy-category",
+                "mode": "keyword",
+                "role": "market",
+            }
+        ]
+    )
+    assert sources == (SourceConfig("Fixture Feed", "https://example.com/feed.xml", "zh-CN"),)
+    assert not hasattr(sources[0], "category")
+    assert not hasattr(sources[0], "mode")
+    assert not hasattr(sources[0], "role")
+
+
+def test_load_sources_reuses_active_feed_config_projection() -> None:
+    sources = load_sources(PROJECT_ROOT / "feeds.json")
+
+    assert sources
+    assert all(isinstance(config, SourceConfig) for config in sources)
+    assert all(config.language in {"zh-CN", "en", "und"} for config in sources)
+    assert all(not hasattr(config, "mode") for config in sources)
+    assert all(not hasattr(config, "role") for config in sources)
+
+
+def test_collector_keeps_successful_empty_batch_and_isolates_failure() -> None:
+    first = source("First")
+    second = source("Second")
+
+    def fetcher(config: SourceConfig) -> FakeFeed:
+        if config == second:
+            raise TimeoutError("fixture timeout")
+        return FakeFeed(entries=[])
+
+    result = collect_sources((first, second), fetcher=fetcher, clock=lambda: COLLECTED_AT)
+
+    assert result.stage == StageName.COLLECTOR
+    assert result.status == StageStatus.PARTIAL
+    assert len(result.outputs) == 1
+    assert isinstance(result.outputs[0], SourceBatch)
+    assert result.outputs[0].source == first
+    assert result.outputs[0].entries == ()
+    assert result.outputs[0].collected_at == COLLECTED_AT
+    assert result.failures[0].code == FailureCode.TIMEOUT
+    assert flatten_source_batches(result.outputs) == ()
+
+
+def test_all_successful_empty_sources_are_successful() -> None:
+    result = collect_sources(
+        (source("First"), source("Second")),
+        fetcher=lambda _: FakeFeed(entries=[]),
+        clock=lambda: COLLECTED_AT,
+    )
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.failures == ()
+    assert len(result.outputs) == 2
+    assert flatten_source_batches(result.outputs) == ()
+
+
+def test_all_source_failures_are_failed() -> None:
+    def fetcher(_: SourceConfig) -> FakeFeed:
+        raise RuntimeError("fixture failure")
+
+    result = collect_sources(
+        (source("First"), source("Second")),
+        fetcher=fetcher,
+        clock=lambda: COLLECTED_AT,
+    )
+
+    assert result.status == StageStatus.FAILED
+    assert result.outputs == ()
+    assert len(result.failures) == 2
+    assert {failure.code for failure in result.failures} == {FailureCode.SOURCE_FETCH_FAILED}
+
+
+def test_malformed_source_feed_isolated_from_successful_source() -> None:
+    first = source("Valid source")
+    second = source("Malformed source")
+
+    def fetcher(config: SourceConfig) -> FakeFeed | dict[str, str]:
+        if config == second:
+            return {"entries": "not-an-entry-list"}
+        return FakeFeed(entries=[])
+
+    result = collect_sources((first, second), fetcher=fetcher, clock=lambda: COLLECTED_AT)
+
+    assert result.status == StageStatus.PARTIAL
+    assert len(result.outputs) == 1
+    assert result.outputs[0].source == first
+    assert result.failures[0].code == FailureCode.SOURCE_FETCH_FAILED
+
+
+def test_successful_entries_are_extracted_without_raw_payload() -> None:
+    configured = source("Fixture")
+    result = collect_sources(
+        (configured,),
+        fetcher=lambda _: FakeFeed(
+            entries=[
+                {
+                    "id": "fixture-1",
+                    "title": "  A title  ",
+                    "link": "https://example.com/story?utm_source=fixture",
+                    "summary": "A summary.",
+                    "description": "A description.",
+                    "published": "Wed, 26 Aug 2026 08:00:00 +0000",
+                }
+            ]
+        ),
+        clock=lambda: COLLECTED_AT,
+    )
+
+    entry = flatten_source_batches(result.outputs)[0]
+    assert entry.source == configured
+    assert entry.ordinal == 1
+    assert entry.entry_id == "fixture-1"
+    assert entry.title == "  A title  "
+    assert entry.link == "https://example.com/story?utm_source=fixture"
+    assert entry.published == "Wed, 26 Aug 2026 08:00:00 +0000"
+    assert not hasattr(entry, "raw_payload")
+
+
+def source_batch(source_config: SourceConfig, entries: list[dict[str, str | None]]) -> SourceBatch:
+    raw_entries = tuple(
+        entry_for(source_config, ordinal, values)
+        for ordinal, values in enumerate(entries, start=1)
+    )
+    return SourceBatch(source=source_config, collected_at=COLLECTED_AT, entries=raw_entries)
+
+
+def entry_for(
+    source_config: SourceConfig,
+    ordinal: int,
+    values: dict[str, str | None],
+) -> RawFeedEntry:
+    return RawFeedEntry(
+        source=source_config,
+        ordinal=ordinal,
+        entry_id=values.get("id"),
+        title=values.get("title"),
+        link=values.get("link"),
+        summary=values.get("summary"),
+        description=values.get("description"),
+        published=values.get("published"),
+        updated=values.get("updated"),
+    )
+
+
+def test_normalizer_emits_only_canonical_articles() -> None:
+    configured = source("Normalizer")
+    result = normalize_source_batches(
+        (
+            source_batch(
+                configured,
+                [
+                    {
+                        "title": "  A <b>title</b>  ",
+                        "link": "https://Example.com/story/?utm_source=fixture#fragment",
+                        "summary": "<p>A&nbsp;summary.</p>",
+                        "description": "ignored fallback",
+                        "published": "2026-08-26T16:00:00+08:00",
+                    }
+                ],
+            ),
+        )
+    )
+
+    assert result.stage == StageName.NORMALIZER
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.failures == ()
+    assert len(result.outputs) == 1
+    article = result.outputs[0]
+    assert isinstance(article, Article)
+    assert article.source == configured.name
+    assert article.url == "https://Example.com/story/?utm_source=fixture#fragment"
+    assert article.canonical_url == "https://example.com/story"
+    assert article.published_at == datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
+    assert article.collected_at == COLLECTED_AT
+    assert article.title == "A title"
+    assert article.summary == "A summary."
+    assert article.language == "en"
+    assert set(article.__dataclass_fields__) == {
+        "article_id",
+        "source",
+        "url",
+        "canonical_url",
+        "published_at",
+        "collected_at",
+        "language",
+        "title",
+        "summary",
+    }
+
+
+def test_normalizer_allows_missing_published_when_linked() -> None:
+    result = normalize_source_batches(
+        (
+            source_batch(
+                source("Linked"),
+                [{"title": "Linked story", "link": "https://example.com/linked"}],
+            ),
+        )
+    )
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.outputs[0].published_at is None
+
+
+def test_normalizer_requires_timestamp_for_linkless_entry() -> None:
+    result = normalize_source_batches(
+        (
+            source_batch(
+                source("Linkless"),
+                [{"title": "Linkless story", "link": None}],
+            ),
+        )
+    )
+
+    assert result.status == StageStatus.FAILED
+    assert result.outputs == ()
+    assert result.failures[0].code == FailureCode.ITEM_VALIDATION_FAILED
+
+
+def test_normalizer_rejects_naive_and_malformed_timestamps_without_guessing() -> None:
+    configured = source("Timestamp")
+    result = normalize_source_batches(
+        (
+            source_batch(
+                configured,
+                [
+                    {
+                        "title": "Naive",
+                        "link": "https://example.com/naive",
+                        "published": "Wed, 26 Aug 2026 08:00:00",
+                        "updated": "2026-08-26T08:00:00+00:00",
+                    },
+                    {
+                        "title": "Malformed",
+                        "link": "https://example.com/malformed",
+                        "published": "not-a-timestamp",
+                        "updated": "2026-08-26T08:00:00+00:00",
+                    },
+                    {
+                        "title": "Valid",
+                        "link": "https://example.com/valid",
+                        "published": "Wed, 26 Aug 2026 08:00:00 +0000",
+                    },
+                ],
+            ),
+        )
+    )
+
+    assert result.status == StageStatus.PARTIAL
+    assert len(result.outputs) == 1
+    assert result.outputs[0].title == "Valid"
+    assert len(result.failures) == 2
+    assert all(failure.code == FailureCode.ITEM_VALIDATION_FAILED for failure in result.failures)
+
+
+def test_normalizer_uses_description_only_as_summary_fallback() -> None:
+    result = normalize_source_batches(
+        (
+            source_batch(
+                source("Fallback"),
+                [
+                    {
+                        "title": "Fallback story",
+                        "link": "https://example.com/fallback",
+                        "summary": "   ",
+                        "description": "<div>Description&nbsp;text</div>",
+                    },
+                    {
+                        "title": "No summary",
+                        "link": "https://example.com/no-summary",
+                        "summary": " ",
+                        "description": " ",
+                    },
+                ],
+            ),
+        )
+    )
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert [article.summary for article in result.outputs] == ["Description text", None]
+
+
+def test_exact_article_dedup_keeps_first_valid_in_ingest_order() -> None:
+    result = normalize_source_batches(
+        (
+            source_batch(
+                source("Dedup"),
+                [
+                    {
+                        "title": "First title",
+                        "link": "https://example.com/story?utm_source=first",
+                        "published": "2026-08-26T08:00:00+00:00",
+                    },
+                    {
+                        "title": "Later title",
+                        "link": "https://example.com/story?utm_medium=later",
+                        "published": "2026-08-26T09:00:00+00:00",
+                    },
+                    {
+                        "title": "Same event, different URL",
+                        "link": "https://other.example/story",
+                        "published": "2026-08-26T08:00:00+00:00",
+                    },
+                    {
+                        "title": "First title",
+                        "link": "https://third.example/story",
+                        "published": "2026-08-26T08:00:00+00:00",
+                    },
+                ],
+            ),
+        )
+    )
+    assert result.status == StageStatus.SUCCEEDED
+
+    deduped = deduplicate_articles(result.outputs)
+
+    assert deduped.stage == StageName.ARTICLE_DEDUP
+    assert deduped.status == StageStatus.SUCCEEDED
+    assert deduped.failures == ()
+    assert [article.title for article in deduped.outputs] == [
+        "First title",
+        "Same event, different URL",
+        "First title",
+    ]
+    assert deduped.outputs[0].canonical_url == "https://example.com/story"
+    assert deduped.outputs[0].title == "First title"
+
+
+def test_exact_article_dedup_keeps_different_source_reports_separate() -> None:
+    first_source = source("First report")
+    second_source = source("Second report")
+    normalized = normalize_source_batches(
+        (
+            source_batch(
+                first_source,
+                [
+                    {
+                        "title": "Shared title",
+                        "link": "https://first.example/event",
+                        "published": "2026-08-26T08:00:00+00:00",
+                    }
+                ],
+            ),
+            source_batch(
+                second_source,
+                [
+                    {
+                        "title": "Shared title",
+                        "link": "https://second.example/event",
+                        "published": "2026-08-26T08:00:00+00:00",
+                    }
+                ],
+            ),
+        )
+    )
+
+    result = deduplicate_articles(normalized.outputs)
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert len(result.outputs) == 2
+    assert [article.source for article in result.outputs] == [
+        first_source.name,
+        second_source.name,
+    ]
+
+
+def test_exact_article_dedup_preserves_linkless_identity_and_empty_success() -> None:
+    linked = normalize_source_batches(
+        (
+            source_batch(
+                source("Empty"),
+                [{"title": "A linked article", "link": "https://example.com/linked"}],
+            ),
+        )
+    )
+    assert deduplicate_articles(()).status == StageStatus.SUCCEEDED
+    assert deduplicate_articles(linked.outputs).outputs == linked.outputs
+
+    linkless = normalize_source_batches(
+        (
+            source_batch(
+                source("Linkless dedup"),
+                [
+                    {
+                        "title": "No link",
+                        "link": None,
+                        "published": "2026-08-26T08:00:00+00:00",
+                    },
+                    {
+                        "title": "No link",
+                        "link": None,
+                        "published": "2026-08-26T08:00:00+00:00",
+                    },
+                ],
+            ),
+        )
+    )
+    linkless_deduped = deduplicate_articles(linkless.outputs)
+    assert linkless_deduped.status == StageStatus.SUCCEEDED
+    assert len(linkless_deduped.outputs) == 1
+
+
+def test_exact_article_dedup_reports_invalid_items_without_semantic_fallback() -> None:
+    valid = normalize_source_batches(
+        (
+            source_batch(
+                source("Invalid"),
+                [{"title": "Valid", "link": "https://example.com/valid"}],
+            ),
+        )
+    ).outputs[0]
+
+    result = deduplicate_articles((object(), valid))
+
+    assert result.status == StageStatus.PARTIAL
+    assert result.outputs == (valid,)
+    assert result.failures[0].code == FailureCode.ITEM_VALIDATION_FAILED
+
+
+def test_offline_ingest_pipeline_is_deterministic_and_keeps_different_urls() -> None:
+    configured = source("Integrated")
+
+    def fetcher(_: SourceConfig) -> FakeFeed:
+        return FakeFeed(
+            entries=[
+                {
+                    "title": "First copy",
+                    "link": "https://example.com/event?utm_source=one",
+                    "published": "2026-08-26T08:00:00+00:00",
+                },
+                {
+                    "title": "Second copy",
+                    "link": "https://example.com/event?utm_medium=two",
+                    "published": "2026-08-26T08:01:00+00:00",
+                },
+                {
+                    "title": "Same event, another report",
+                    "link": "https://another.example/event",
+                    "published": "2026-08-26T08:02:00+00:00",
+                },
+            ]
+        )
+
+    collected = collect_sources((configured,), fetcher=fetcher, clock=lambda: COLLECTED_AT)
+    normalized = normalize_source_batches(collected.outputs)
+    first_run = deduplicate_articles(normalized.outputs)
+
+    repeated_collected = collect_sources((configured,), fetcher=fetcher, clock=lambda: COLLECTED_AT)
+    repeated_normalized = normalize_source_batches(repeated_collected.outputs)
+    repeated_run = deduplicate_articles(repeated_normalized.outputs)
+
+    assert collected.status == StageStatus.SUCCEEDED
+    assert normalized.status == StageStatus.SUCCEEDED
+    assert first_run.status == StageStatus.SUCCEEDED
+    assert len(first_run.outputs) == 2
+    assert [article.title for article in first_run.outputs] == [
+        "First copy",
+        "Same event, another report",
+    ]
+    assert [article.article_id for article in first_run.outputs] == [
+        article.article_id for article in repeated_run.outputs
+    ]
+    assert all(not hasattr(article, "category") for article in first_run.outputs)
+    assert all(not hasattr(article, "importance") for article in first_run.outputs)
+
+
+def main() -> None:
+    test_source_config_drops_legacy_metadata()
+    test_load_sources_reuses_active_feed_config_projection()
+    test_collector_keeps_successful_empty_batch_and_isolates_failure()
+    test_all_successful_empty_sources_are_successful()
+    test_all_source_failures_are_failed()
+    test_malformed_source_feed_isolated_from_successful_source()
+    test_successful_entries_are_extracted_without_raw_payload()
+    test_normalizer_emits_only_canonical_articles()
+    test_normalizer_allows_missing_published_when_linked()
+    test_normalizer_requires_timestamp_for_linkless_entry()
+    test_normalizer_rejects_naive_and_malformed_timestamps_without_guessing()
+    test_normalizer_uses_description_only_as_summary_fallback()
+    test_exact_article_dedup_keeps_first_valid_in_ingest_order()
+    test_exact_article_dedup_keeps_different_source_reports_separate()
+    test_exact_article_dedup_preserves_linkless_identity_and_empty_success()
+    test_exact_article_dedup_reports_invalid_items_without_semantic_fallback()
+    test_offline_ingest_pipeline_is_deterministic_and_keeps_different_urls()
+    print("offline deterministic ingest smoke passed")
+
+
+if __name__ == "__main__":
+    main()

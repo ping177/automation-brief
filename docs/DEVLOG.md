@@ -1,6 +1,15 @@
 # automation-brief 开发日志
 
-本文记录 automation-brief 从 v0.2 到 v0.3.3-beta 的主要开发节点、验证结果和阶段结论。
+本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
+
+## 2026-08-26 — v1.0 Event-driven Morning Brief Architecture Freeze（docs-only）
+
+- 在真实仓库完成 read-only baseline、Project State、Decisions、Backlog、README、Testing 和现有 architecture docs 审计；确认当前 `v0.7.3` 仍是 Generation 1 Morning Brief 七天真实使用验证 baseline。
+- 按既有 numeric version governance 将下一代统一命名为 `v1.0 — Event-driven Morning Brief`；没有引入 `v1.0-alpha`、`v1.0-beta`、Phase A/B/C 或第二套版本体系。
+- 新增 canonical architecture contract，冻结 Article → EventCandidate → Event → Brief 生命周期、模块职责、Article-level dedup 与 event-level clustering 分离、local embedding 优先、selection 后 classification、provenance、局部失败和 Holdings / Market 边界。
+- 原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 保留为历史记录并标记为 superseded / replaced by v1.0 plan；legacy retirement 改由 v1.0 的 shadow / parallel validation 与 production cutover 之后的 narrative stage 承接。
+- 未修改 Python、shell、config、tests、runtime data 或 production routing；未创建 v1.0 业务模块，未安装依赖，未调用 RSS、DeepSeek 或其它 provider。
+- docs-only validation 通过：tracked Markdown `git diff --check`、canonical architecture doc trailing-whitespace check、changed-file scope review 和 required architecture-section presence check 均通过；未运行不必要的 RSS、provider 或业务 pipeline 测试。
 
 ## 2026-08-16 — v0.7.3 broken-feed production hygiene fix
 
@@ -1141,5 +1150,5 @@ v0.6.0-alpha 只完成 AI Curator 的 shadow foundation。legacy 规则路径被
 - 在 v0.7.2 production closeout 后完成 read-only dependency audit；未修改 Python、shell、plist、tests、config、runtime data 或 production behavior，未开始 v0.7.3 implementation。
 - Daily Digest 的 product-only surface 是 `digest` dispatch、`DigestSections` / `write_digest_markdown` reader contract、无参数 `run_daily_digest.sh` rollback、`daily-news-*` naming、Daily publisher/Bark 分支以及对应 tests/docs。Market Brief 的 product-only surface 是 `market_brief` dispatch、完整 `market_brief_writer.py` product writer、`market-brief-*` naming、`scripts/run_market_brief.sh` 及对应 tests/docs。
 - Morning 当前仍真实依赖 `main.py` 的 `legacy_items_from_candidates()`、`build_digest_sections()`、`digest_item_summary()`、`format_digest_item_time()`，以及 `market_brief_writer.py` 中被 `overnight_brief_writer.py` 导入的 market/holdings/safe-rendering helpers；因此这些模块不能在没有迁移的情况下删除。
-- 已识别的 shared capability 包括 RSS/feed collection 与 normalization、CandidateArticle / single-pass Curator / provider / artifact boundary、market data、market news、holdings anomaly、project paths 和最终 publishing/delivery 机制；部分能力当前物理位于旧产品模块中，具体迁移位置留待 v0.7.4 实施时的再次 audit。
-- v0.7.4 冻结为“一个 Morning Brief reader-facing product + 多个独立中性 shared capabilities”。实施必须先在 v0.7.3 稳定后重新做 consumer audit，再制定具体 removal plan；不提前固定文件重命名、package hierarchy、feature flag、Agent、RAG、多模型或多阶段 ranking/dedupe。v0.8 继续不预先冻结。
+- 已识别的 shared capability 包括 RSS/feed collection 与 normalization、CandidateArticle / single-pass Curator / provider / artifact boundary、market data、market news、holdings anomaly、project paths 和最终 publishing/delivery 机制；部分能力当前物理位于旧产品模块中，具体迁移位置当时留待后续实施阶段的再次 audit。
+- 当时 v0.7.4 冻结为“一个 Morning Brief reader-facing product + 多个独立中性 shared capabilities”，原计划要求在 v0.7.3 稳定后重新做 consumer audit，再制定具体 removal plan；不提前固定文件重命名、package hierarchy、feature flag、Agent、RAG、多模型或多阶段 ranking/dedupe。该独立路线已由 2026-08-26 的 v1.0 Architecture Freeze supersede；v0.8 继续不预先冻结。

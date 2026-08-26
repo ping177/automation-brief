@@ -13,6 +13,15 @@ git status --short
 
 `git diff --check` 用于检查尾随空格、空白错误和 patch 格式问题。docs-only 改动不需要跑 Python 编译、RSS 健康检查或真实日报生成，除非文档改动同时暴露出需要验证的运行假设。
 
+## v1.0 Architecture Freeze docs-only checklist
+
+v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
+
+- `v1.0 — Event-driven Morning Brief` 是唯一新的 numeric product-generation token；不得将 `v1.0-alpha`、`v1.0-beta` 或新的 Phase A/B/C 用作 version token。
+- canonical architecture doc 覆盖 Article → EventCandidate → Event → Brief 生命周期、collector / normalizer / article dedup / event cluster / selector / classifier / writer / renderer / delivery / orchestrator / gateway 职责，以及 provenance、local failure、Holdings / Market 边界。
+- v0.7.3 baseline 和现有 production routing 保持可运行；v0.7.4 历史记录保留并标记为 superseded / replaced by v1.0 plan。
+- 本轮不运行 RSS、DeepSeek、Bark、Obsidian、launchd、pmset 或生产晨报。
+
 ## Project State Push Gate 验证
 
 ```bash
@@ -138,11 +147,13 @@ targeted production smoke 使用临时 repo、临时项目 `.env`、fake Python�
 - 真实 artifact `overnight-20260815T143736.428601Z-f8958055f793` 的非敏感字段为：`status=succeeded`、`provider_id=deepseek`、`model=deepseek-v4-flash`、`validation_status=passed`、`failure_code=""`、`ai_event_count=20`。
 - 已生成 `morning-brief-2026-08-15.md`，并确认 Obsidian 同步与 Bark 通知成功；生产链路确认通过。记录不包含 API key、`.env` 内容或其他 secret。
 
-## v0.7.3 / v0.7.4 boundary
+## v0.7.3 / v1.0 boundary
 
-v0.7.3 只验证真实晨间长期稳定性：08:00 launchd production run、DeepSeek provider、Obsidian/Bark delivery、明显重大新闻漏报、高频重复、分类/事实基本正确，以及 20-event 长期阅读体验。v0.7.3 不删除 Daily rollback、不迁移旧模块、不开始 v0.7.4 implementation。
+v0.7.3 只验证真实晨间长期稳定性：08:00 launchd production run、DeepSeek provider、Obsidian/Bark delivery、明显重大新闻漏报、高频重复、分类/事实基本正确，以及 20-event 长期阅读体验。v0.7.3 不删除 Daily rollback、不迁移旧模块、不开始 v1.0 implementation。
 
-v0.7.4 只有在上述观察稳定后才开始。实施前必须对当时 tree 做 read-only dependency audit；删除或改名任何旧 product surface 前，必须先证明 Morning 仍覆盖 AI Curator、market context、holdings anomaly、provider technical fallback、canonical report、Obsidian 和 Bark。测试迁移应跟随真实消费者迁移，不能先按文件名批量删除；v0.8 内容不在本轮测试合同中预先定义。
+原 v0.7.4 独立退役路线已 superseded / replaced by v1.0，但其历史 audit 结论保留。v1.0 的 `READ-ONLY Dependency Audit` 必须针对实施时的真实 tree 重新进行；删除或改名任何旧 product surface 前，必须先完成真实消费者迁移和覆盖验证。测试迁移应跟随真实消费者迁移，不能先按文件名批量删除。
+
+v1.0 的 legacy retirement 只有在 Event-driven pipeline 完成 offline / snapshot validation、shadow / parallel validation、production acceptance 和 production cutover 后才开始；v1.0 内部过程使用 narrative stages，不创建 alpha/beta 或 Phase version token。v1.1 等后续 numeric version 只有在 v1.0 正式 CLOSED 后、确有独立产品增量时才考虑。
 
 Phase 3B fixture one-shot gate 的最终离线 dry-run 命令为：
 

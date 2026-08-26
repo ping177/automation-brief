@@ -1,6 +1,6 @@
 # AI Curator Architecture
 
-This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/language contract, the v0.6.2 Phase 2 provider/artifact foundation, the v0.6.2 Phase 3A DeepSeek preflight boundary, the successful Phase 3B fixture-only real-provider gate, and the Phase 4B live selected-only provider boundary. v0.7.2 now uses the existing `phase4_live` provider boundary in the accepted Morning Brief production path; the v0.7.4 section below freezes only the later product-retirement boundary and does not prescribe concrete module names.
+This document describes the v0.6.0-alpha shadow foundation, the v0.6.1 product/language contract, the v0.6.2 Phase 2 provider/artifact foundation, the v0.6.2 Phase 3A DeepSeek preflight boundary, the successful Phase 3B fixture-only real-provider gate, and the Phase 4B live selected-only provider boundary. v0.7.2 now uses the existing `phase4_live` provider boundary in the accepted Morning Brief production path. The historical v0.7.4 section below is retained for traceability but its independent retirement route is superseded / replaced by the v1.0 Event-driven Morning Brief architecture documented in [`EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md).
 
 ## Scope
 
@@ -17,9 +17,9 @@ It does not:
 
 The explicit manual `overnight_brief` call uses the existing provider boundary only; Provider technical failure falls back to the whole legacy reader-facing news layer. It does not add a second pass, new schema, translation pipeline, ranking system, or quality threshold.
 
-## v0.7.4 Post-validation Architecture Freeze
+## Historical v0.7.4 Post-validation Architecture Freeze（superseded by v1.0）
 
-This is a governance target, not an implementation plan for v0.7.3. After stable real-morning validation, the intended product boundary is:
+This section is a historical governance target, not an active implementation plan. Its product-boundary and consumer-audit conclusions remain useful context, but the current canonical architecture and retirement timing are defined by v1.0. After stable real-morning validation, the historical intended product boundary was:
 
 ```text
 RSS / feeds
@@ -34,7 +34,7 @@ RSS / feeds
 -> Obsidian / Bark delivery
 ```
 
-Morning Brief is the only reader-facing product in the target architecture. Daily Digest and Market Brief are retired as product containers; their still-useful capabilities become neutral shared capabilities selected by Morning Brief. The current audit found that Morning still reaches legacy fallback and generic rendering helpers located in `main.py` and `market_brief_writer.py`; v0.7.4 must migrate those consumers before deleting old product-only surfaces.
+Morning Brief is the only reader-facing product in the historical target architecture. Daily Digest and Market Brief would have been retired as product containers; their still-useful capabilities would become neutral shared capabilities selected by Morning Brief. The current audit found that Morning still reaches legacy fallback and generic rendering helpers located in `main.py` and `market_brief_writer.py`; under that historical route, those consumers would have required migration before deleting old product-only surfaces. The active v1.0 route keeps this audit as input but moves retirement behind the new pipeline's shadow / parallel validation and production cutover gates.
 
 The freeze intentionally does not choose replacement filenames, Python module names, package hierarchy, feature flags, or a new orchestration model. It also does not remove the v0.7.3 rollback path or predefine v0.8 content.
 
@@ -351,7 +351,8 @@ v0.7 — Morning Brief
 v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（next）
-v0.7.4 — Legacy Product Retirement & Capability Consolidation（planned after v0.7.3）
+v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
+v1.0 — Event-driven Morning Brief（Architecture Freeze；implementation not started）
 ```
 
-v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator shadow CLI remains separate, while v0.7.2 uses the existing `phase4_live` boundary only through the accepted `overnight_brief` production path. v0.7.4 may retire the old product containers only after v0.7.3 stability and the required consumer audit.
+v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator shadow CLI remains separate, while v0.7.2 uses the existing `phase4_live` boundary only through the accepted `overnight_brief` production path. The historical v0.7.4 plan described retiring old product containers after v0.7.3 stability and consumer audit; the active retirement route is now v1.0 and additionally requires shadow / parallel validation and production cutover.

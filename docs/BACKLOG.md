@@ -17,7 +17,7 @@ v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / r
 v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.3）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
-v1.3 — Event Clustering（PLANNED）
+v1.3 — Event Clustering（IN PROGRESS / acceptance pending）
 v1.4 — Event Selector（PLANNED）
 v1.5 — Event Classifier + Writer（PLANNED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
@@ -80,6 +80,25 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - dedup 只使用 canonical URL / stable article_id，保留 first-valid 和 stable ingest order，不做 semantic title/event/source ranking。
 - 未修改 `main.py`、feeds 配置、Gen1 production routing、三份 frozen canonical contract 或 dependency；未调用真实 RSS/API，未实现 v1.3+ stages，未删除 legacy。
 - 下一步唯一任务为 `v1.3 — Event Clustering`。
+
+### v1.3 Event Clustering — IN PROGRESS / ACCEPTANCE PENDING
+
+- Event / EventCandidate operational semantics 已澄清为同一约 24 小时 Morning
+  Brief report window 内的 reader-level story bundle，而不是 strict atomic
+  occurrence 或跨天 persistent identity。
+- announcement、immediate reaction、clarification、closely related follow-up
+  可以在分别展示会明显重复时合并；v1.5 Event Writer 后续读取完整 Article
+  provenance 并综合重要事实与不同侧面。
+- production acceptance 只把真实 window 内可能共同出现的 Articles 作为核心
+  gate。A（production-relevant）包括 announcement/reaction/follow-up、
+  gun/share/reverse-repo negatives 与同 window broad-topic distinct events；
+  B（synthetic robustness）包括 Treasury cross-language 与 chaining；C（invalid /
+  overly strict）包括人为跨多个 report windows 的 temporal Iran negative，不再
+  作为 critical production gate。
+- v1.3 继续使用 local embedding + semantic similarity + simple deterministic
+  clustering，不使用 DeepSeek、local LLM verifier、LLM adjudication、translation
+  或 second-pass AI clustering。下一步是按修正后的 story-bundle semantics 重新
+  运行 embedding acceptance；在此之前不 close v1.3。
 
 ### v1.x Implementation Version Roadmap — FROZEN
 

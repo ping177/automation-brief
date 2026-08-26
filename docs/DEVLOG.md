@@ -2,6 +2,29 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.3 Event / EventCandidate canonical semantic correction（docs-only）
+
+- 基于 v1.3 real-model acceptance evidence 与产品定义，将 Event /
+  EventCandidate 从 strict atomic real-world occurrence identity 澄清为同一约
+  24 小时 Morning Brief report window 内的 reader-level story bundle。
+- 同一新闻发展中的 announcement、immediate reaction、clarification、follow-up
+  statement 与 closely related perspectives，在分别展示会明显重复时允许合并；
+  v1.5 Writer 后续读取完整 Article provenance，在三个 reader-facing 中文字段中
+  综合重要事实与不同侧面。
+- fixture concept audit 将 announcement/reaction/follow-up、
+  gun/share/reverse-repo negatives、同 window broad-topic distinct events 归为
+  A（production-relevant acceptance）；Treasury cross-language 与 chaining 归为
+  B（useful synthetic robustness）；人为跨多个 report windows 的 temporal Iran
+  negative 归为 C（invalid / overly strict atomic-identity assumption）。事实标签
+  未修改。
+- v1.3 clustering 继续限定 local embedding + semantic similarity + simple
+  deterministic clustering，不加入 DeepSeek、local LLM verifier、LLM
+  adjudication、translation 或 second-pass AI clustering。本轮未修改任何
+  canonical field/identity、StageResult、runtime failure semantics、Python、tests、
+  dependency 或 production routing；v1.3 保持 IN PROGRESS / acceptance pending。
+- 下一步只按修正后的约 24 小时 story-bundle semantics 重新运行 v1.3 embedding
+  acceptance，不预先升级为 two-stage verifier architecture。
+
 ## 2026-08-26 — v1.2 Deterministic Ingest（implementation complete / closed）
 
 - 在不修改三份 frozen v1.0 canonical contract、`main.py`、feeds 配置或 Generation 1 production routing 的前提下，新增 side-by-side `collector.py`、`normalizer.py` 和 `article_dedup.py`。

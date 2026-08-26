@@ -92,7 +92,10 @@ Article 本身没有 semantic order。一个 serialized Article collection 在�
 
 ### Purpose、producer 与 consumers
 
-`EventCandidate` 是 `event_cluster` 的正式输出，表示一组可能属于同一现实世界事件的不同 Articles。
+`EventCandidate` 是 `event_cluster` 的正式输出，表示同一 Morning Brief report
+window 内一组高度相关、适合 reader 作为一个 news story 一次性消费的不同
+Articles。它是 reader-level story bundle，不是严格的 atomic real-world
+occurrence identity。
 
 - producer：`event_cluster`；
 - consumers：`event_selector`、artifact/diagnostic layer；
@@ -106,6 +109,14 @@ Article 本身没有 semantic order。一个 serialized Article collection 在�
 | `article_ids` | yes | ordered list[string] | event cluster + deterministic canonicalization | non-empty、unique、按 `article_id` lexicographic order；每个 ID 必须 resolve 到本次 Article pool |
 
 `event_candidate_id` 的 hash basis 是按上述顺序 canonicalize 后、以换行连接的完整 `article_ids`；使用 SHA-256 前 24 个 lowercase hex 加 `evt_`。相同 membership 产生相同 ID；membership 改变必须产生不同 ID。不同 run 之间的语义事件连续性不由本合同推断。
+
+正常 clustering input 是当前约 24 小时 report window 内的 canonical Articles。
+本合同不定义跨天事件连续性、multi-day knowledge graph、historical tracking、
+cross-week story database 或 persistent event identity。announcement、immediate
+reaction、clarification、follow-up statement 与 closely related perspectives
+可以共享 membership，只要分别展示会造成明显 reader-facing 重复，且完整
+Article provenance 足以让后续 writer 自然综合。相反，共享关键词、国家、公司
+或宽泛主题但 reader 应视为不同新闻的 Articles 不得仅因此合并。
 
 EventCandidate pool 在进入 selector 前按 `event_candidate_id` lexicographic order canonicalize；该顺序只保证 replay/serialization 稳定，不表达 importance。唯一有业务意义的 Event order 由 selector 后续写入 `selection_order`。
 
@@ -169,6 +180,11 @@ other
 | `why_it_matters_zh` | yes | string | 克制说明事件为何值得读者关注，不输出交易建议或无 evidence 推断 |
 
 三个 writing 字段必须 non-empty，并由 `article_ids` resolve 的 Article evidence 支持。writer 不得返回 source/URL/published_at/article ID/category/selection order，也不得修改这些字段。
+
+当一个 Event 包含 announcement、reaction、clarification 或 closely related
+follow-up 时，writer 必须读取该 Event 的完整 Article provenance，在
+`title_zh`、`summary_zh`、`why_it_matters_zh` 中综合重要事实与不同侧面；不得
+因为 clustering 已形成 story bundle 而静默丢弃 material perspective。
 
 ### Stage input/output
 

@@ -269,6 +269,31 @@
 - clustering validation / diagnostics
 - 本路线不选择具体 embedding model。
 
+#### v1.3 canonical semantic correction — Morning Brief story bundle
+
+- 决策：Event / EventCandidate 的 operational semantics 是“同一约 24 小时
+  Morning Brief report window 内，高度相关且适合 reader 作为一个 news story
+  一次性消费的 Articles”，不是严格 atomic occurrence identity，也不是跨天
+  persistent event identity。
+- 允许同一新闻发展中的 announcement、immediate reaction、clarification、
+  follow-up statement 与 closely related perspectives 合并；判断标准是分别展示
+  是否造成明显重复，以及后续 Event Writer 是否能依据完整 Article provenance
+  自然综合重要事实与不同侧面。
+- hard-negative 仍以 reader 明显应视为不同新闻为准：共享关键词、国家、公司或
+  主题不足以合并。正常 acceptance 只使用真实 ingest/window semantics 下可能
+  同时出现的 Articles；人为跨越多个 report windows 的旧/新事件对不是核心 gate。
+- v1.3 保持 local embedding + semantic similarity + simple deterministic
+  clustering，不使用 DeepSeek、local LLM pair verifier、LLM adjudication、
+  translation stage 或 second-pass AI clustering。是否 close v1.3 由修正后的
+  acceptance 重新验证决定，本修正不改变 implementation。
+- 当前 fixture 概念重新分类：A（production-relevant Morning Brief acceptance）
+  包括 announcement/reaction/follow-up、gun/share/reverse-repo negatives 与同
+  window broad-topic distinct events；B（useful synthetic robustness）包括
+  Treasury cross-language 与 chaining；C（invalid / overly strict event-identity
+  assumption）包括人为把几天前旧 Iran sanctions 与今天新 action 组成 critical
+  hard negative。C 不作为正式 production acceptance gate；该分类不改写新闻
+  事实标签。
+
 ### v1.4 — Event Selector
 
 - LLM event selection、relative ordering

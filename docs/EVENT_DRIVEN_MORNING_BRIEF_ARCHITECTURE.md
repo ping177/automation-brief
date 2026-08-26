@@ -100,13 +100,20 @@ Article 是来源输入的 canonical representation，至少需要能够稳定�
 
 ### EventCandidate
 
-EventCandidate 是 event clustering 的输出。它表示一组可能属于同一现实世界事件的 Articles，并必须保留：
+EventCandidate 是 event clustering 的输出。它表示同一 Morning Brief report
+window 内一组高度相关、适合 reader 作为一个 news story 一次性消费的
+Articles，并必须保留：
 
 - `article_ids`
 - source references
 - 可由原始 Article 回取的 provenance
 
 EventCandidate 还没有经过当天相对选择，也不应被当作最终 reader-facing Event。
+这里的 Event 是 reader-level story bundle，不是跨天持久化的 atomic
+real-world occurrence identity。同一新闻发展中的 announcement、immediate
+reaction、clarification、follow-up statement 或 closely related perspectives，
+只要分别展示会造成明显重复、且后续 writer 能自然综合，就可以属于同一
+EventCandidate。
 
 ### Event
 
@@ -145,15 +152,27 @@ Brief 是已选、已分类、已写作 Events 的 deterministic reader-facing c
 
 允许使用 canonical URL、去除 tracking 参数后的 URL、source article id，以及其它可以确定性证明重复的 identity。
 
-它不回答“不同文章是不是同一个现实事件”；不得把 event-level semantic clustering 混回 Article dedup。
+它不回答“不同文章是否应组成同一个 Morning Brief story”；不得把
+event-level semantic clustering 混回 Article dedup。
 
 ### `event_cluster.py`
 
 负责把不同 Articles 聚合为 EventCandidate，回答：
 
-> “这些不同报道是不是属于同一个现实世界事件？”
+> “在同一个 Morning Brief report window 内，reader 是否应把这些 Articles
+> 作为一条 story 阅读？”
 
-初始实现方向优先使用 local embedding / semantic similarity；不默认调用 DeepSeek，不用大量人工 keyword 规则理解事件。它负责 event grouping 和 provenance linking，不负责当天重要性 selection、category classification 或最终中文写作。
+正常输入是当前约 24 小时 report window 内的 canonical Articles；该 stage
+不是 multi-day knowledge graph、historical story tracker、cross-week database
+或 persistent event identity service。只有在真实 ingest/window semantics 下
+可能共同出现的 Articles，才适合作为 production acceptance 的核心依据。
+
+初始实现方向保持 local embedding / semantic similarity + simple deterministic
+clustering；不调用 DeepSeek、local LLM pair verifier、LLM adjudication、translation
+stage 或 second-pass AI clustering，也不用大量人工 keyword 规则理解事件。它负责
+reader-level story grouping 和 provenance linking，不负责当天重要性 selection、
+category classification 或最终中文写作。共享关键词、国家、公司或宽泛主题本身
+不足以合并；reader 明显应视为两件新闻的内容必须保持分离。
 
 ### `event_selector.py`
 
@@ -171,13 +190,17 @@ Classifier 使用 LLM；category 与 importance 完全解耦，不得重新引�
 
 ### `event_writer.py`
 
-只负责把已入选、已分类的 Event 生成为 reader-facing 简体中文内容，核心方向为：
+只负责把已入选、已分类的 Event 生成为 reader-facing 简体中文内容。它读取
+Event 下 `article_ids` resolve 的完整 Article provenance，识别各 Article 提供的
+不同事实与角度，并将同一 story bundle 自然综合为：
 
 - `title_zh`
 - `summary_zh`
 - `why_it_matters_zh`
 
-它不负责 selection、classification、clustering 或 evidence creation。`watch_point` 当前不是必选核心字段，是否保留另行决定。
+它不得因为 clustering 已合并多种报道角度而丢掉重要侧面，也不负责
+selection、classification、clustering 或 evidence creation。`watch_point` 当前
+不是必选核心字段，是否保留另行决定。
 
 ### `brief_renderer.py`
 

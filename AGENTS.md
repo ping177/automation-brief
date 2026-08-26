@@ -108,6 +108,23 @@ Before every `git push`, review `docs/PROJECT_STATE.md` and update stale facts: 
 
 When this repository's Project State Push Gate is installed, the final commit of every pushed branch must contain exactly one `Project-State-Review: updated` or `Project-State-Review: verified-current` trailer. `updated` means the final tree differs from the remote branch tree at `docs/PROJECT_STATE.md`; `verified-current` means it does not. The gate does not validate document content. A pushed tag only needs to peel to a commit with one legal trailer and is not classified by tree diff. This local gate does not replace the rule that only an explicit user request permits a commit or push.
 
+## Post-Push Project State Freshness Review
+
+After an explicitly authorized `git push` returns success, perform a READ-ONLY Post-Push Project State Freshness Review. Review `Current version`, `Current status`, `Next Action`, and `Blockers`; review `Deployment` only when the just-completed operation affected deployment.
+
+Keep Git observable facts separate from business truth. Only the operation that just completed successfully may establish a direct contradiction. Do not infer arbitrary free-text business truth from `HEAD == upstream`, a clean working tree, ahead/behind counts, commit messages, or `Project-State-Review` trailers. For example, a successful final push directly contradicts a `Next Action` that still says to perform that same final push, but it does not prove production acceptance or any other business action.
+
+Return exactly one freshness result:
+
+- `POST_PUSH_STATE_CURRENT`: the reviewed fields remain current. Do not modify files or create a commit.
+- `POST_PUSH_STATE_REFRESH_REQUIRED`: the successful push made a reviewed field stale. Stop; do not automatically modify governance docs, commit, or push. Continue only after new explicit user authorization to refresh the project-state/docs and, separately, to commit and push them. After that closeout push succeeds, run the same READ-ONLY review again.
+
+The `Project-State-Review: updated` and `Project-State-Review: verified-current` trailers remain part of the pre-push Project State Review contract only. They do not certify post-push freshness or business-state correctness.
+
+This review is a human/Codex release-workflow step; it is not a Git hook, scheduler, automatic docs mutation, commit, push, or free-text inference engine.
+
+When a stable next business action is already known, prefer making `Next Action` describe that action instead of creating or pushing the same commit that carries the text. This is guidance, not an absolute prohibition: a still-pending push may be honest business state before push, and the post-push review then determines whether a separately authorized docs closeout is required.
+
 Before finishing a task, run or request the appropriate status checks:
 
 - `git branch --show-current`

@@ -350,9 +350,9 @@ v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Morning Brief
 v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
-v0.7.3 — Morning Brief Long-term Usage Validation（next）
+v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture Freeze；implementation not started）
+v1.0 — Event-driven Morning Brief（Architecture Freeze COMPLETE；next stage READ-ONLY Dependency Audit）
 ```
 
-v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator shadow CLI remains separate, while v0.7.2 uses the existing `phase4_live` boundary only through the accepted `overnight_brief` production path. The historical v0.7.4 plan described retiring old product containers after v0.7.3 stability and consumer audit; the active retirement route is now v1.0 and additionally requires shadow / parallel validation and production cutover.
+v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator shadow CLI remains separate, while v0.7.2 uses the existing `phase4_live` boundary only through the accepted `overnight_brief` production path. v0.7.3 is now CLOSED after the seven-day real-use review; the historical v0.7.4 plan is superseded, and the active next stage is v1.0 READ-ONLY Dependency Audit before any retirement work.

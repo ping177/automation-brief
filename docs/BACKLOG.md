@@ -12,9 +12,9 @@ v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Morning Brief
 v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
-v0.7.3 — Morning Brief Long-term Usage Validation（next）
+v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（architecture freeze; implementation not started）
+v1.0 — Event-driven Morning Brief（Architecture Freeze COMPLETE；next stage READ-ONLY Dependency Audit）
 ```
 
 历史条目中的既有 `-alpha` / `-beta` token 是 legacy 事实，保留原样，不回写历史。
@@ -30,7 +30,15 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 仓库实现与离线 routing smoke 已完成：无参数 `run_daily_digest.sh` 保持 `digest` rollback，`overnight_brief` 显式贯穿生成、Obsidian 和 Bark；plist example 已选择 Morning Brief。
 - 用户已在真实 Terminal 完成项目 `.env` 配置并将权限设为 `0600`，reload 实际 LaunchAgent，并以 `run_daily_digest.sh overnight_brief` 成功完成受控 production smoke；不得在自动化测试中调用真实 DeepSeek、读取 secret、修改 pmset 或覆盖用户 plist。
 - 已确认 `morning-brief-2026-08-15.md`、真实 provider succeeded artifact `overnight-20260815T143736.428601Z-f8958055f793`、Obsidian Morning 文件和 Bark Morning 通知均成功；artifact 仅记录非敏感验收字段：`succeeded / deepseek / deepseek-v4-flash / passed / empty failure_code / 20 events`。
-- 真实链路失败时，移除实际 plist 的 `overnight_brief` 参数并 reload，即恢复历史无参数 Daily Digest；v0.7.3 只做真实晨间长期稳定性观察，不重新打开新闻质量 tuning。
+- 真实链路失败时，移除实际 plist 的 `overnight_brief` 参数并 reload，即恢复历史无参数 Daily Digest；v0.7.3 七天真实使用验证现已完成并 CLOSED，不重新打开 Generation 1 新闻质量 tuning。
+
+### v0.7.3 Morning Brief Long-term Usage Validation — CLOSED
+
+- 七天真实使用观察和产品 review 已完成。
+- Closeout 不是“Generation 1 完全达到长期产品目标”；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。
+- 这些 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 `v1.0 — Event-driven Morning Brief` architecture rebuild。
+- 当前 production 仍运行 Generation 1 pipeline；在 v1.0 shadow / parallel validation 和 production cutover 前不删除或退役旧 production / legacy surface。
+- 下一步是 `v1.0 READ-ONLY Dependency Audit`，不是重新实施 superseded 的 v0.7.4 路线。
 
 ### v0.7.4 Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 

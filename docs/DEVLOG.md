@@ -2,6 +2,14 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-26 — v0.7.3 Morning Brief Long-term Usage Validation closeout
+
+- 七天真实使用观察和产品 review 已完成，`v0.7.3` 正式标记为 CLOSED。
+- Closeout 不表示 Generation 1 完全达到长期产品目标。真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。
+- 这些 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已冻结的 `v1.0 — Event-driven Morning Brief` architecture rebuild。
+- 当前 production 仍运行 Generation 1 pipeline；在 v1.0 shadow / parallel validation 和 production cutover 前，不删除或退役现有 production / legacy surface。
+- 下一步是 `v1.0 READ-ONLY Dependency Audit`；本 closeout 不重新设计或修复历史问题，也不重新启用 superseded 的 v0.7.4 路线。
+
 ## 2026-08-26 — v1.0 Event-driven Morning Brief Architecture Freeze（docs-only）
 
 - 在真实仓库完成 read-only baseline、Project State、Decisions、Backlog、README、Testing 和现有 architecture docs 审计；确认当前 `v0.7.3` 仍是 Generation 1 Morning Brief 七天真实使用验证 baseline。

@@ -149,7 +149,7 @@ targeted production smoke 使用临时 repo、临时项目 `.env`、fake Python�
 
 ## v0.7.3 / v1.0 boundary
 
-v0.7.3 只验证真实晨间长期稳定性：08:00 launchd production run、DeepSeek provider、Obsidian/Bark delivery、明显重大新闻漏报、高频重复、分类/事实基本正确，以及 20-event 长期阅读体验。v0.7.3 不删除 Daily rollback、不迁移旧模块、不开始 v1.0 implementation。
+v0.7.3 七天真实使用验证和产品 review 已完成并 CLOSED。它不是 Generation 1 完全达到长期产品目标的证明；重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足和持仓能力价值未证明等 evidence 支持停止继续 patch Generation 1 核心新闻架构。
 
 原 v0.7.4 独立退役路线已 superseded / replaced by v1.0，但其历史 audit 结论保留。v1.0 的 `READ-ONLY Dependency Audit` 必须针对实施时的真实 tree 重新进行；删除或改名任何旧 product surface 前，必须先完成真实消费者迁移和覆盖验证。测试迁移应跟随真实消费者迁移，不能先按文件名批量删除。
 

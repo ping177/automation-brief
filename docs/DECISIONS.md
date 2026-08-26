@@ -13,7 +13,7 @@
 
 ### Numeric version route
 
-- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）、`v0.7.3` Morning Brief Long-term Usage Validation（next）、历史记录中的 `v0.7.4` Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）和下一代 `v1.0` Event-driven Morning Brief（Architecture Freeze；implementation not started）；后续不再新增字母阶段标签作为正式阶段命名。
+- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）、`v0.7.3` Morning Brief Long-term Usage Validation（CLOSED）、历史记录中的 `v0.7.4` Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）和下一代 `v1.0` Event-driven Morning Brief（Architecture Freeze COMPLETE；next stage READ-ONLY Dependency Audit）；后续不再新增字母阶段标签作为正式阶段命名。
 - 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token 或字母阶段标签。
 
 ### 多语言输入与简体中文输出
@@ -220,4 +220,5 @@
 - 故障边界：v1.0 遵循 `Fail locally, not globally`；单个 Event 或 batch failure 只能影响最小合理单元，不把 whole-layer legacy fallback 作为下一代 architecture。retry、partial success 和 validation handling 留到 Runtime / Failure Contract Freeze。
 - capability 边界：Holdings 不进入 v1.0；Market 仅作为未来 optional capability，不在本次设计 Market v2；v1.0 开发期间不增加与核心 Event pipeline 无关的新功能。
 - 迁移边界：v0.7.3 保留为 Generation 1 Morning Brief 七天真实使用验证 baseline。v0.7.3 与当前旧 production pipeline 在 v1.0 开发期间保持可运行；只有完成 offline / snapshot、shadow / parallel validation、production acceptance 和 cutover 后，才执行 legacy retirement。
+- v0.7.3 closeout：七天真实使用和产品 review 已完成；结果不表示 Generation 1 完全达到长期产品目标。重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足和持仓能力价值未证明等 evidence 支持停止继续 patch Generation 1 核心新闻架构，下一步转入 `v1.0 READ-ONLY Dependency Audit`。
 - 详细 contract：模块职责、Article / EventCandidate / Event / Brief 生命周期、provenance、failure model、narrative stages 和本轮非目标统一记录在 `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`。本决策不要求本轮创建对应 Python 文件，也不冻结具体 category enum、retry policy 或 package hierarchy。

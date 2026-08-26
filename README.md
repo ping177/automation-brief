@@ -4,7 +4,7 @@ automation-brief 是一个低成本的个人早间简报（Morning Brief）：�
 
 v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 `digest` 与显式 `market_brief` 链路仍不调用真实 AI provider。
 
-当前已完成并关闭 `v0.7.2 — Production Cutover`；`v0.7.1` Morning Brief MVP 已 CLOSED，当前仍是 `v0.7.3 — Morning Brief Long-term Usage Validation`。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。Phase 4 live shadow 必须显式使用 `--input-mode phase4_live`；该模式采用 single-pass selected-only Curator semantics，只返回重要事件及其 evidence，`rejected_article_ids` 在 provider boundary canonicalize 为 `[]`，同一 event 内完全相同的 evidence ID 保留首次出现并去重，不再要求模型枚举未选 candidate。真实 large-pool shadow 已验证技术链路，但内容实验显示 major-event recall / ranking 仍不稳定；shadow CLI 路径继续保持显式、独立。v0.7.2 的实际 production 已由用户验收通过：`run_daily_digest.sh overnight_brief` 将同一 report type 传给 `main.py`、Obsidian 和 Bark，并从项目根目录 `.env` 加载 Curator key（进程环境变量优先，`.env` 为第二来源）；实际 LaunchAgent 已 reload，Morning Brief、Obsidian 和 Bark 均成功。无参数 `digest` 继续保留为 rollback；v0.7.3 继续作为 Generation 1 的真实使用验证 baseline。v1.0 — Event-driven Morning Brief 已完成 docs-only Architecture Freeze，但尚未开始业务实现或 production cutover；原 v0.7.4 独立退役路线已由 v1.0 取代。
+当前已完成并关闭 `v0.7.2 — Production Cutover` 和 `v0.7.3 — Morning Brief Long-term Usage Validation`。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 production 仍运行 Generation 1 pipeline。v0.6.2 的 AI Curator shadow foundation、Phase 3B fixture gate 和 Phase 4 provider-facing boundary 作为基础能力保留；生产 daily digest / `market_brief` 仍不接 DeepSeek、Tavily、其他真实 AI provider，也不依赖任何付费搜索 API。无参数 `digest` 继续保留为 rollback。v1.0 — Event-driven Morning Brief 已完成 docs-only Architecture Freeze，下一步是 `v1.0 READ-ONLY Dependency Audit`；在 v1.0 shadow / cutover 前不删除 legacy。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## 当前产品合同
@@ -40,9 +40,9 @@ v0.6.2 — AI Curator Shadow Evaluation
 v0.7 — Morning Brief
 v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
-v0.7.3 — Morning Brief Long-term Usage Validation（next）
+v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture Freeze；implementation not started）
+v1.0 — Event-driven Morning Brief（Architecture Freeze COMPLETE；next stage READ-ONLY Dependency Audit）
 ```
 
 历史文档中的既有 legacy version token 保持原样，不回写历史。输入可以是多语言 RSS，最终 reader-facing 输出统一为简体中文：
@@ -61,7 +61,7 @@ v0.6.1 Phase 1 固定上述合同，Phase 2 已实现 feed metadata normalizatio
 
 下一代产品继续叫 Morning Brief，核心架构原则是：**Article 是输入，Event 是核心业务对象，Brief 是输出。** v1.0 冻结 Sources → collection → normalization → Article-level dedup → event-level clustering → relative selection → post-selection classification → event writing → deterministic rendering → delivery 的主链；`orchestrator` 与 `llm_gateway` 只提供基础设施边界。
 
-v0.7.3 仍是 Generation 1 七天真实使用验证 baseline。v1.0 只完成架构治理冻结，不创建业务模块、不调用 RSS/DeepSeek、不改 production routing、不删除 legacy。详细职责和边界见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)。
+v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 只完成架构治理冻结，不创建业务模块、不调用 RSS/DeepSeek、不改 production routing、不删除 legacy。下一步是 `v1.0 READ-ONLY Dependency Audit`，详细职责和边界见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)。
 
 原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。旧产品 retirement 必须等 v1.0 完成 shadow / parallel validation 和 production cutover 后才开始。
 

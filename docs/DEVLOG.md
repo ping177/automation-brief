@@ -2,6 +2,14 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-26 — v1.x Implementation Version Roadmap Freeze（docs-only）
+
+- 正式冻结同一 v1.x 产品世代内的 numeric implementation milestones：`v1.0` governance baseline、`v1.1` Canonical Domain & Runtime Foundation、`v1.2` Deterministic Ingest、`v1.3` Event Clustering、`v1.4` Event Selector、`v1.5` Event Classifier + Writer、`v1.6` Renderer + Artifacts + Orchestrator Integration、`v1.7` Offline / Snapshot Validation、`v1.8` Shadow / Parallel Validation、`v1.9` Production Cutover、`v1.10` Legacy Retirement & v1.x Closeout。
+- v1.0 Architecture、Dependency、Core Data、Runtime / Failure 四项治理基线标记为 COMPLETED / CLOSED；v1.1 尚未开始，下一步唯一正式开发任务为 `v1.1 — Canonical Domain & Runtime Foundation`。
+- v1.3 不选择具体 embedding model；v1.6 仍不做 production cutover；v1.8 side-by-side shadow 不发送 reader-facing v1.x output；v1.9 禁止 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。
+- Generation 1 production 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
+- 本轮只更新治理文档，没有修改三份 v1.0 canonical contracts、Python、config、dependency、prompt、feed、shell、plist、production routing 或 runtime data；未调用 RSS、DeepSeek、Bark、Obsidian，未删除 legacy/tests。
+
 ## 2026-08-26 — v1.0 Runtime / Failure Contract Freeze（docs-only）
 
 - 基于真实 Generation 1 runtime 完成 read-only inventory：production shell / env boundary、main orchestration、per-source RSS retry、provider transport / validation / retry、artifact identity / atomic persistence、canonical paths、Markdown / Obsidian / Bark delivery 与相关 offline smoke。

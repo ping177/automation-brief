@@ -34,7 +34,7 @@ RSS / feeds
 -> Obsidian / Bark delivery
 ```
 
-Morning Brief is the only reader-facing product in the historical target architecture. Daily Digest and Market Brief would have been retired as product containers; their still-useful capabilities would become neutral shared capabilities selected by Morning Brief. The current audit found that Morning still reaches legacy fallback and generic rendering helpers located in `main.py` and `market_brief_writer.py`; under that historical route, those consumers would have required migration before deleting old product-only surfaces. The active v1.0 route keeps this audit as input but moves retirement behind the new pipeline's shadow / parallel validation and production cutover gates.
+Morning Brief is the only reader-facing product in the historical target architecture. Daily Digest and Market Brief would have been retired as product containers; their still-useful capabilities would become neutral shared capabilities selected by Morning Brief. The current audit found that Morning still reaches legacy fallback and generic rendering helpers located in `main.py` and `market_brief_writer.py`; under that historical route, those consumers would have required migration before deleting old product-only surfaces. The active v1.x route keeps this audit as input but moves retirement behind the v1.8 shadow / parallel validation and v1.9 production cutover gates, with deletion in v1.10.
 
 The freeze intentionally does not choose replacement filenames, Python module names, package hierarchy, feature flags, or a new orchestration model. It also does not remove the v0.7.3 rollback path or predefine v0.8 content.
 
@@ -352,7 +352,17 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；next task Implementation Planning / first implementation slice）
+v1.0 — Event-driven Morning Brief（governance baseline COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
+v1.1 — Canonical Domain & Runtime Foundation
+v1.2 — Deterministic Ingest
+v1.3 — Event Clustering
+v1.4 — Event Selector
+v1.5 — Event Classifier + Writer
+v1.6 — Renderer + Artifacts + Orchestrator Integration
+v1.7 — Offline / Snapshot Validation
+v1.8 — Shadow / Parallel Validation
+v1.9 — Production Cutover
+v1.10 — Legacy Retirement & v1.x Closeout
 ```
 
-v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator shadow CLI remains separate, while v0.7.2 uses the existing `phase4_live` boundary only through the accepted `overnight_brief` production path. v0.7.3 is now CLOSED after the seven-day real-use review; the historical v0.7.4 plan is superseded. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete; the active next task is Implementation Planning / first implementation slice before implementation or retirement work.
+v0.6.1 Phase 1 documentation and feed-language normalization / candidate contract wiring are complete. v0.6.2 Phase 2 provides the adapter and artifact foundation, Phase 3A freezes the DeepSeek request/preflight boundary, Phase 3B completes the offline fixture safety preparation and successful fixture-only real-provider gate, and Phase 4 closes with live projection, hard limits, selected-only rejection simplification, a single Flash provider call, and GitHub-only daily-main-pool exclusion. Large-pool real shadow technical boundaries succeeded, but same-snapshot content evaluation found recall/ranking limitations; the Curator shadow CLI remains separate, while v0.7.2 uses the existing `phase4_live` boundary only through the accepted `overnight_brief` production path. v0.7.3 is now CLOSED after the seven-day real-use review; the historical v0.7.4 plan is superseded. v1.0 governance baseline is COMPLETED / CLOSED and the v1.x implementation roadmap is frozen; the active next task is `v1.1 — Canonical Domain & Runtime Foundation`. Detailed milestone scope is canonical in `docs/DECISIONS.md`; this historical Curator document does not redefine the v1.0 architecture or runtime contracts.

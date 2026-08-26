@@ -8,15 +8,15 @@
 
 ## Current version
 
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x implementation roadmap FROZEN）
 
 ## Current status
 
 v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不是 Generation 1 完全达到长期产品目标；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。该 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 v1.0 Event-driven architecture rebuild。
 
-当前 production 仍运行 Generation 1 pipeline；在 v1.0 shadow / parallel validation 和 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
+当前 production 仍运行 Generation 1 pipeline；在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
 
-READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成；尚未进入 implementation，下一 narrative task 是 Implementation Planning / first implementation slice。
+READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；尚未开始 v1.1 implementation。Generation 1 继续作为正式 baseline，直到 v1.9 production cutover。
 
 ## Latest completed
 
@@ -28,12 +28,14 @@ v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-202608
 
 2026-08-26 完成 v1.0 Runtime / Failure Contract Freeze（docs-only）：冻结 run identity、StageResult invariant、合法 empty / partial / failed、逐组件 failure isolation、selector global salvage boundary、classifier / writer item-local validation、bounded retry/batch、artifact、renderer、delivery/idempotency 与 post-cutover no automatic legacy semantic fallback。未实现上述行为，未改变 Generation 1 production。
 
+2026-08-26 完成 `v1.x Implementation Version Roadmap` governance freeze（docs-only）：冻结 v1.0 governance baseline 以及 v1.1–v1.10 numeric implementation milestones。v1.1 尚未开始；不选择 embedding model、不改变三份 v1.0 canonical contracts、不改变 Generation 1 production 或 legacy retirement timing。
+
 ## Deployment
 
 Status: local macOS production accepted
 Public URL: none
 Provider: DeepSeek `deepseek-v4-flash`; real production success accepted
-Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。2026-08-16 的 36 氪删除是仓库级 production hygiene，未做真实 RSS/DeepSeek acceptance。v0.7.3 七天真实使用验证现已 CLOSED；production 仍运行 Generation 1，等待 v1.0 shadow / cutover 后再进行 legacy retirement。本次 docs-only runtime freeze 未重新检查 actual LaunchAgent / pmset / runtime 现场状态，该 follow-up 不是当前 blocker。
+Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。2026-08-16 的 36 氪删除是仓库级 production hygiene，未做真实 RSS/DeepSeek acceptance。v0.7.3 七天真实使用验证现已 CLOSED；production 仍运行 Generation 1，v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 production cutover；v1.10 才进行 legacy retirement。本次 docs-only roadmap freeze 未重新检查 actual LaunchAgent / pmset / runtime 现场状态，该 follow-up 不是当前 blocker。
 
 ## Version Index
 
@@ -65,7 +67,17 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v0.7.2 — Production Cutover（CLOSED）
 - v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 - v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-- v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；next task Implementation Planning / first implementation slice）
+- v1.0 — Event-driven Morning Brief（governance baseline COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
+- v1.1 — Canonical Domain & Runtime Foundation（PLANNED）
+- v1.2 — Deterministic Ingest（PLANNED）
+- v1.3 — Event Clustering（PLANNED）
+- v1.4 — Event Selector（PLANNED）
+- v1.5 — Event Classifier + Writer（PLANNED）
+- v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
+- v1.7 — Offline / Snapshot Validation（PLANNED）
+- v1.8 — Shadow / Parallel Validation（PLANNED）
+- v1.9 — Production Cutover（PLANNED）
+- v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 
 ## Last verified
 
@@ -73,7 +85,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-v1.0 Implementation Planning / first implementation slice：基于三份已冻结 canonical contracts，只规划最小、可验证的首个 vertical slice；在独立审批前不实现，不改变 Generation 1 production，不重新启用 superseded 的 v0.7.4 路线。
+v1.1 — Canonical Domain & Runtime Foundation：实现 Article、EventCandidate、Event、classification / writing sections、Brief、StageResult、ItemFailure、stable identity、datetime/window validation、serialization/deserialization 与 offline unit tests；不改变 Generation 1 production，不重新启用 superseded 的 v0.7.4 路线。
 
 ## Blockers
 
@@ -104,10 +116,11 @@ v1.0 Implementation Planning / first implementation slice：基于三份已冻�
 - `market_brief` now uses RSS news plus a lightweight A-share quote snapshot when explicitly generated. It still does not calculate complex strategy, sector strength, or trading actions.
 - v0.7.1 adds explicit Morning Brief (`overnight_brief`) output at `reports/morning-brief-YYYY-MM-DD.md`; it reuses existing digest/market capabilities, labels structured quotes as prior-trading-day A-share data, and does not connect Obsidian, Bark, launchd or pmset. The explicit manual path may call the existing phase4_live single-pass AI Curator; Provider technical failure falls back to the whole legacy news layer.
 - v0.7.2 production acceptance confirms one explicit report type now runs through the existing stable shell / Obsidian / Bark chain. No-argument shell execution remains `digest`; the checked-in and accepted LaunchAgent path selects `overnight_brief`; unknown report types fail closed. Curator credentials use process-env-first, project-root `.env` second without logging secret material, and missing `.env`/key preserves the existing legacy fallback.
-- The historical v0.7.4 architecture freeze and read-only audit remain recorded, but its independent implementation route is superseded / replaced by v1.0. Legacy retirement now occurs only after the v1.0 Event-driven pipeline passes shadow / parallel validation and production cutover; no old product surface is deleted before those gates.
+- The historical v0.7.4 architecture freeze and read-only audit remain recorded, but its independent implementation route is superseded / replaced by v1.0. Legacy retirement now occurs only after the v1.8 shadow / parallel validation and v1.9 production cutover gates; no old product surface is deleted before those gates.
 - The v1.0 canonical architecture is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`; it does not prescribe immediate Python filenames, package hierarchy, feature flags, or business implementation. `Article` is input, `Event` is the core object, and `Brief` is output; Article dedup and event clustering remain separate.
 - The v1.0 canonical core data contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`; it freezes Article/EventCandidate/Event/Brief identity and ownership, deterministic Evidence projection, immutable Event stage derivation, and the minimal component-local result envelope without implementing runtime behavior.
 - The v1.0 canonical runtime / failure contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`; it freezes run identity, StageResult semantics, per-component isolation, LLM batch/retry boundaries, Brief status, artifact/delivery behavior and no automatic post-cutover legacy semantic fallback. The contract is docs-only and not implemented.
+- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 is the next and only formal development task. v1.3 does not choose an embedding model, v1.6 does not cut over production, v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
 - v0.7.3 closeout is a product-review decision to stop patching the Generation 1 core news architecture, not a claim that Generation 1 fully met the long-term product target. The evidence is retained as historical input to v1.0 and is not being re-designed in this closeout.
 - `tests/offline_overnight_brief_smoke.py` covers cross-section dedupe, 0–3 watch variables, conditional holdings, missing market data, no holdings, feed failures and explicit dispatch; all offline smoke tests passed on 2026-08-13.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
@@ -133,4 +146,4 @@ v1.0 Implementation Planning / first implementation slice：基于三份已冻�
 
 ## Handoff Prompt
 
-v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains `launchd → project .env → DeepSeek → AI Curator → Generation 1 Morning Brief → Obsidian → Bark`; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete and docs-only. The migration route is preserve mature infrastructure + rewrite news core. The next and only scoped work is `v1.0 Implementation Planning / first implementation slice`; implementation has not started. Do not modify production routing or delete legacy surface before v1.0 shadow / parallel validation and production cutover. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0. Blockers remain `暂无明确阻塞。`.
+v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains `launchd → project .env → DeepSeek → AI Curator → Generation 1 Morning Brief → Obsidian → Bark`; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete and docs-only; the v1.x implementation roadmap is frozen. The next and only scoped work is `v1.1 — Canonical Domain & Runtime Foundation`; implementation has not started. Generation 1 remains the formal baseline through v1.9 production cutover, and legacy retirement starts only at v1.10 after consumer audit. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0. Blockers remain `暂无明确阻塞。`.

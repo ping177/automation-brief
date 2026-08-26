@@ -343,10 +343,10 @@ Delivery 只在 Brief 与 canonical rendered report artifact 已 atomic durable 
 
 本次未实现任何 v1.0 module、schema、retry、fallback或delivery behavior；未拆`main.py`，未修改CandidateArticle/CuratedEvent/prompt/provider/feed/shell/plist/routing，未安装embedding dependency，未调用RSS、DeepSeek、Bark、Obsidian或production pipeline，未写runtime data，未删除legacy/tests。
 
-Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze与本Runtime / Failure Contract Freeze均已完成。下一步唯一任务是：
+Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze与本Runtime / Failure Contract Freeze均已完成。v1.x implementation roadmap 已冻结；下一步唯一任务是：
 
 ```text
-v1.0 Implementation Planning / first implementation slice
+v1.1 — Canonical Domain & Runtime Foundation
 ```
 
-该任务必须单独审批与规划；本合同不擅自选择或实现first slice。
+该任务不重新打开本合同；本文件只提供 runtime / failure constraints，不实现 v1.1。

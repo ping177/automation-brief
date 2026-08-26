@@ -4,7 +4,7 @@
 
 ## Generation 1 Morning Brief 产品合同（legacy production）
 
-本节保留当前 Generation 1 production 的历史产品合同。v1.0 不携带 Holdings，Market 仅是未来 optional capability；v1.0 以本文后部的 `v1.0 Event-driven Morning Brief` 决策和两份 canonical contract 文档为准。
+本节保留当前 Generation 1 production 的历史产品合同。v1.0 不携带 Holdings，Market 仅是未来 optional capability；v1.0 以本文后部的 `v1.0 Event-driven Morning Brief` 决策和三份 canonical contract 文档为准。
 
 ### 个人早间简报定位
 
@@ -15,7 +15,7 @@
 
 ### Numeric version route
 
-- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）、`v0.7.3` Morning Brief Long-term Usage Validation（CLOSED）、历史记录中的 `v0.7.4` Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）和下一代 `v1.0` Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；next task Implementation Planning / first implementation slice）；后续不再新增字母阶段标签作为正式阶段命名。
+- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）、`v0.7.3` Morning Brief Long-term Usage Validation（CLOSED）、历史记录中的 `v0.7.4` Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）和下一代 `v1.0` Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x implementation roadmap FROZEN；next task `v1.1`）；后续不再新增字母阶段标签作为正式阶段命名。
 - 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token 或字母阶段标签。
 
 ### 多语言输入与简体中文输出
@@ -211,7 +211,7 @@
 - 约束：本轮只冻结边界，不修改 Python、shell、plist、tests、config、runtime data 或 production behavior；不预先决定替代文件名、模块名、package hierarchy 或新的 orchestration。v0.7.3 期间保留 Daily rollback；v0.8 不提前冻结内容。
 - 完成条件：删除旧产品容器后，Morning 仍完整支持 AI Curator、market context、holdings anomaly、provider technical fallback、canonical writer、Obsidian 和 Bark；只有确认无消费者的旧 entry、writer、routing、tests、docs surface 才可删除。
 
-状态说明：上述 v0.7.4 决策及其 read-only audit 结论保留为历史事实，但不再作为独立实施路线执行。v1.0 重新定义 legacy retirement 的时机：必须在新 Event-driven Morning Brief 完成 shadow / parallel validation 和 production cutover 后，才进入旧产品 retirement。不得删除或改写 v0.7.4 的历史记录，也不得在 v0.7.3 baseline 期间提前退役旧 production surface。
+状态说明：上述 v0.7.4 决策及其 read-only audit 结论保留为历史事实，但不再作为独立实施路线执行。v1.x 重新定义 legacy retirement 的时机：必须在 v1.8 完成 shadow / parallel validation、v1.9 完成 production cutover 后，才在 v1.10 进入旧产品 retirement。不得删除或改写 v0.7.4 的历史记录，也不得在 v0.7.3 baseline 期间提前退役旧 production surface。
 
 ## v1.0 Event-driven Morning Brief
 
@@ -221,9 +221,109 @@
 - 模型边界：collection、normalization、dedup、schema validation、provenance、rendering、delivery 和 orchestration 由代码负责；local semantic model 初期负责 clustering；LLM 主要负责 selection、classification 和 writing。模块职责拆分与物理 API call 次数分离，允许合理 batch，但不重新形成“大 Curator”。
 - 故障边界：v1.0 遵循 `Fail locally, not globally`；StageResult 状态由 output/failure invariant 机械推导；合法 empty 不等于 technical failure；单个 Event 或 batch failure 只影响最小合理单元并保留 valid siblings。
 - capability 边界：Holdings 不进入 v1.0；Market 仅作为未来 optional capability，不在本次设计 Market v2；v1.0 开发期间不增加与核心 Event pipeline 无关的新功能。
-- 迁移边界：v0.7.3 保留为 Generation 1 Morning Brief 七天真实使用验证 baseline。v0.7.3 与当前旧 production pipeline 在 v1.0 开发期间保持可运行；只有完成 offline / snapshot、shadow / parallel validation、production acceptance 和 cutover 后，才执行 legacy retirement。
+- 迁移边界：v0.7.3 保留为 Generation 1 Morning Brief 七天真实使用验证 baseline。v0.7.3 与当前旧 production pipeline 在 v1.x 开发期间保持可运行；只有完成 offline / snapshot、shadow / parallel validation、production acceptance 和 cutover 后，才执行 legacy retirement。
 - dependency / migration route：READ-ONLY Dependency Audit 已完成。正式路线选择 preserve mature infrastructure + rewrite news core；保留成熟 collection、identity、path resolver、provider transport、artifact 和 delivery 基础，替换横跨 `main.py`、single-pass Curator、legacy rules 和 writer 的 news core。当前没有可安全 `DELETE NOW` 的 legacy tracked file。
 - Core Data Contract：使用一个 canonical Event，由 selector、classifier、writer 各自返回 immutable derived value，不建立三套重复 stage object。Article 与 EventCandidate identity deterministic；selector 只表达入选与相对顺序，不保留 importance tier；classifier 使用 descriptive category vocabulary 且 category 不影响 selection；writer 只拥有 `title_zh`、`summary_zh`、`why_it_matters_zh`。classification 与 writing 是独立 optional sections，classifier failure 不阻止 writer。
 - Evidence / runtime：Evidence 是 Article 的 deterministic projection，Article 是 source/URL/published_at/identity 唯一 authority。LLM 每个 physical request 最多两次 bounded attempts；selector 是独立 global logical operation，classifier / writer 只在各自 stage 内 batch，禁止 cross-stage response coalescing。Brief generation 与 delivery outcome 分离。
-- Fallback：pre-cutover 继续由 Generation 1 production 提供正式输出，v1.0 shadow 不影响读者；post-cutover 可发布 durable valid complete/partial v1.0 Brief，但 generation failure 不自动调用 legacy ranking、classification、Curator、writer 或 raw English fallback。Generation 1 rollback 只能是显式、人工、可审计的 routing decision。
+- Fallback：pre-cutover 继续由 Generation 1 production 提供正式输出，v1.8 shadow 不影响读者；v1.9 cutover 后可发布 durable valid complete/partial v1.x Brief，但 generation failure 不自动调用 legacy ranking、classification、Curator、writer 或 raw English fallback。Generation 1 rollback 只能是显式、人工、可审计的 routing decision。
 - 详细 contract：模块职责与 narrative stages 记录在 `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`；唯一 canonical core data contract 记录在 `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`；唯一 canonical runtime / failure contract 记录在 `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`。本决策不要求创建对应 Python 文件或开始 implementation。
+
+## v1.x Implementation Version Roadmap（FROZEN）
+
+本路线是 v1.0 Event-driven Morning Brief 同一产品世代内的 implementation milestones，不是新的产品架构或第二套版本治理。v1.0 的 `completed / closed` 指 Architecture、Dependency、Core Data、Runtime / Failure 四项治理合同基线已关闭；现有 canonical Architecture 文档中的最终 narrative `v1.0 CLOSED` 仍由 production cutover 与 legacy retirement 的完成条件表达，numeric closeout 对应 v1.10。这个映射不创建第二个 version token 体系。
+
+### v1.0 — Event-driven Morning Brief architecture / governance baseline（COMPLETED / CLOSED）
+
+- Architecture Freeze
+- READ-ONLY Dependency Audit
+- Core Data Contract Freeze
+- Runtime / Failure Contract Freeze
+
+### v1.1 — Canonical Domain & Runtime Foundation
+
+- Article、EventCandidate、Event
+- classification / writing sections、Brief
+- StageResult、ItemFailure
+- stable identity、datetime/window validation
+- serialization/deserialization
+- offline unit tests
+
+### v1.2 — Deterministic Ingest
+
+- collector、normalizer、article_dedup
+- 目标：`Sources → canonical Article`
+
+### v1.3 — Event Clustering
+
+- local semantic / embedding based clustering
+- `Article → EventCandidate`
+- clustering validation / diagnostics
+- 本路线不选择具体 embedding model。
+
+### v1.4 — Event Selector
+
+- LLM event selection、relative ordering
+- selector validation
+- global selector failure semantics
+- safe item salvage
+
+### v1.5 — Event Classifier + Writer
+
+- canonical category
+- `title_zh`、`summary_zh`、`why_it_matters_zh`
+- per-event validation / partial failure
+
+### v1.6 — Renderer + Artifacts + Orchestrator Integration
+
+- brief_renderer
+- v1.x artifacts/checkpoints
+- orchestrator
+- llm_gateway integration boundary
+- complete side-by-side v1.x pipeline
+- 仍不做 production cutover。
+
+### v1.7 — Offline / Snapshot Validation
+
+- deterministic regression
+- duplicate / event clustering cases
+- invalid provider outputs
+- partial failure、empty success
+- snapshot / offline E2E validation
+
+### v1.8 — Shadow / Parallel Validation
+
+- Generation 1 production 正常运行
+- v1.x side-by-side real shadow execution
+- 不发送 reader-facing v1.x output
+- compare Generation 1 与 v1.x quality / stability
+- 进入或准备 shadow 时验证 LaunchAgent / pmset / actual runtime follow-up。
+
+### v1.9 — Production Cutover
+
+- v1.x 接管正式 Morning Brief
+- production routing、Bark / Obsidian / runtime integration
+- cutover acceptance
+- explicit auditable rollback path
+- 禁止 automatic Generation 1 semantic fallback。
+
+### v1.10 — Legacy Retirement & v1.x Closeout
+
+- post-cutover consumer audit
+- 删除无 consumer 的 Generation 1 news core
+- 删除 obsolete Curator product layer
+- 删除 obsolete Daily Digest / Market Brief reader-facing product surfaces
+- 删除 Holdings legacy capability
+- 删除 obsolete routing / writer / tests / docs
+- 保留仍被 v1.x 使用的成熟 shared infrastructure
+- final regression / governance closeout
+- v1.x milestone closed
+
+Market 不属于 v1.x core；Holdings 不进入 v1.x。v1.8 之前 Generation 1 继续作为正式 baseline，直到 v1.9 cutover；保留 Gen1 到 cutover 不代表长期双架构。
+
+### Roadmap governance rules
+
+1. 正式版本 token 只使用纯数字：`v1.0`、`v1.1`、`v1.2` … `v1.10`；不使用 alpha、beta、Phase A/B 或其它阶段型 version token。
+2. v1.0 已冻结的 Architecture、Core Data Contract、Runtime / Failure Contract 默认不在 implementation 中重新打开。
+3. 如果真实实现发现 frozen contract 存在不可实现矛盾，不得在业务代码中静默改变；必须先报告证据，做最小、显式、可审计的 contract amendment，不扩大架构范围。
+4. v1.1 是下一步唯一正式开发任务；不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
+5. 本路线不提前选择 embedding model、模型迁移、prompt、token budget 或其它 implementation tuning。

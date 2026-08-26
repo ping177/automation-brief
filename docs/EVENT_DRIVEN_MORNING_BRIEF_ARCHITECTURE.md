@@ -14,7 +14,7 @@
 
 v1.0 不是 AI 投研助手、股票推荐工具、新闻到股票机会映射器或每日投资观点生成器。它的 reader-facing 输出仍然是适合早晨快速阅读的简体中文 Morning Brief。
 
-`v0.7.3` 保留为 Generation 1 Morning Brief 的七天真实使用验证 baseline。v1.0 是下一代完整架构重建里程碑；在当前 freeze 之后，v1.0 仍未开始业务实现或 production cutover。
+`v0.7.3` 保留为 Generation 1 Morning Brief 的七天真实使用验证 baseline。v1.0 是下一代完整架构重建里程碑；在当前 freeze 之后，v1.x 仍未开始业务实现或 production cutover。
 
 ## 2. Version governance 与 narrative stages
 
@@ -39,7 +39,7 @@ Architecture Freeze
         → v1.0 CLOSED
 ```
 
-旧的 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 历史记录保留，但其独立实施路线被 v1.0 取代。旧产品只有在 v1.0 完成 shadow / parallel validation 和 production cutover 后才进入 retirement；不得在 v0.7.3 baseline 期间提前删除 legacy surface。
+旧的 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 历史记录保留，但其独立实施路线被 v1.0 取代。旧产品只有在 v1.8 完成 shadow / parallel validation、v1.9 完成 production cutover 后，才在 v1.10 进入 retirement；不得在 v0.7.3 baseline 期间提前删除 legacy surface。
 
 ## 3. 冻结的核心主链
 
@@ -269,12 +269,14 @@ Legacy retirement 不是 Architecture Freeze 的动作。只有新架构完成�
 2. READ-ONLY Dependency Audit（COMPLETE）：已核对真实消费者、当前模块耦合和可迁移边界，迁移路线为 preserve mature infrastructure + rewrite news core。
 3. Core Data Contract Freeze（COMPLETE）：已正式确定 Article、EventCandidate、Event、Brief schema、enum、identity、provenance 和最小局部结果 envelope。
 4. Runtime / Failure Contract Freeze（COMPLETE）：已正式确定 run、StageResult、合法 empty、retry、batch、validation、artifact、delivery、observability 和局部失败行为。
-5. Implementation：先完成 Implementation Planning / first implementation slice，再在旧 production 可运行的前提下逐步实现 v1.0 pipeline。
+5. Implementation：按已冻结 numeric roadmap 的 v1.1–v1.6 milestones，在旧 production 可运行的前提下逐步实现 v1.x pipeline。
 6. Offline / Snapshot Validation：用 deterministic fixtures / snapshots 验证模块合同和跨阶段 provenance。
 7. Shadow / Parallel Validation：与 Generation 1 结果做真实 shadow / parallel comparison。
 8. Production Cutover：经过 acceptance 后切换 production routing，并保留可回滚路径。
 9. Legacy Retirement：重新审计消费者、迁移 shared capabilities 后，才删除旧产品容器。
 10. v1.0 CLOSED：确认 Morning Brief production 稳定且旧产品 retirement 完成。
+
+上述 narrative gates 的 numeric implementation mapping 已在 `docs/DECISIONS.md` 的 `v1.x Implementation Version Roadmap（FROZEN）` 中冻结：v1.1–v1.6 对应 implementation，v1.7 对应 offline/snapshot，v1.8 对应 shadow/parallel，v1.9 对应 production cutover，v1.10 对应 legacy retirement 与 v1.x closeout；不改变本文件的 architecture、data 或 runtime semantics。
 
 ## 12. 本轮明确不做
 

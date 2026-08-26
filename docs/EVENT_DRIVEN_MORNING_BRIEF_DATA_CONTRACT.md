@@ -317,5 +317,5 @@ No field has overlapping write authority. Same-stage batching does not change ow
 Runtime / Failure Contract Freeze 已完成。下一项唯一任务是：
 
 ```text
-v1.0 Implementation Planning / first implementation slice
+v1.1 — Canonical Domain & Runtime Foundation
 ```

@@ -43,6 +43,14 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 - post-cutover没有automatic Generation 1 semantic fallback；pre-cutover Generation 1 production与legacy surface保持不变。
 - 检查 Architecture ↔ Data ↔ Runtime producer/consumer、ownership与fallback一致性；检查没有Python/config/prompt/feed/shell/plist/runtime-data改动或真实外部调用。
 
+## v1.x Implementation Version Roadmap Freeze docs-only checklist
+
+- `v1.0` governance baseline 为 COMPLETED / CLOSED；下一步唯一正式开发任务为 `v1.1 — Canonical Domain & Runtime Foundation`。
+- `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
+- v1.3 不选择具体 embedding model；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
+- Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
+- roadmap freeze 不修改三份 v1.0 canonical contract semantics，不创建 v1.1 Python module，不运行业务 pipeline 或真实外部 API。
+
 ## Project State Push Gate 验证
 
 ```bash

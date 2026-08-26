@@ -2,7 +2,9 @@
 
 本文记录 automation-brief 的长期产品、架构和工作流决策。只记录相对稳定的判断；短期任务放在 `docs/BACKLOG.md`，过程记录放在 `docs/DEVLOG.md`。
 
-## Morning Brief 产品合同
+## Generation 1 Morning Brief 产品合同（legacy production）
+
+本节保留当前 Generation 1 production 的历史产品合同。v1.0 不携带 Holdings，Market 仅是未来 optional capability；v1.0 以本文后部的 `v1.0 Event-driven Morning Brief` 决策和两份 canonical contract 文档为准。
 
 ### 个人早间简报定位
 
@@ -13,7 +15,7 @@
 
 ### Numeric version route
 
-- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）、`v0.7.3` Morning Brief Long-term Usage Validation（CLOSED）、历史记录中的 `v0.7.4` Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）和下一代 `v1.0` Event-driven Morning Brief（Architecture Freeze COMPLETE；next stage READ-ONLY Dependency Audit）；后续不再新增字母阶段标签作为正式阶段命名。
+- 决策：从本轮起新的正式 machine version token 使用 numeric 形式：`v0.6.1` Product Reset + Language Boundary、`v0.6.2` AI Curator Shadow Evaluation，以及 `v0.7` Morning Brief 总里程碑下的 `v0.7.1` Morning Brief MVP（CLOSED）、`v0.7.2` Production Cutover（CLOSED）、`v0.7.3` Morning Brief Long-term Usage Validation（CLOSED）、历史记录中的 `v0.7.4` Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）和下一代 `v1.0` Event-driven Morning Brief（Architecture + Core Data Contract Freeze COMPLETE；next stage Runtime / Failure Contract Freeze）；后续不再新增字母阶段标签作为正式阶段命名。
 - 影响：既有 `v0.6.0-alpha`、`v0.5-beta` 等历史 token 保留为事实，不重写历史 Version Index；未来文档只使用 numeric route，不再新增带 alpha 后缀的同名路线 token 或字母阶段标签。
 
 ### 多语言输入与简体中文输出
@@ -220,5 +222,7 @@
 - 故障边界：v1.0 遵循 `Fail locally, not globally`；单个 Event 或 batch failure 只能影响最小合理单元，不把 whole-layer legacy fallback 作为下一代 architecture。retry、partial success 和 validation handling 留到 Runtime / Failure Contract Freeze。
 - capability 边界：Holdings 不进入 v1.0；Market 仅作为未来 optional capability，不在本次设计 Market v2；v1.0 开发期间不增加与核心 Event pipeline 无关的新功能。
 - 迁移边界：v0.7.3 保留为 Generation 1 Morning Brief 七天真实使用验证 baseline。v0.7.3 与当前旧 production pipeline 在 v1.0 开发期间保持可运行；只有完成 offline / snapshot、shadow / parallel validation、production acceptance 和 cutover 后，才执行 legacy retirement。
-- v0.7.3 closeout：七天真实使用和产品 review 已完成；结果不表示 Generation 1 完全达到长期产品目标。重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足和持仓能力价值未证明等 evidence 支持停止继续 patch Generation 1 核心新闻架构，下一步转入 `v1.0 READ-ONLY Dependency Audit`。
-- 详细 contract：模块职责、Article / EventCandidate / Event / Brief 生命周期、provenance、failure model、narrative stages 和本轮非目标统一记录在 `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`。本决策不要求本轮创建对应 Python 文件，也不冻结具体 category enum、retry policy 或 package hierarchy。
+- dependency / migration route：READ-ONLY Dependency Audit 已完成。正式路线选择 preserve mature infrastructure + rewrite news core；保留成熟 collection、identity、path resolver、provider transport、artifact 和 delivery 基础，替换横跨 `main.py`、single-pass Curator、legacy rules 和 writer 的 news core。当前没有可安全 `DELETE NOW` 的 legacy tracked file。
+- Core Data Contract：使用一个 canonical Event，由 selector、classifier、writer 依次返回 immutable derived value，不建立三套重复 stage object。Article 与 EventCandidate identity deterministic；selector 只表达入选与相对顺序，不保留 importance tier；classifier 使用 descriptive category vocabulary 且 category 不影响 selection；writer 只拥有 `title_zh`、`summary_zh`、`why_it_matters_zh`。
+- Evidence / failure：Evidence 是 Article 的 deterministic projection，Article 是 source/URL/published_at/identity 唯一 authority。最小 `StageResult` 保留 successful outputs 与 item-local failures，但 retry、timeout、batch、provider recovery、artifact layout 和 production fallback 留给 Runtime / Failure Contract Freeze。
+- 详细 contract：模块职责与 narrative stages 记录在 `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`；唯一 canonical core data contract 记录在 `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`。本决策不要求创建对应 Python 文件或开始 implementation。

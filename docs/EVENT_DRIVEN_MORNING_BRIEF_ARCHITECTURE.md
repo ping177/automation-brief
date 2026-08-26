@@ -1,8 +1,8 @@
 # v1.0 — Event-driven Morning Brief Architecture
 
-> Status: Architecture Freeze（docs-only，2026-08-26）
+> Status: Architecture Freeze COMPLETE；Core Data Contract Freeze COMPLETE（docs-only，2026-08-26）
 >
-> 这是 v1.0 下一代 Morning Brief 的 canonical architecture contract。它冻结产品边界、职责边界和迁移时机，不创建业务代码，也不替代后续的 Core Data Contract 或 Runtime / Failure Contract。
+> 这是 v1.0 下一代 Morning Brief 的 canonical architecture contract。它冻结产品边界、职责边界和迁移时机，不创建业务代码。canonical object、identity、ownership、provenance 和最小局部结果 envelope 见 [`EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)；Runtime / Failure Contract 仍待下一 narrative stage 冻结。
 
 ## 1. 产品定位
 
@@ -72,7 +72,7 @@ orchestrator.py
 llm_gateway.py
 ```
 
-以上名称是架构职责建议，不是本轮要求创建、重命名或拆分成对应 Python 文件。正式实现前必须先完成 dependency audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze。
+以上名称是架构职责建议，不是要求立即创建、重命名或拆分成对应 Python 文件。READ-ONLY Dependency Audit 与 Core Data Contract Freeze 已完成；正式实现前仍必须完成 Runtime / Failure Contract Freeze。
 
 ## 4. Domain object lifecycle
 
@@ -93,10 +93,10 @@ Article 是来源输入的 canonical representation，至少需要能够稳定�
 - `source`
 - `published_at`
 - `language`
-- `summary` / `content`
+- source-provided `summary`
 - stable identity metadata
 
-字段名称、必填性、时间语义和 schema version 留到 Core Data Contract Freeze 正式确定。Article 不携带由后续模块推断出的 importance、category 或 reader-facing interpretation。
+字段名称、必填性、时间语义和 identity 已由 Core Data Contract Freeze 正式确定；当前真实 collector 没有稳定 full-body input，因此 speculative `content` 未进入 v1.0 core。Article 不携带由后续模块推断出的 importance、category 或 reader-facing interpretation。
 
 ### EventCandidate
 
@@ -117,11 +117,11 @@ Event 是 v1.0 的核心业务对象。它由 EventCandidate 经过 selection、
 - writer 生成 reader-facing 简体中文文本；
 - provenance 始终由 Article deterministic 回查，不由 LLM 生成。
 
-`must_know`、`important` 等 importance enum、category enum、confidence、uncertainty 和其它字段是否保留，统一留到 Data Contract Freeze 决定。本轮不凭空新增 enum，也不把 `watch_point` 设为必选核心字段。
+Core Data Contract Freeze 已决定不保留 importance tier、confidence、uncertainty、novelty 或 `watch_point`；selection 只以入选集合和相对顺序表达。classifier 使用冻结的 descriptive category vocabulary，category 不影响 selection 或顺序。Event 使用一个 canonical object，由 selector、classifier、writer 依次返回 immutable derived value，不复制三套 stage schema。
 
 ### Brief
 
-Brief 是 Event 和其它已批准 shared capability 的 deterministic reader-facing composition。它负责把已选、已分类、已写作的 Events 组织成 Morning Brief，不重新判断事件重要性。
+Brief 是已选、已分类、已写作 Events 的 deterministic reader-facing composition，不混入 Holdings 或 Market data/context。它负责组织 Morning Brief，不重新判断事件重要性。
 
 ## 5. 模块职责冻结
 
@@ -167,7 +167,7 @@ Selector 不负责 clustering、classification、final Chinese writing 或 sourc
 
 只对已经由 selector 选中的 Event 做语义分类。分类发生在 selection 之后。
 
-Classifier 使用 LLM；category 与 importance 完全解耦，不得重新引入“financial news +20”一类规则。具体 category enum 留到 Data Contract Freeze。
+Classifier 使用 LLM；category 与 importance 完全解耦，不得重新引入“financial news +20”一类规则。具体 descriptive category vocabulary 由 canonical data contract 冻结。
 
 ### `event_writer.py`
 
@@ -236,10 +236,9 @@ Evidence 不是独立 AI 模块。Event 必须保存 Article provenance：
 
 ```text
 article_ids
-source refs
 ```
 
-source、URL、published_at 和其它 article metadata 必须从原始 Article deterministic 回取。LLM 不生成、猜测或重写 source URL；reader-facing Brief 可以只展示少量主要来源，但完整 provenance 必须保留在 artifact / data contract 中。
+source refs 是 `article_ids` 对 Article 的 deterministic projection，不在 Event 中复制第二份 authority。source、URL、published_at 和其它 article metadata 必须从原始 Article deterministic 回取。LLM 不生成、猜测或重写 source URL；reader-facing Brief 可以只展示有限主要来源，但完整 provenance 必须保留在 artifact / data contract 中。
 
 ## 9. Holdings 与 Market 边界
 
@@ -267,8 +266,8 @@ Legacy retirement 不是 Architecture Freeze 的动作。只有新架构完成�
 以下是过程 gate，不是新的 version token：
 
 1. Architecture Freeze：冻结本文件的产品、主链、模块职责和非目标。
-2. READ-ONLY Dependency Audit：核对真实消费者、当前模块耦合和可迁移边界。
-3. Core Data Contract Freeze：正式确定 Article、EventCandidate、Event、Brief schema、enum、identity 和 provenance contract。
+2. READ-ONLY Dependency Audit（COMPLETE）：已核对真实消费者、当前模块耦合和可迁移边界，迁移路线为 preserve mature infrastructure + rewrite news core。
+3. Core Data Contract Freeze（COMPLETE）：已正式确定 Article、EventCandidate、Event、Brief schema、enum、identity、provenance 和最小局部结果 envelope。
 4. Runtime / Failure Contract Freeze：正式确定 retry、partial success、validation、artifact、observability 和局部失败行为。
 5. Implementation：在旧 production 可运行的前提下实现 v1.0 pipeline。
 6. Offline / Snapshot Validation：用 deterministic fixtures / snapshots 验证模块合同和跨阶段 provenance。
@@ -292,4 +291,4 @@ Legacy retirement 不是 Architecture Freeze 的动作。只有新架构完成�
 
 ## 13. 文档治理
 
-本文件是 v1.0 Event-driven Morning Brief 的详细 architecture contract。长期决策在 `docs/DECISIONS.md` 记录，当前 dashboard 状态在 `docs/PROJECT_STATE.md` 记录，后续任务在 `docs/BACKLOG.md` 记录，过程和验证在 `docs/DEVLOG.md` 与 `docs/TESTING.md` 记录。其它文档不得创建一套相互竞争的 v1.0 架构或版本治理。
+本文件是 v1.0 Event-driven Morning Brief 的详细 architecture contract；[`EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md) 是唯一 canonical core data contract。长期决策在 `docs/DECISIONS.md` 记录，当前 dashboard 状态在 `docs/PROJECT_STATE.md` 记录，后续任务在 `docs/BACKLOG.md` 记录，过程和验证在 `docs/DEVLOG.md` 与 `docs/TESTING.md` 记录。其它文档不得创建一套相互竞争的 v1.0 架构、数据合同或版本治理。

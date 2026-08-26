@@ -2,6 +2,14 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-26 — v1.0 Core Data Contract Freeze（docs-only）
+
+- 基于真实仓库完成 READ-ONLY contract inventory，读取现有 `CandidateArticle` / `CuratedEvent`、request/response validator、stable Article identity、artifact serialization、Morning writer evidence projection、whole-layer fallback 及对应 tests；迁移路线确认为 preserve mature infrastructure + rewrite news core。
+- 新增唯一 canonical core data contract，冻结 Article、EventCandidate、single immutable-lifecycle Event、deterministic Evidence projection、Brief，以及只支持 component-local success/partial/failure 的最小 StageResult。
+- selector 只表达入选与相对顺序，不保留 numeric score 或 importance tier；classification 在 selection 后且 category 不影响顺序；writer 只拥有 `title_zh`、`summary_zh`、`why_it_matters_zh`。
+- Holdings、Market data/context、watch point、confidence、uncertainty、novelty 和 speculative full content 未进入 v1.0 core；timeout、retry、batching、provider recovery、artifact layout 和 production fallback 留给 Runtime / Failure Contract Freeze。
+- 未修改 Python、config、dependency、prompt、shell、plist、production routing 或 runtime data；未删除 legacy，Generation 1 production 继续运行。下一步唯一任务为 Runtime / Failure Contract Freeze。
+
 ## 2026-08-26 — v0.7.3 Morning Brief Long-term Usage Validation closeout
 
 - 七天真实使用观察和产品 review 已完成，`v0.7.3` 正式标记为 CLOSED。

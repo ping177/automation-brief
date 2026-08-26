@@ -22,6 +22,15 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 - v0.7.3 baseline 和现有 production routing 保持可运行；v0.7.4 历史记录保留并标记为 superseded / replaced by v1.0 plan。
 - 本轮不运行 RSS、DeepSeek、Bark、Obsidian、launchd、pmset 或生产晨报。
 
+## v1.0 Core Data Contract Freeze docs-only checklist
+
+- canonical contract 只存在于 `EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`；architecture/Decisions/Project State 只做摘要和链接，不复制竞争 schema。
+- Article → EventCandidate → selected/classified/written Event → Brief 的 producer-consumer chain 闭合，所有 provenance ID 均可 deterministic 回取 Article。
+- deterministic-owned Article identity/source/URL/time 与 LLM-owned selection/category/writing 无重叠 write authority。
+- Event 使用一个 immutable derived lifecycle，不复制三套 Event schema；selector 不输出 score/importance tier，category 不影响 selection，writer 只输出三项简体中文文本。
+- StageResult 只冻结 success/partial/failed、retained outputs、item failure 与 opaque diagnostic ref；timeout、retry、batch、provider recovery、artifact layout 和 production fallback 不在本阶段冻结。
+- Holdings、Market data/context、watch point 和 speculative full content 不进入 v1.0 core；没有修改 Python、config、dependency、prompt、shell、plist 或 production routing。
+
 ## Project State Push Gate 验证
 
 ```bash
@@ -151,7 +160,7 @@ targeted production smoke 使用临时 repo、临时项目 `.env`、fake Python�
 
 v0.7.3 七天真实使用验证和产品 review 已完成并 CLOSED。它不是 Generation 1 完全达到长期产品目标的证明；重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足和持仓能力价值未证明等 evidence 支持停止继续 patch Generation 1 核心新闻架构。
 
-原 v0.7.4 独立退役路线已 superseded / replaced by v1.0，但其历史 audit 结论保留。v1.0 的 `READ-ONLY Dependency Audit` 必须针对实施时的真实 tree 重新进行；删除或改名任何旧 product surface 前，必须先完成真实消费者迁移和覆盖验证。测试迁移应跟随真实消费者迁移，不能先按文件名批量删除。
+原 v0.7.4 独立退役路线已 superseded / replaced by v1.0，但其历史 audit 结论保留。v1.0 的 `READ-ONLY Dependency Audit` 已针对当前真实 tree 完成；删除或改名任何旧 product surface 前，仍必须先完成真实消费者迁移、cutover 后复审和覆盖验证。测试迁移应跟随真实消费者迁移，不能先按文件名批量删除。
 
 v1.0 的 legacy retirement 只有在 Event-driven pipeline 完成 offline / snapshot validation、shadow / parallel validation、production acceptance 和 production cutover 后才开始；v1.0 内部过程使用 narrative stages，不创建 alpha/beta 或 Phase version token。v1.1 等后续 numeric version 只有在 v1.0 正式 CLOSED 后、确有独立产品增量时才考虑。
 

@@ -8,34 +8,25 @@
 
 ## Current version
 
-v1.3 — Event Clustering（IN PROGRESS / acceptance pending；v1.x implementation roadmap FROZEN）
+v1.3 — Event Clustering（COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
 
 ## Current status
 
+v1.3 Event Clustering 已 COMPLETED / CLOSED；accepted implementation 保持 side-by-side，不改变 Generation 1 production routing。
+
 v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不是 Generation 1 完全达到长期产品目标；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。该 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 v1.0 Event-driven architecture rebuild。
 
-当前 production 仍运行 Generation 1 pipeline；v1.x implementation 继续保持
-side-by-side，在 v1.8 shadow / parallel validation 和 v1.9 production cutover
-前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为
-rollback。
+当前 production 仍运行 Generation 1 pipeline；v1.2 与 v1.3 当前均仅以 side-by-side 组件落地，v1.3 的 real-model evaluator 只用于显式 acceptance，在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
 
-READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure
-与 rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze
-均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；v1.1 canonical domain
-foundation 与 v1.2 deterministic ingest 已实现并 CLOSED。v1.3 当前处于
-implementation in progress / acceptance pending；Event / EventCandidate 已澄清为
-同一约 24 小时 report window 内的 reader-level story bundle，而不是 strict
-atomic occurrence identity。Generation 1 继续作为正式 baseline，直到 v1.9
-production cutover。
+READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；v1.1 canonical domain foundation、v1.2 deterministic ingest 与 v1.3 event clustering 已实现并 CLOSED。v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。实现仍是 side-by-side，未接入 production routing；Generation 1 继续作为正式 baseline，直到 v1.9 production cutover。
 
 ## Latest completed
 
-2026-08-27 完成 v1.3 canonical semantic correction（docs-only）：Event /
-EventCandidate operational semantics 改为同一 Morning Brief report window 内的
-reader-level story bundle；允许 announcement / reaction / clarification / closely
-related follow-up 合并，并保持完整 Article provenance 供 v1.5 Writer 综合。未改
-canonical fields、identity、StageResult、runtime failure semantics、clustering code、
-tests、dependency 或 production routing；v1.3 不 close，acceptance 仍 pending。
+2026-08-27 完成 v1.3 Event Clustering closeout：在修正后的 24h Morning Brief story-bundle semantics 下，以固定 E5-small model/revision、`article-title-summary-v1` projection 和 threshold `0.91` 完成 real-model acceptance。4 个 production-relevant cases 的 overmerge / split 为 `0 / 0`，production precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected reader memberships `8 / 8` exact；offline v1.1/v1.2/v1.3、相关 Generation 1 regression、Project-State gate、Python compile 与 `pip check` 均通过。Treasury zh/en split 保留为 synthetic robustness limitation；temporal Iran early/later merge 保留为 outside-normal-window observation，不否决 closeout。直接依赖为 `sentence-transformers==3.4.1`、`transformers==4.48.1`、`torch==2.5.1`；evaluator 默认使用 `AUTOMATION_BRIEF_MODEL_CACHE` 或 canonical data root `runs/model-cache`，不改变 Generation 1 runtime。
+
+2026-08-27 完成 v1.3 Event semantics canonical correction（docs-only）：Event / EventCandidate 明确为同一约 24h Morning Brief report window 内的 reader-level story bundle，而非 persistent atomic real-world occurrence identity；允许 announcement / immediate reaction / clarification / closely related follow-up 在读者视角下合并，同时保留对明显不同新闻的 false-merge guard。明确 v1.5 Event Writer 将读取完整 Article provenance 并综合不同事实/角度；v1.3 继续仅用 local embedding + semantic similarity + simple deterministic clustering，不使用 LLM。未修改 canonical fields、identity、StageResult、runtime failure semantics、clustering code 或 fixture 事实标签。
+
+2026-08-26 开始 `v1.3 — Event Clustering` implementation：新增 side-by-side `event_cluster.py`、fake-embedder offline smoke、labeled fixture 与独立 real-model evaluator；完成 projection、确定性 connected-components、canonical EventCandidate 构造、failure semantics 和 bounded diagnostics。早期 Python 3.9.6 / macOS arm64 依赖解析曾遇到 `scikit-learn` wheel 限制；该历史问题随后通过已验证的直接依赖版本和项目 `.venv` 解决，真实模型 revision、threshold calibration 与 v1.3 closeout 已在本次完成。
 
 2026-08-26 完成 `v1.2 — Deterministic Ingest`：新增 side-by-side `collector.py`、`normalizer.py`、`article_dedup.py`、离线 smoke 与非权威 implementation note，完成 source-scoped batch / StageResult isolation、canonical Article normalization、fail-closed timestamp、UTC collected time、language normalization 和 exact first-valid dedup。未修改 `main.py`、feeds 配置、Gen1 contract、生产路由、外部 API、依赖或 legacy 文件；下一步为 v1.3 Event Clustering。
 
@@ -91,7 +82,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v1.0 — Event-driven Morning Brief（governance baseline COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
 - v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 - v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
-- v1.3 — Event Clustering（IN PROGRESS / acceptance pending）
+- v1.3 — Event Clustering（COMPLETED / CLOSED）
 - v1.4 — Event Selector（PLANNED）
 - v1.5 — Event Classifier + Writer（PLANNED）
 - v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
@@ -106,9 +97,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-重新运行 v1.3 embedding acceptance，使用修正后的约 24 小时 Morning Brief
-story-bundle semantics；production hard gates 只覆盖真实 report window 内可能共同
-出现且 reader 应合并/分离的 Articles。继续不改变 Generation 1 production。
+v1.4 — Event Selector；保持 v1.3 side-by-side clustering 与 Generation 1 production baseline 不变。
 
 ## Blockers
 
@@ -141,14 +130,13 @@ story-bundle semantics；production hard gates 只覆盖真实 report window 内
 - v0.7.2 production acceptance confirms one explicit report type now runs through the existing stable shell / Obsidian / Bark chain. No-argument shell execution remains `digest`; the checked-in and accepted LaunchAgent path selects `overnight_brief`; unknown report types fail closed. Curator credentials use process-env-first, project-root `.env` second without logging secret material, and missing `.env`/key preserves the existing legacy fallback.
 - The historical v0.7.4 architecture freeze and read-only audit remain recorded, but its independent implementation route is superseded / replaced by v1.0. Legacy retirement now occurs only after the v1.8 shadow / parallel validation and v1.9 production cutover gates; no old product surface is deleted before those gates.
 - The v1.0 canonical architecture is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`; it does not prescribe immediate Python filenames, package hierarchy, feature flags, or business implementation. `Article` is input, `Event` is the core object, and `Brief` is output; Article dedup and event clustering remain separate.
-- Event / EventCandidate 是当前约 24 小时 Morning Brief report window 内的
-  reader-level story bundle，不是 atomic occurrence 或跨天 persistent identity；
-  v1.3 clustering 不使用任何 LLM，v1.5 Writer 后续通过完整 Article provenance
-  综合 bundle 内的重要事实与不同侧面。
 - The v1.0 canonical core data contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`; it freezes Article/EventCandidate/Event/Brief identity and ownership, deterministic Evidence projection, immutable Event stage derivation, and the minimal component-local result envelope without implementing runtime behavior.
 - The v1.0 canonical runtime / failure contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`; it freezes run identity, StageResult semantics, per-component isolation, LLM batch/retry boundaries, Brief status, artifact/delivery behavior and no automatic post-cutover legacy semantic fallback. The contract is docs-only and not implemented.
-- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.2 is complete and v1.3 is the next and only formal development task. v1.3 does not choose a specific embedding model, v1.6 does not cut over production, v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
-- v0.7.3 closeout is a product-review decision to stop patching the Generation 1 core news architecture, not a claim that Generation 1 fully met the long-term product target. The evidence is retained as historical input to v1.0 and is not being re-designed in this closeout.
+- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.2 and v1.3 are complete and v1.4 is the current and only formal development task. v1.6 does not cut over production, v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
+- v1.3 side-by-side implementation is present in `event_cluster.py` with fake-embedder smoke, labeled fixtures, and a separate real-model evaluator. The accepted fixed configuration is E5-small revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`, `article-title-summary-v1`, summary cap 300, threshold `0.91`, and `connected-components-v1`; production-critical acceptance is exact `8 / 8` with zero overmerge and split.
+- Canonical Event / EventCandidate semantics are reader-level story bundles inside one approximately 24-hour Morning Brief report window, not persistent atomic occurrence identity. Announcement, immediate reaction, clarification, closely related follow-up, and complementary perspectives may cluster when separate reader-facing items would be materially repetitive. v1.5 Event Writer must read complete Article provenance and preserve material facts and perspectives in `title_zh`, `summary_zh`, and `why_it_matters_zh`.
+- v1.3 clustering remains local embedding + semantic similarity + simple deterministic clustering. DeepSeek, local LLM pair verification, LLM adjudication, translation, and second-pass AI clustering are prohibited in this stage.
+- v0.7.3 closeout is a product-review decision to stop patching the Generation 1 core news architecture, not a claim that Generation 1 fully met the long-term product target. The evidence is retained as historical input to v1.0 and is not being re-designed in this closeout. v1.3 remains side-by-side and does not alter Generation 1 production routing.
 - `tests/offline_overnight_brief_smoke.py` covers cross-section dedupe, 0–3 watch variables, conditional holdings, missing market data, no holdings, feed failures and explicit dispatch; all offline smoke tests passed on 2026-08-13.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
 - Further quality improvements should use the AI Curator shadow path instead of continuing small rule tweaks in `_score_article` or digest classification.
@@ -173,13 +161,4 @@ story-bundle semantics；production hard gates 只覆盖真实 report window 内
 
 ## Handoff Prompt
 
-v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the
-Generation 1 core news architecture. v1.0 governance, v1.1 and v1.2 are
-complete; v1.3 Event Clustering remains IN PROGRESS / acceptance pending.
-Event / EventCandidate means a reader-level story bundle inside the current
-approximately 24-hour Morning Brief report window, not strict atomic or
-persistent cross-day identity. Preserve canonical Article provenance and keep
-Generation 1 production unchanged. Next rerun embedding acceptance against
-the corrected story-bundle semantics; v1.3 clustering uses no LLM. Generation
-1 remains the formal baseline through v1.9, and legacy retirement starts only
-at v1.10. Blockers remain `暂无明确阻塞。`.
+v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains `launchd → project .env → DeepSeek → AI Curator → Generation 1 Morning Brief → Obsidian → Bark`; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete; v1.1, v1.2 and v1.3 side-by-side implementation milestones are COMPLETE / CLOSED, and the v1.x implementation roadmap remains frozen. v1.3 uses the accepted E5-small immutable revision, `article-title-summary-v1`, summary cap 300, threshold `0.91`, and deterministic connected-components under reader-level story-bundle semantics; production-critical acceptance is exact `8 / 8` with zero overmerge and split. Canonical Event semantics remain a reader-level story bundle inside one approximately 24-hour Morning Brief window, not persistent atomic occurrence identity. v1.3 uses no LLM and keeps Generation 1 production unchanged. Next is `v1.4 — Event Selector`; do not introduce v1.4 implementation into this closeout. Generation 1 remains the formal baseline through v1.9 production cutover, and legacy retirement starts only at v1.10 after consumer audit. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0.

@@ -2,28 +2,30 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
-## 2026-08-27 — v1.3 Event / EventCandidate canonical semantic correction（docs-only）
+## 2026-08-27 — v1.3 Event Clustering closeout — COMPLETED / CLOSED
 
-- 基于 v1.3 real-model acceptance evidence 与产品定义，将 Event /
-  EventCandidate 从 strict atomic real-world occurrence identity 澄清为同一约
-  24 小时 Morning Brief report window 内的 reader-level story bundle。
-- 同一新闻发展中的 announcement、immediate reaction、clarification、follow-up
-  statement 与 closely related perspectives，在分别展示会明显重复时允许合并；
-  v1.5 Writer 后续读取完整 Article provenance，在三个 reader-facing 中文字段中
-  综合重要事实与不同侧面。
-- fixture concept audit 将 announcement/reaction/follow-up、
-  gun/share/reverse-repo negatives、同 window broad-topic distinct events 归为
-  A（production-relevant acceptance）；Treasury cross-language 与 chaining 归为
-  B（useful synthetic robustness）；人为跨多个 report windows 的 temporal Iran
-  negative 归为 C（invalid / overly strict atomic-identity assumption）。事实标签
-  未修改。
-- v1.3 clustering 继续限定 local embedding + semantic similarity + simple
-  deterministic clustering，不加入 DeepSeek、local LLM verifier、LLM
-  adjudication、translation 或 second-pass AI clustering。本轮未修改任何
-  canonical field/identity、StageResult、runtime failure semantics、Python、tests、
-  dependency 或 production routing；v1.3 保持 IN PROGRESS / acceptance pending。
-- 下一步只按修正后的约 24 小时 story-bundle semantics 重新运行 v1.3 embedding
-  acceptance，不预先升级为 two-stage verifier architecture。
+- 在修正后的 24h Morning Brief reader-level story-bundle semantics 下完成固定 E5-small real-model acceptance：`intfloat/multilingual-e5-small` revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`、`article-title-summary-v1`（summary 前 300 Unicode 字符）、CPU/float32、threshold `0.91`、`connected-components-v1`。
+- 四个 production-relevant fixture cases（Iran same-story、announcement/reaction/follow-up、gun/share/reverse-repo、same-window broad-topic distinct events）在最终 threshold 下 overmerge / split 均为 `0`，production precision / recall / F0.5 均为 `1.0`，expected reader memberships `8 / 8` exact。细节由 evaluator 输出 expected/actual story bundles。
+- Treasury zh/en pair 仍 split，作为 synthetic robustness limitation；connected-components chaining fixture 在最终 threshold 下保持正确；temporal Iran early/later pair 仍可能 merge，但属于 outside-normal-window observation，不再作为 production gate。现有报告仓库中发现同一中文 Treasury 报道的重复条目，但未找到可追溯的真实中英同窗 pair，因此不伪造 multilingual fixture provenance。
+- `sentence-transformers==3.4.1`、`transformers==4.48.1`、`torch==2.5.1` 已在项目 `.venv` 导入成功且 `pip check` 通过。显式 evaluator 使用可写 `AUTOMATION_BRIEF_MODEL_CACHE`，默认回退到 canonical data root 的 `runs/model-cache`；不提交模型或 cache binaries。
+- v1.3 保持 side-by-side，不修改 `main.py`、Generation 1 routing、canonical EventCandidate fields 或 runtime failure contract；不使用 LLM、translation、keyword override、额外 threshold 或其它 clustering architecture。下一步为 `v1.4 — Event Selector`。
+
+## 2026-08-27 — v1.3 Event semantics canonical correction（docs-only）
+
+- 根据真实 v1.3 acceptance evidence 与产品定义，将 Event / EventCandidate 的 operational semantics 明确为同一约 24h Morning Brief report window 内、读者适合一次消费的 highly related story bundle，而非 persistent atomic real-world occurrence identity。
+- 同一 window 内的 announcement、immediate reaction、clarification、closely related follow-up 与互补视角允许聚合，前提是分开展示会对 Morning Brief reader 造成明显重复；共享关键词、国家、公司或主题仍不足以合并明显不同的新闻。
+- v1.5 Event Writer 将读取 Event 的完整 Article provenance，并在 `title_zh` / `summary_zh` / `why_it_matters_zh` 中综合重要事实与不同角度；clustering 只形成 reader-level bundle，不负责 writing。
+- fixture / acceptance 概念重分类：A）announcement/reaction/follow-up、gun/share/reverse-repo negatives 和 same-window broad-topic distinct events 为 production-relevant；B）Treasury cross-language 与 chaining 是 useful synthetic robustness；C）正常 window 不会共现的 temporal Iran sanctions early/later 配对是 overly strict event-identity assumption，不再作为 production critical hard-negative gate。没有因 model score 改变 fixture 事实标签。
+- v1.3 继续仅使用 local embedding + semantic similarity + simple deterministic clustering；明确禁止 DeepSeek、local LLM pair verifier、LLM adjudication、translation 和 second-pass AI clustering。
+- 本轮未修改 Article / EventCandidate / Event fields、identity、StageResult、runtime failure semantics、clustering code、evaluator、offline tests 或 fixture JSON。v1.3 保持 IN PROGRESS / acceptance pending；下一步是在修正后的 24h story-bundle semantics 下重跑 embedding acceptance。
+
+## 2026-08-26 — v1.3 Event Clustering implementation slice（blocked before real-model validation）
+
+- 新增 side-by-side `event_cluster.py`、`tests/offline_event_cluster_smoke.py`、`tests/fixtures/event_clustering_v1_3.json` 和独立的 `scripts/evaluate_event_clustering.py`。实现只接受 canonical `Article[]`，输出由 `EventCandidate.from_article_ids` 构造的 `EventCandidate[]`，不接入 `main.py` 或 Generation 1。
+- projection 固定为 `article-title-summary-v1`：`query: {title}` 加 summary 前 300 个 Unicode 字符；多 Article 路径按 `article_id` 排序、L2 normalize、pairwise cosine、阈值边、确定性 union-find connected components，并保留 singleton。无 selector、classifier、writer、translation、LLM 或 legacy fallback。
+- offline smoke 使用 fake embedder，覆盖空/单 Article、跨语言样例、相同关键词负例、connected-components chaining risk、输入顺序/重复运行确定性、canonical 字段、诊断和冻结 failure semantics；全套现有 offline smoke 与 Project-State gate 均通过。
+- 按要求先做 Python 3.9.6 / macOS arm64 依赖解析：`sentence-transformers==3.4.1`、`transformers==4.48.1`、`torch==2.5.1` 的直接 wheels 可解析，但 `sentence-transformers` 的 `scikit-learn` 依赖在相同 CPython 3.9/arm64 二进制约束下无匹配发行版；显式 `scikit-learn==1.3.2` 检查也失败。未改 `requirements.txt`、未安装 ML stack、未改变 `feedparser` 或现有 `.venv`。
+- 由于依赖门失败，尚未下载模型、解析实际 Hugging Face revision SHA、运行真实模型或冻结阈值；v1.3 保持 implementation in progress / blocked，不标记 CLOSED，不提交或 push。
 
 ## 2026-08-26 — v1.2 Deterministic Ingest（implementation complete / closed）
 

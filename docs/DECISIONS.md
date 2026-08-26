@@ -262,12 +262,12 @@
 - 权威性：`docs/V1.2_DETERMINISTIC_INGEST_SPEC.md` 只是本 milestone 的 implementation note，不是第四份 canonical contract；Article、StageResult、identity、URL、datetime 与 runtime semantics 仍以三份 frozen v1.0 contract 和 `canonical_domain.py` 为准。
 - 验证：`tests/offline_deterministic_ingest_smoke.py` 只使用 fake/local fixtures；v1.1 canonical、Gen1 feed/CandidateArticle/digest 与 Project-State gate regressions 均保持通过。下一步唯一任务为 `v1.3 — Event Clustering`。
 
-### v1.3 — Event Clustering
+### v1.3 — Event Clustering（COMPLETED / CLOSED）
 
 - local semantic / embedding based clustering
 - `Article → EventCandidate`
 - clustering validation / diagnostics
-- 本路线不选择具体 embedding model。
+- roadmap freeze 时不预选具体 embedding model；closeout 后 accepted implementation configuration 由下方决策冻结。
 
 #### v1.3 canonical semantic correction — Morning Brief story bundle
 
@@ -293,6 +293,29 @@
   assumption）包括人为把几天前旧 Iran sanctions 与今天新 action 组成 critical
   hard negative。C 不作为正式 production acceptance gate；该分类不改写新闻
   事实标签。
+
+#### v1.3 implementation closeout — accepted deterministic baseline
+
+- 决策：v1.3 首版固定使用 `intfloat/multilingual-e5-small`，immutable revision
+  `614241f622f53c4eeff9890bdc4f31cfecc418b3`，`article-title-summary-v1` projection
+  （title 加 summary 前 300 个 Unicode 字符）、CPU/float32、L2 normalization、
+  pairwise cosine、single threshold `0.91`、deterministic connected components，
+  algorithm version `connected-components-v1`。这些是 implementation/runtime
+  configuration，不扩展 canonical EventCandidate。
+- 验证：四个 production-relevant fixture cases 在 `0.91` 下 production-critical
+  overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，
+  expected reader memberships `8 / 8` exact；重复运行 deterministic。Treasury
+  zh/en split 只作为 synthetic robustness limitation，temporal Iran pair merge
+  只作为 outside-normal-window observation。
+- 依赖：正式直接依赖为 `sentence-transformers==3.4.1`、
+  `transformers==4.48.1`、`torch==2.5.1`；不手工 pin 不必要的 transitive packages。
+  real-model evaluator 使用 `AUTOMATION_BRIEF_MODEL_CACHE`，未设置时使用 canonical
+  data root 的 `runs/model-cache`；不提交模型或 cache binaries。
+- 边界：v1.3 不使用任何 LLM、translation、keyword override、multiple thresholds、
+  source/category weighting、vector database、ANN、complex graph clustering 或
+  Generation 1 fallback；实现保持 side-by-side，不改变 production routing。
+- 下一步：v1.4 — Event Selector；v1.3 closeout 不提前实现 selector、classifier、
+  writer、renderer 或 orchestrator。
 
 ### v1.4 — Event Selector
 

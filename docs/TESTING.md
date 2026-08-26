@@ -45,9 +45,9 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 ## v1.x Implementation Version Roadmap Freeze docs-only checklist
 
-- `v1.0` governance baseline 与 `v1.1 — Canonical Domain & Runtime Foundation` 为 COMPLETED / CLOSED；v1.2 implementation verification 已完成，下一步唯一正式开发任务为 `v1.3 — Event Clustering`。
+- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest` 与 `v1.3 — Event Clustering` 为 COMPLETED / CLOSED；下一步唯一正式开发任务为 `v1.4 — Event Selector`。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
-- v1.3 不选择具体 embedding model；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
+- v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
 - roadmap freeze 当时不修改三份 v1.0 canonical contract semantics、不创建 v1.1 Python module、不运行业务 pipeline 或真实外部 API；后续 v1.1 implementation verification 见下节。
 
@@ -76,6 +76,61 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_deterministic_ingest_sm
 离线 smoke 覆盖：active `feeds.json` 的 name / URL / language-only projection；source success/failure isolation、malformed feed、timeout、all-success empty batch、aware UTC `collected_at`；canonical URL/tracking normalization、linked/linkless Article、naive/malformed timestamp fail-closed、language/summary/text cleanup；以及只按 canonical URL / stable article ID 的 exact first-valid dedup、stable ingest order、相似标题/不同 URL 保留和完整 collector → normalizer → dedup 组合。
 
 v1.2 implementation note `docs/V1.2_DETERMINISTIC_INGEST_SPEC.md` 不是第四份 canonical contract；Article、StageResult、identity、URL、datetime 和 runtime semantics 仍以三份 frozen v1.0 contract 与 `canonical_domain.py` 为准。collector production fetch path 只委托既有 `main.parse_feed_with_retry`，因此 bounded retry / timeout infrastructure 未复制、未改变；所有 acceptance fetcher 均为 fake/local fixture。
+
+## v1.3 Event Clustering verification
+
+v1.3 保持 side-by-side、offline-only，输入 canonical `Article[]`，输出
+`EventCandidate[]`；不接管 `main.py`，不调用 RSS、DeepSeek、Bark 或
+Obsidian。普通 regression 不导入或下载 Sentence Transformers：
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v13-pyc .venv/bin/python -m py_compile event_cluster.py scripts/evaluate_event_clustering.py tests/offline_event_cluster_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_cluster_smoke.py
+```
+
+Smoke 使用 deterministic fake embeddings，覆盖 empty / singleton、同一 story bundle
+跨语言、相同关键词负例、broad-topic separation、connected-components
+chaining risk、输入顺序与重复运行确定性、canonical fields、bounded
+diagnostics，以及 item validation / model initialization / embedding /
+global similarity failure semantics。
+
+`tests/fixtures/event_clustering_v1_3.json` 的 labeled cases 分为
+calibration / held-out，并显式标注 `production-relevant`、`robustness-only` 或
+`outside-normal-window`。`scripts/evaluate_event_clustering.py` 只在显式本地
+模型验证时运行，要求不可变 40 位 model commit SHA，报告相似度分布、
+precision / recall / F0.5、overmerge / split、expected/actual memberships、
+按 acceptance class 分组的 gate 和重复运行稳定性。真实模型路径不属于普通
+offline regression。
+
+v1.3 production acceptance 使用修正后的产品判断：在同一约 24h
+Morning Brief report window 内，reader 是否应把这些 Articles 作为一条
+story 阅读，而不是要求严格同一 atomic occurrence。A 类为
+production-relevant cases（announcement/reaction/follow-up、gun/share/reverse-repo
+negatives、same-window broad-topic distinct events）；B 类为 useful synthetic
+robustness（Treasury cross-language、chaining）；C 类为 invalid / overly strict
+event-identity assumption（正常 report window 不会共现的 temporal Iran sanctions
+early/later pair 不作为 production critical hard-negative gate）。不修改 fixture
+事实标签。v1.3 仍限定为 local embedding + semantic similarity + simple
+deterministic clustering，不使用 LLM。最终接受配置为 E5-small immutable revision
+`614241f622f53c4eeff9890bdc4f31cfecc418b3`、`article-title-summary-v1`、summary cap
+300、threshold `0.91`；production-critical overmerge / split 为 `0 / 0`，
+production precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected
+memberships `8 / 8` exact。Treasury split 与 temporal Iran merge 分别保留为
+robustness limitation 与 outside-window observation。
+
+显式 real-model acceptance command（需要预先存在的可写本地 model cache）为：
+
+```bash
+AUTOMATION_BRIEF_MODEL_CACHE=/path/to/writable-cache \
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+.venv/bin/python scripts/evaluate_event_clustering.py \
+  --cache-folder "$AUTOMATION_BRIEF_MODEL_CACHE" --local-files-only \
+  --threshold-start 0.70 --threshold-stop 0.95 --threshold-step 0.01 \
+  --accepted-threshold 0.91
+```
+
+未设置 `AUTOMATION_BRIEF_MODEL_CACHE` 时，evaluator 默认使用 canonical data root
+下的 `runs/model-cache`；该路径只用于本地 runtime，模型文件和 cache 不提交。
 
 ## v1.2 regression checklist
 

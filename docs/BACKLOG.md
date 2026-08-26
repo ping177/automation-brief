@@ -14,10 +14,10 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.3）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.4）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
-v1.3 — Event Clustering（IN PROGRESS / acceptance pending）
+v1.3 — Event Clustering（COMPLETED / CLOSED）
 v1.4 — Event Selector（PLANNED）
 v1.5 — Event Classifier + Writer（PLANNED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
@@ -81,24 +81,14 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 未修改 `main.py`、feeds 配置、Gen1 production routing、三份 frozen canonical contract 或 dependency；未调用真实 RSS/API，未实现 v1.3+ stages，未删除 legacy。
 - 下一步唯一任务为 `v1.3 — Event Clustering`。
 
-### v1.3 Event Clustering — IN PROGRESS / ACCEPTANCE PENDING
+### v1.3 Event Clustering — COMPLETED / CLOSED
 
-- Event / EventCandidate operational semantics 已澄清为同一约 24 小时 Morning
-  Brief report window 内的 reader-level story bundle，而不是 strict atomic
-  occurrence 或跨天 persistent identity。
-- announcement、immediate reaction、clarification、closely related follow-up
-  可以在分别展示会明显重复时合并；v1.5 Event Writer 后续读取完整 Article
-  provenance 并综合重要事实与不同侧面。
-- production acceptance 只把真实 window 内可能共同出现的 Articles 作为核心
-  gate。A（production-relevant）包括 announcement/reaction/follow-up、
-  gun/share/reverse-repo negatives 与同 window broad-topic distinct events；
-  B（synthetic robustness）包括 Treasury cross-language 与 chaining；C（invalid /
-  overly strict）包括人为跨多个 report windows 的 temporal Iran negative，不再
-  作为 critical production gate。
-- v1.3 继续使用 local embedding + semantic similarity + simple deterministic
-  clustering，不使用 DeepSeek、local LLM verifier、LLM adjudication、translation
-  或 second-pass AI clustering。下一步是按修正后的 story-bundle semantics 重新
-  运行 embedding acceptance；在此之前不 close v1.3。
+- 已新增 side-by-side `event_cluster.py`，实现 canonical `Article[] → EventCandidate[]` 的 injectable embedder boundary、`article-title-summary-v1` projection、L2 normalization、pairwise cosine、threshold edges、deterministic union-find components、singleton retention 和 bounded non-canonical diagnostics。
+- fake-embedder offline smoke 与七 case labeled fixture 保持独立；real-model evaluator 按 calibration / held-out split sweep threshold、计算 precision / recall / F0.5、overmerge / split、expected/actual memberships 和 deterministic repeat。
+- canonical semantics 是同一约 24h Morning Brief report window 内的 reader-level story bundle，不是 persistent atomic occurrence identity。announcement / reaction / clarification / closely related follow-up 在读者视角下可以合并；共享关键词、国家、公司或主题不足以合并明显不同的新闻。
+- accepted configuration 为 `intfloat/multilingual-e5-small` immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`、`article-title-summary-v1`、summary cap 300、threshold `0.91`、`connected-components-v1`。四个 production-relevant cases 的 overmerge / split 为 `0 / 0`，production precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected reader memberships `8 / 8` exact。
+- Treasury cross-language split 与 connected-components chaining 仅作 synthetic robustness evidence；temporal Iran early/later merge 是 outside-normal-window observation，不作为 production gate。v1.3 不使用 DeepSeek、任何 LLM、translation、keyword override、multiple thresholds、source/category weighting 或 Gen1 fallback。详见非权威 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](V1.3_EVENT_CLUSTERING_SPEC.md)。
+- direct runtime dependencies are `sentence-transformers==3.4.1`、`transformers==4.48.1`、`torch==2.5.1`。显式 evaluator 默认使用 writable `AUTOMATION_BRIEF_MODEL_CACHE`，未设置时落到 canonical data root 的 `runs/model-cache`；model/cache binaries 不进入 repository。下一步唯一任务为 `v1.4 — Event Selector`。
 
 ### v1.x Implementation Version Roadmap — FROZEN
 
@@ -118,7 +108,7 @@ v1.9  Production Cutover
 v1.10 Legacy Retirement & v1.x Closeout
 ```
 
-v1.3 不选择具体 embedding model；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 ### v0.7.4 Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 

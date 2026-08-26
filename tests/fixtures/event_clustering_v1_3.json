@@ -1,0 +1,196 @@
+{
+  "fixture_version": "v1.3-event-clustering-fixtures-v1",
+  "cases": [
+    {
+      "case_id": "iran_same_sanctions_event",
+      "provenance": "reconstructed",
+      "provenance_note": "Reconstructed from documented production incident; exact source provenance unavailable in the tracked repository.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "calibration",
+      "articles": [
+        {
+          "key": "iran-01",
+          "language": "zh-CN",
+          "title": "伊朗谴责美宣布对伊新制裁：“用新错误掩盖旧错误”",
+          "summary": "针对美国宣布将对伊朗实施毁灭性经济行动，伊朗谴责美国此举是经济恐怖主义。"
+        },
+        {
+          "key": "iran-02",
+          "language": "zh-CN",
+          "title": "伊朗称美经济战“注定失败” 特朗普否认军事选项受限",
+          "summary": "伊朗方面谴责美国对伊朗实施的毁灭性经济行动，特朗普称经济战不意味着军事选项受限。"
+        }
+      ],
+      "expected_clusters": [["iran-01", "iran-02"]]
+    },
+    {
+      "case_id": "iran_action_reaction_event",
+      "provenance": "reconstructed",
+      "provenance_note": "Reconstructed from documented production incident; exact source provenance unavailable in the tracked repository.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "calibration",
+      "articles": [
+        {
+          "key": "action-01",
+          "language": "zh-CN",
+          "title": "特朗普宣布对伊朗实施“毁灭性经济行动”",
+          "summary": "美国总统特朗普宣布对伊朗实施毁灭性经济行动。"
+        },
+        {
+          "key": "action-02",
+          "language": "zh-CN",
+          "title": "伊朗外长：美国对伊经济施压行动“注定失败”",
+          "summary": "伊朗外交部长称美国最新宣布的对伊经济施压行动注定失败。"
+        },
+        {
+          "key": "action-03",
+          "language": "zh-CN",
+          "title": "特朗普称对伊转向“经济战”不意味着美军事选项受限",
+          "summary": "特朗普表示对伊朗转向经济战并不意味着美国军事选项受限。"
+        }
+      ],
+      "expected_clusters": [["action-01", "action-02", "action-03"]]
+    },
+    {
+      "case_id": "nearby_sanctions_are_distinct",
+      "provenance": "reconstructed",
+      "provenance_note": "Reconstructed from documented production incident; the temporal pair is outside a normal 24h report window and exact source provenance is unavailable in the tracked repository.",
+      "acceptance_class": "outside-normal-window",
+      "window_relevance": "outside-normal-window",
+      "split": "calibration",
+      "articles": [
+        {
+          "key": "sanctions-early",
+          "language": "zh-CN",
+          "title": "特朗普宣布对伊朗实施“毁灭性经济行动”",
+          "summary": "8月19日，美国宣布对伊朗采取史上最严厉的经济行动。"
+        },
+        {
+          "key": "sanctions-later",
+          "language": "zh-CN",
+          "title": "美国对伊朗实施新一轮制裁 伊朗发出警告",
+          "summary": "8月24日，美国宣布开始对伊朗实施新一轮经济孤立制裁措施。"
+        },
+        {
+          "key": "icc-sanctions",
+          "language": "zh-CN",
+          "title": "美国宣布制裁国际刑事法院院长赤根智子 日本：深感遗憾",
+          "summary": "美国宣布对国际刑事法院院长实施制裁，日本政府对此表示遗憾。"
+        }
+      ],
+      "expected_clusters": [["sanctions-early"], ["sanctions-later"], ["icc-sanctions"]]
+    },
+    {
+      "case_id": "buyback_word_sense",
+      "provenance": "reconstructed",
+      "provenance_note": "Reconstructed from documented production incident; exact source provenance unavailable in the tracked repository.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "calibration",
+      "articles": [
+        {
+          "key": "gun-buyback",
+          "language": "zh-CN",
+          "title": "澳大利亚新州将实施枪支回购计划 涉及约5万人",
+          "summary": "澳大利亚新南威尔士州宣布实施全国枪支回购计划，以减少民间枪支数量。"
+        },
+        {
+          "key": "share-buyback",
+          "language": "en",
+          "title": "Samsung plans up to $80 billion in shareholder returns after SK Hynix buyback",
+          "summary": "Samsung Electronics plans shareholder returns including cash dividends after a rival semiconductor buyback."
+        },
+        {
+          "key": "reverse-repo",
+          "language": "zh-CN",
+          "title": "中国央行将开展1万亿元人民币买断式逆回购操作",
+          "summary": "中国人民银行将开展期限为六个月的买断式逆回购操作。"
+        }
+      ],
+      "expected_clusters": [["gun-buyback"], ["share-buyback"], ["reverse-repo"]]
+    },
+    {
+      "case_id": "treasury_cross_language",
+      "provenance": "synthetic",
+      "provenance_note": "Synthetic cross-language robustness pair; no production provenance asserted.",
+      "acceptance_class": "robustness-only",
+      "window_relevance": "synthetic",
+      "split": "held_out",
+      "articles": [
+        {
+          "key": "treasury-zh",
+          "language": "zh-CN",
+          "title": "美国30年期国债收益率创19年新高",
+          "summary": "美国30年期国债收益率达到5.31%，创下2007年6月以来新高。"
+        },
+        {
+          "key": "treasury-en",
+          "language": "en",
+          "title": "U.S. 30-year Treasury yield hits a 19-year high",
+          "summary": "The 30-year U.S. Treasury yield reaches 5.31%, its highest level since June 2007."
+        }
+      ],
+      "expected_clusters": [["treasury-zh", "treasury-en"]]
+    },
+    {
+      "case_id": "broad_geopolitical_topic",
+      "provenance": "reconstructed",
+      "provenance_note": "Reconstructed from documented production incident; exact source provenance unavailable in the tracked repository.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "held_out",
+      "articles": [
+        {
+          "key": "iran-economic-war",
+          "language": "zh-CN",
+          "title": "伊朗强烈谴责美国制裁 称将利用“一切工具和能力”维护国家利益",
+          "summary": "伊朗外交部强烈谴责美国对伊朗实施经济和贸易制裁。"
+        },
+        {
+          "key": "icc-sanction",
+          "language": "zh-CN",
+          "title": "国际刑事法院强烈反对美国新的制裁名单",
+          "summary": "国际刑事法院反对美国政府宣布制裁国际刑事法院相关人员。"
+        },
+        {
+          "key": "hormuz-blockade",
+          "language": "zh-CN",
+          "title": "霍尔木兹海峡通行数量降至新低 美国称不排除武力打击",
+          "summary": "船舶追踪数据显示通过霍尔木兹海峡的商船数量降至三个月以来低位。"
+        }
+      ],
+      "expected_clusters": [["iran-economic-war"], ["icc-sanction"], ["hormuz-blockade"]]
+    },
+    {
+      "case_id": "connected_component_chain",
+      "provenance": "synthetic",
+      "provenance_note": "Synthetic connected-components robustness case; no production provenance asserted.",
+      "acceptance_class": "robustness-only",
+      "window_relevance": "synthetic",
+      "split": "held_out",
+      "articles": [
+        {
+          "key": "chain-a",
+          "language": "en",
+          "title": "Central bank cuts its policy rate by 25 basis points",
+          "summary": "The central bank lowered its policy rate after today's meeting."
+        },
+        {
+          "key": "chain-b",
+          "language": "en",
+          "title": "Central bank lowers its policy rate by 25 basis points after meeting",
+          "summary": "Officials voted to reduce the policy rate by 25 basis points."
+        },
+        {
+          "key": "chain-c",
+          "language": "en",
+          "title": "Central bank keeps its policy rate unchanged while signaling future easing",
+          "summary": "Officials left the current rate unchanged but discussed possible future cuts."
+        }
+      ],
+      "expected_clusters": [["chain-a", "chain-b"], ["chain-c"]]
+    }
+  ]
+}

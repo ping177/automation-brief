@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.5 real DeepSeek Classifier + Writer quality validation harness — PREPARED
+
+- 新增 validation-only `scripts/evaluate_event_classifier_writer_quality.py`、`tests/fixtures/event_classifier_writer_quality_v1_5.json` 与 `tests/offline_event_classifier_writer_quality_smoke.py`；fixture 构造 6 个已选中的 synthetic canonical Event bundle，每个包含 2 篇完整 Article，覆盖 geopolitics、macro/economic、technology/company、public safety/disaster 与 category-boundary review cases。
+- runner 复用 v1.4 evaluator 的默认 dry-run / explicit `--real-provider deepseek` 模式和现有 neutral OpenAI-compatible gateway；真实链路为 `selected Events → event_classifier.classify_events() → test-local continuation → event_writer.write_events()`，classifier failure 不阻止 Writer，且保持原 selection order。
+- 输出只保留 `event_id`、人工 expected classification note、actual category、三项中文 writing、stage-local failure code 与 run-level stage status；不输出 provider request、raw response、Authorization 或 API key，也不写 runtime artifact。offline runner/fixture smoke、现有 relevant offline smoke、compile 与 `git diff --check` 通过。
+- Codex 本轮未读取 `.env.local` 或任何 secret，未调用真实 DeepSeek，未修改 frozen contracts、production routing、dependencies 或 production orchestration。v1.5 保持 IN PROGRESS，下一步为用户 Terminal real DeepSeek quality validation。
+
 ## 2026-08-27 — v1.5 Slice 3 Classifier → Writer Continuation Regression — COMPLETED
 
 - 新增独立 `tests/offline_event_classifier_writer_continuation_smoke.py`，只在测试内按原 selected Event 顺序将 classifier 成功 output 与未分类的 original Event 组合后传给 Writer；未新增 production orchestration helper。

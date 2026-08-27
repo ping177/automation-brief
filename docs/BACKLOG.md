@@ -104,6 +104,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - Slice 2 新增 side-by-side `event_writer.py` 与 `tests/offline_event_writer_smoke.py`：只拥有三项 reader-facing zh-CN writing 字段，接受 classified/unclassified/mixed Events，完整投影 Article provenance，使用 strict response validation、最小 CJK gate 与 per-event failure isolation；不提供 raw/legacy/placeholder/backfill fallback。
 - Slice 3 新增独立 `tests/offline_event_classifier_writer_continuation_smoke.py`：以 test-local composition 验证 classifier partial/all-failed 时所有 selected Events 继续进入 Writer，失败分类的 Event 可成为 `written-unclassified`，以及 Writer failure 保持 event-local；不新增 production orchestration helper。
 - Slice 1 Classifier、Slice 2 Writer 与 Slice 3 Continuation Regression 均已通过 relevant offline smoke、Python compile/compileall、Project-State gate 与 `git diff --check`；v1.5 implementation complete，real-provider quality acceptance pending。
+- 已新增 validation-only `scripts/evaluate_event_classifier_writer_quality.py`、6 个 synthetic selected Event bundle fixture 与 `tests/offline_event_classifier_writer_quality_smoke.py`；默认 fake dry-run 覆盖 classifier → test-local continuation → writer 链，显式 `--real-provider deepseek` 才复用现有 neutral gateway。报告不持久化 provider request，不输出 secrets，不新增评分或 benchmark；下一步为用户 Terminal real DeepSeek quality validation。
 
 ### v1.x Implementation Version Roadmap — FROZEN
 

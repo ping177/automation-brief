@@ -1,0 +1,146 @@
+{
+  "fixture_id": "v1-5-classifier-writer-representative-events",
+  "provenance": "synthetic",
+  "window_start": "2026-08-26T00:00:00+00:00",
+  "window_end": "2026-08-27T00:00:00+00:00",
+  "events": [
+    {
+      "event_key": "beloria-carden-ceasefire",
+      "expected_category_note": "clear geopolitics: ceasefire, humanitarian corridors and monitored troop withdrawal",
+      "selection_order": 1,
+      "articles": [
+        {
+          "source": "Fixture World Desk",
+          "url": "https://fixture.example/v1-5/beloria-carden-ceasefire/1",
+          "published_at": "2026-08-26T02:15:00+00:00",
+          "language": "en",
+          "title": "Beloria and Carden sign immediate ceasefire after six weeks of fighting",
+          "summary": "The agreement halts cross-border attacks, opens humanitarian corridors and begins monitored troop withdrawals at midnight. Both governments said the first verification teams would report within 48 hours."
+        },
+        {
+          "source": "Fixture Regional Wire",
+          "url": "https://fixture.example/v1-5/beloria-carden-ceasefire/2",
+          "published_at": "2026-08-26T06:40:00+00:00",
+          "language": "en",
+          "title": "Displaced residents begin returning as monitors check the Beloria-Carden truce",
+          "summary": "Aid groups said access to several communities improved after the ceasefire, while monitors documented isolated violations and urged both sides to keep the corridors open."
+        }
+      ]
+    },
+    {
+      "event_key": "estara-rate-cut",
+      "expected_category_note": "clear macro/economic: central-bank decision with currency and lending effects",
+      "selection_order": 2,
+      "articles": [
+        {
+          "source": "Fixture Economics Desk",
+          "url": "https://fixture.example/v1-5/estara-rate-cut/1",
+          "published_at": "2026-08-26T08:20:00+00:00",
+          "language": "en",
+          "title": "Estara central bank cuts benchmark rate by 25 basis points as inflation eases",
+          "summary": "The central bank lowered its benchmark rate by 25 basis points, saying price pressures had moderated enough to support a measured easing step. Officials kept their guidance conditional on incoming data and warned that services inflation remained elevated. The decision was approved by a clear majority of the policy committee after a debate over household demand, wage growth and the risk of moving too quickly. The statement said the committee would watch household credit, business investment and the exchange rate before deciding whether another move was appropriate. It did not promise a preset path, and several members emphasized that the easing was intended to be measured rather than a broad stimulus program."
+        },
+        {
+          "source": "Fixture Markets Wire",
+          "url": "https://fixture.example/v1-5/estara-rate-cut/2",
+          "published_at": "2026-08-26T11:05:00+00:00",
+          "language": "en",
+          "title": "Estara currency slips and lenders prepare lower borrowing rates after policy move",
+          "summary": "The Estaran currency weakened modestly after the announcement, while commercial banks said consumer and business lending rates would be reviewed. Analysts focused on the bank's cautious language rather than expecting a rapid series of cuts."
+        }
+      ]
+    },
+    {
+      "event_key": "lumen-chip-accelerator",
+      "expected_category_note": "judgment call: technology_ai versus company_industry; AI accelerator launch and capacity outlook",
+      "selection_order": 3,
+      "articles": [
+        {
+          "source": "Fixture Technology Desk",
+          "url": "https://fixture.example/v1-5/lumen-chip-accelerator/1",
+          "published_at": "2026-08-26T12:35:00+00:00",
+          "language": "en",
+          "title": "LumenChip unveils an AI accelerator and raises its annual outlook on data-center demand",
+          "summary": "LumenChip introduced a new accelerator for training and inference workloads and raised its annual revenue outlook after large cloud customers expanded orders. The company said initial shipments would begin next quarter."
+        },
+        {
+          "source": "Fixture Industry Wire",
+          "url": "https://fixture.example/v1-5/lumen-chip-accelerator/2",
+          "published_at": "2026-08-26T15:10:00+00:00",
+          "language": "en",
+          "title": "Advanced packaging bottleneck could limit LumenChip accelerator deliveries",
+          "summary": "LumenChip said advanced packaging capacity remained tight and that some customers might receive products later than planned. Suppliers are adding capacity, but the company did not give a firm date for a full easing of the constraint."
+        }
+      ]
+    },
+    {
+      "event_key": "ardin-earthquake-response",
+      "expected_category_note": "clear public safety/disaster: earthquake emergency, casualties and rescue response",
+      "selection_order": 4,
+      "articles": [
+        {
+          "source": "Fixture Emergency Desk",
+          "url": "https://fixture.example/v1-5/ardin-earthquake-response/1",
+          "published_at": "2026-08-26T16:25:00+00:00",
+          "language": "en",
+          "title": "Magnitude 7.8 earthquake strikes coastal Ardin and damages hospitals",
+          "summary": "Ardin declared a national emergency after a magnitude 7.8 earthquake damaged buildings, hospitals and roads along the coast. Authorities reported a rising death toll and asked residents to avoid unstable structures."
+        },
+        {
+          "source": "Fixture Public Service Wire",
+          "url": "https://fixture.example/v1-5/ardin-earthquake-response/2",
+          "published_at": "2026-08-26T19:45:00+00:00",
+          "language": "en",
+          "title": "International rescue teams reach Ardin as coastal towns lose power and water",
+          "summary": "Emergency crews arrived with search equipment while several coastal towns remained without power or clean water. Rescue agencies said aftershocks were slowing work at damaged sites and that casualty figures could change as teams reached isolated areas."
+        }
+      ]
+    },
+    {
+      "event_key": "coastal-fuel-terminal-fire",
+      "expected_category_note": "judgment call: energy_commodities versus public_safety; terminal fire and fuel-shipment rerouting",
+      "selection_order": 5,
+      "articles": [
+        {
+          "source": "Fixture Energy Desk",
+          "url": "https://fixture.example/v1-5/coastal-fuel-terminal-fire/1",
+          "published_at": "2026-08-26T20:30:00+00:00",
+          "language": "en",
+          "title": "Fire shuts Estara's largest coastal fuel terminal while crews contain the blaze",
+          "summary": "A fire halted operations at Estara's largest coastal fuel terminal. Firefighters contained the main blaze and officials said there were no reported fatalities, but the cause and the length of the shutdown remained under investigation."
+        },
+        {
+          "source": "Fixture Shipping Wire",
+          "url": "https://fixture.example/v1-5/coastal-fuel-terminal-fire/2",
+          "published_at": "2026-08-26T22:10:00+00:00",
+          "language": "en",
+          "title": "Fuel shipments rerouted after Estara terminal outage",
+          "summary": "Tanker operators began diverting scheduled cargoes to two smaller ports after the terminal outage. The energy ministry said existing inventories could cover near-term demand and that a reopening timetable would follow the safety inspection."
+        }
+      ]
+    },
+    {
+      "event_key": "yonghua-ev-policy",
+      "expected_category_note": "judgment call: china_policy versus company_industry; national EV incentive and automaker response",
+      "selection_order": 6,
+      "articles": [
+        {
+          "source": "Fixture Policy Desk",
+          "url": "https://fixture.example/v1-5/yonghua-ev-policy/1",
+          "published_at": "2026-08-26T22:35:00+00:00",
+          "language": "en",
+          "title": "Yonghua extends electric-vehicle purchase incentives through next year",
+          "summary": "Yonghua's finance ministry extended a purchase incentive for qualifying electric vehicles through next year and added a higher rebate for models assembled with locally produced batteries. The ministry said the measure aims to support consumer demand and domestic manufacturing."
+        },
+        {
+          "source": "Fixture Auto Industry Wire",
+          "url": "https://fixture.example/v1-5/yonghua-ev-policy/2",
+          "published_at": "2026-08-26T23:05:00+00:00",
+          "language": "zh-CN",
+          "title": "永华车企调整电动车定价以配合新补贴政策",
+          "summary": "多家永华汽车制造商表示将重新评估符合补贴条件车型的定价和交付安排，并提醒消费者最终优惠取决于车型资格和地方执行细则。"
+        }
+      ]
+    }
+  ]
+}

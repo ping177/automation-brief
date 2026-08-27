@@ -228,6 +228,36 @@ PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v15-slice3-pyc .venv/bin/pytho
 `git diff --check`；验证不得读取 secrets、写入 runtime data/cache、调用真实 provider
 或修改 frozen contracts。下一步为 v1.5 real DeepSeek Classifier + Writer quality validation。
 
+## v1.5 real DeepSeek Classifier + Writer quality validation harness — PENDING
+
+新增 validation-only `scripts/evaluate_event_classifier_writer_quality.py` 与
+`tests/fixtures/event_classifier_writer_quality_v1_5.json`，fixture 包含 6 个已选中的
+synthetic Event bundle（每个 2 篇 Article）和人工 classification review note。runner
+按 `selected Events → event_classifier.classify_events() → test-local frozen continuation
+→ event_writer.write_events()` 执行；classifier failure 使用 available classified output，
+否则保留 original selected Event。输出只包含每个 Event 的安全 stage status、category、
+三项 writing 字段和 canonical failure code，不持久化 request/response，不输出 API key 或
+Authorization header。默认 dry-run 使用 no-network fake gateway；只有显式 real-provider
+opt-in 才调用既有 OpenAI-compatible gateway，且仍不接入 production routing。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_classifier_writer_quality_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/evaluate_event_classifier_writer_quality.py
+```
+
+用户后续应在自己的 Terminal 环境准备 `AUTOMATION_BRIEF_CURATOR_API_KEY`（沿用项目
+`.env.local` 的既有 process-env-first 使用方式）后，显式执行：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/evaluate_event_classifier_writer_quality.py \
+  --real-provider deepseek
+```
+
+本 harness 不做自动中文质量评分、LLM judge、rule-based writing score 或 benchmark；
+真实结果由人工审阅 fixture note、category、三项中文写作和技术 failure。v1.5 仍为
+IN PROGRESS，real-provider quality acceptance pending；下一步不进入 v1.6，先完成该
+real DeepSeek quality validation。
+
 ## v1.2 regression checklist
 
 ```bash

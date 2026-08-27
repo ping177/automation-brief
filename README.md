@@ -101,7 +101,7 @@ real-provider quality validation 已完成：3/3 runs succeeded，4/4 must-inclu
 
 ## v1.5 — Event Classifier + Writer（IN PROGRESS）
 
-v1.5 Slice 1 已新增 side-by-side `event_classifier.py` 与离线 smoke：Classifier 只写 canonical `category`，使用 batch-ready `classifications` response shape、physical batch size 1、严格 item validation 和 per-event failure isolation。Slice 2 已新增 side-by-side `event_writer.py` 与离线 smoke：Writer 只写 `title_zh`、`summary_zh`、`why_it_matters_zh`，接受 classified/unclassified Events，投影完整 Article provenance，使用严格 response validation 与最小 zh-CN gate。Slice 3 新增独立 continuation regression，证明 classifier partial/all-failed 时 Writer 仍可继续，以及 Writer failure 保持 event-local。三者均不接入 `main.py`、renderer、artifacts、production routing，也不调用真实 DeepSeek；下一步为 v1.5 real DeepSeek Classifier + Writer quality validation。
+v1.5 Slice 1 已新增 side-by-side `event_classifier.py` 与离线 smoke：Classifier 只写 canonical `category`，使用 batch-ready `classifications` response shape、physical batch size 1、严格 item validation 和 per-event failure isolation。Slice 2 已新增 side-by-side `event_writer.py` 与离线 smoke：Writer 只写 `title_zh`、`summary_zh`、`why_it_matters_zh`，接受 classified/unclassified Events，投影完整 Article provenance，使用严格 response validation 与最小 zh-CN gate。Slice 3 新增独立 continuation regression，证明 classifier partial/all-failed 时 Writer 仍可继续，以及 Writer failure 保持 event-local。三者均不接入 `main.py`、renderer、artifacts、production routing，也不调用真实 DeepSeek。现已新增 validation-only `scripts/evaluate_event_classifier_writer_quality.py`、6-event synthetic fixture 与 offline smoke；默认 dry-run，只有显式 `--real-provider deepseek` 才进入 neutral gateway。下一步为 v1.5 real DeepSeek Classifier + Writer quality validation。
 
 ## v1.x Implementation Version Roadmap（FROZEN）
 

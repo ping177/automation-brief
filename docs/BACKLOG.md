@@ -14,12 +14,12 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.4）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.5）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
-v1.4 — Event Selector（PLANNED）
-v1.5 — Event Classifier + Writer（PLANNED）
+v1.4 — Event Selector（COMPLETED / CLOSED）
+v1.5 — Event Classifier + Writer（PLANNED；implementation not started）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
 v1.7 — Offline / Snapshot Validation（PLANNED）
 v1.8 — Shadow / Parallel Validation（PLANNED）
@@ -90,6 +90,12 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - Treasury cross-language split 与 connected-components chaining 仅作 synthetic robustness evidence；temporal Iran early/later merge 是 outside-normal-window observation，不作为 production gate。v1.3 不使用 DeepSeek、任何 LLM、translation、keyword override、multiple thresholds、source/category weighting 或 Gen1 fallback。详见非权威 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](V1.3_EVENT_CLUSTERING_SPEC.md)。
 - direct runtime dependencies are `sentence-transformers==3.4.1`、`transformers==4.48.1`、`torch==2.5.1`。显式 evaluator 默认使用 writable `AUTOMATION_BRIEF_MODEL_CACHE`，未设置时落到 canonical data root 的 `runs/model-cache`；model/cache binaries 不进入 repository。下一步唯一任务为 `v1.4 — Event Selector`。
 
+### v1.4 Event Selector — COMPLETED / CLOSED
+
+- 新增 side-by-side `event_selector.py`、严格 `selected: [{event_candidate_id, order}]` response contract、最小 editorial prompt、quality fixture / runner 与 offline regression；不接入 `main.py`、Generation 1、production routing 或 v1.5 stages。
+- Selector 保持完整 Event pool 的整体 editorial judgment，不使用固定评分、类别配额、来源权重或固定选取数量；deterministic projection、global outer failure 与 item-local salvage 均保持 frozen contract。
+- real-provider quality validation 已通过：3/3 runs succeeded；4/4 must-include 在三次运行中全部入选；3/3 should-omit 在三次运行中全部排除；judgment-call 具备合理波动。v1.4 closeout 已完成；下一项工作为 v1.5 — Event Classifier + Writer，尚未开始实现。
+
 ### v1.x Implementation Version Roadmap — FROZEN
 
 完整路线与治理规则以 [`docs/DECISIONS.md`](DECISIONS.md) 的 `v1.x Implementation Version Roadmap（FROZEN）` 为 canonical source；这里保留执行索引：
@@ -99,8 +105,8 @@ v1.0  governance baseline（COMPLETED / CLOSED）
 v1.1  Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2  Deterministic Ingest（COMPLETED / CLOSED）
 v1.3  Event Clustering
-v1.4  Event Selector
-v1.5  Event Classifier + Writer
+v1.4  Event Selector（COMPLETED / CLOSED）
+v1.5  Event Classifier + Writer（PLANNED；implementation not started）
 v1.6  Renderer + Artifacts + Orchestrator Integration
 v1.7  Offline / Snapshot Validation
 v1.8  Shadow / Parallel Validation

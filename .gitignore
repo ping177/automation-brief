@@ -2,5 +2,6 @@
 output/
 *.log
 .env
+.env.local
 .DS_Store
 config/holdings.json

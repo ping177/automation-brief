@@ -48,8 +48,8 @@ v1.0 — Event-driven Morning Brief（governance baseline COMPLETED / CLOSED；v
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
-v1.4 — Event Selector
-v1.5 — Event Classifier + Writer
+v1.4 — Event Selector（COMPLETED / CLOSED）
+v1.5 — Event Classifier + Writer（PLANNED；implementation not started）
 v1.6 — Renderer + Artifacts + Orchestrator Integration
 v1.7 — Offline / Snapshot Validation
 v1.8 — Shadow / Parallel Validation
@@ -93,11 +93,17 @@ v1.3 已新增 side-by-side `event_cluster.py`、fake-embedder offline smoke、l
 
 在 threshold `0.91` 下，四个 production-relevant fixture cases 的 overmerge / split 均为 `0`，production precision / recall / F0.5 均为 `1.0`，expected reader bundles `8 / 8` exact。Treasury cross-language 是 synthetic robustness split，temporal Iran early/later 是 outside-normal-window observation；两者均不否决 v1.3。直接依赖固定为 `sentence-transformers==3.4.1`、`transformers==4.48.1`、`torch==2.5.1`。显式 real-model evaluator 默认使用可写的 `AUTOMATION_BRIEF_MODEL_CACHE`，未设置时落到 canonical data root 的 `runs/model-cache`；模型二进制与 cache 不进入仓库。
 
+## v1.4 — Event Selector（COMPLETED / CLOSED）
+
+v1.4 以最小 editorial prompt 从完整约 24 小时 Event pool 中选择并排序读者在约 10 分钟晨读中最不应错过的重大事件；不使用固定评分、类别配额、来源权重或固定数量，也不为凑数选择次要事件。Selector 保持严格 `{"selected":[{"event_candidate_id":"...","order":1}]}` response contract，并通过 deterministic projection、global failure semantics 和 item-local salvage 保护 canonical Event 边界。
+
+real-provider quality validation 已完成：3/3 runs succeeded，4/4 must-include 三次全部入选，3/3 should-omit 三次全部排除，judgment-call 具备合理波动。quality runner、offline regression 和 diagnostic allowlist 保持 side-by-side；本阶段不接入 production、不修改 Generation 1，也未开始 v1.5。v1.4 closeout 已完成。
+
 ## v1.x Implementation Version Roadmap（FROZEN）
 
 v1.3 acceptance 已按修正后的 24h Morning Brief story-bundle semantics 通过，并冻结 `intfloat/multilingual-e5-small` 的 immutable revision、`article-title-summary-v1` projection 和 threshold `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。
 
-正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1、v1.2 与 v1.3 已完成并关闭，下一步唯一正式开发任务是 v1.4。v1.6 仍不做 production cutover，v1.8 不发送 reader-facing v1.x output，v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1、v1.2、v1.3 与 v1.4 已完成并关闭；v1.5 尚未开始。v1.6 仍不做 production cutover，v1.8 不发送 reader-facing v1.x output，v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。旧产品 retirement 必须等 v1.8 完成 shadow / parallel validation、v1.9 完成 production cutover 后，进入 v1.10 才开始。
 
@@ -694,15 +700,15 @@ overnight_brief → ~/Projects/_project-data/automation-brief/reports/morning-br
 
 ### 配置 Morning Brief Curator key
 
-v0.7.2 从项目根目录 `.env` 读取 `AUTOMATION_BRIEF_CURATOR_API_KEY`。已存在的进程环境变量优先，不会被 `.env` 覆盖；只有环境变量缺失时才读取项目 `.env`。`.env` 不存在或缺少该字段时，仍进入现有 `missing_api_key` whole-layer legacy fallback，不会让任务整体失败。
+当前脚本从项目根目录 `.env.local` 读取 `AUTOMATION_BRIEF_CURATOR_API_KEY`。已存在的进程环境变量优先，不会被 `.env.local` 覆盖；只有环境变量缺失时才读取项目 `.env.local`。`.env.local` 不存在或缺少该字段时，仍进入现有 `missing_api_key` whole-layer legacy fallback，不会让任务整体失败。
 
-不要把 Curator key 写入 repo、plist、日志、artifact 或命令参数。请在本地 `.env` 中填写该字段，并保持文件仅用户可读：
+不要把 Curator key 写入 repo、plist、日志、artifact 或命令参数。请在本地 `.env.local` 中填写该字段，并保持文件仅用户可读：
 
 ```bash
-chmod 600 /Users/wp/Projects/自动化简报/.env
+chmod 600 /Users/wp/Projects/自动化简报/.env.local
 ```
 
-`.env` 已被 `.gitignore` 排除；[.env.example](/Users/wp/Projects/自动化简报/.env.example) 仅提供空占位，不包含真实 key。
+`.env.local` 已被 `.gitignore` 排除；[.env.example](/Users/wp/Projects/自动化简报/.env.example) 仅提供空占位，不包含真实 key。
 
 ### 配置 Bark 推送
 
@@ -715,18 +721,18 @@ curl "https://api.day.app/你的key/test"
 复制示例环境文件：
 
 ```bash
-cp .env.example .env
+cp .env.example .env.local
 ```
 
-把 Bark 地址写入本地 `.env`：
+把 Bark 地址写入本地 `.env.local`：
 
 ```text
 BARK_URL=https://api.day.app/你的key
 ```
 
-`.env` 已在 `.gitignore` 中，不要提交，也不要把真实 Bark key 写入 README、示例配置或其他会提交的文件。
+`.env.local` 已在 `.gitignore` 中，不要提交，也不要把真实 Bark key 写入 README、示例配置或其他会提交的文件。
 
-如果 `.env` 不存在或 `BARK_URL` 为空，程序会跳过推送，不影响日报生成。Bark 推送失败时也不会让已生成的日报失效，错误会写到 stderr，方便在 launchd err log 中查看。
+如果 `.env.local` 不存在或 `BARK_URL` 为空，程序会跳过推送，不影响日报生成。Bark 推送失败时也不会让已生成的日报失效，错误会写到 stderr，方便在 launchd err log 中查看。
 
 Bark 推送依赖网络。如果 Mac 早上刚唤醒时网络或 SSL 连接短暂不稳定，脚本会自动重试最多 3 次。若重试后仍失败，可以在网络恢复后手动补发：
 
@@ -737,13 +743,13 @@ Bark 推送依赖网络。如果 Mac 早上刚唤醒时网络或 SSL 连接短�
 
 ### 配置 Obsidian iCloud 同步
 
-在 `.env` 中配置手机可同步的 Obsidian iCloud 目录：
+在 `.env.local` 中配置手机可同步的 Obsidian iCloud 目录：
 
 ```text
 MOBILE_DIGEST_DIR="~/Library/Mobile Documents/iCloud~md~obsidian/Documents/MindPalace/10 Atlas/Sources/每日早间回顾"
 ```
 
-路径包含空格或中文时，建议用双引号包裹。真实路径只写在本地 `.env`，不要提交。
+路径包含空格或中文时，建议用双引号包裹。真实路径只写在本地 `.env.local`，不要提交。
 
 同步脚本会在 `main.py` 成功生成报告后，根据传入的 report type 复制当天 canonical 文件：
 
@@ -760,7 +766,7 @@ overnight_brief → morning-brief-YYYY-MM-DD.md
 
 v0.3.3-beta 使用 Obsidian URI 打开当天日报。iPhone 上需要已安装 Obsidian，并且已经打开或登录过 `MindPalace` vault。
 
-在 `.env` 中增加 vault 名称和日报在 vault 内的相对目录：
+在 `.env.local` 中增加 vault 名称和日报在 vault 内的相对目录：
 
 ```text
 OBSIDIAN_VAULT_NAME=MindPalace
@@ -897,7 +903,7 @@ v0.4.1.2 增加运行时稳定性保护：`scripts/run_daily_digest.sh` 会在�
 - launchd 任务仍加载
 - `pmset` 自动唤醒计划仍存在
 - 网络可用
-- 项目目录和 `.env` 未移动或删除
+- 项目目录和 `.env.local` 未移动或删除
 
 可以关闭：
 

@@ -6,7 +6,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 PYTHON_BIN="$PROJECT_DIR/.venv/bin/python"
 CAFFEINATE_BIN="/usr/bin/caffeinate"
-ENV_FILE="$PROJECT_DIR/.env"
+ENV_FILE="$PROJECT_DIR/.env.local"
 CURATOR_KEY_ENV="AUTOMATION_BRIEF_CURATOR_API_KEY"
 REPORT_TYPE=${1:-digest}
 

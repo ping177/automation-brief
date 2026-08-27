@@ -38,7 +38,7 @@ def _run_daily_shell(
     script_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(RUN_DAILY_SCRIPT, script_path)
     if env_file_content is not None:
-        (repo_root / ".env").write_text(env_file_content, encoding="utf-8")
+        (repo_root / ".env.local").write_text(env_file_content, encoding="utf-8")
 
     calls_path = fixture_dir / "python-calls.log"
     fake_python = repo_root / ".venv" / "bin" / "python"

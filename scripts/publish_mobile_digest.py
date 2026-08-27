@@ -12,7 +12,7 @@ from project_paths import get_project_paths  # noqa: E402
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
-ENV_FILE = PROJECT_DIR / ".env"
+ENV_FILE = PROJECT_DIR / ".env.local"
 REPORT_PREFIXES = {
     "digest": "daily-news",
     "overnight_brief": "morning-brief",

@@ -40,7 +40,7 @@ shared infrastructure: orchestrator + llm_gateway
 - strict response parsing / validation、known-ID provenance validation；
 - UTC timestamp + random suffix run identity、atomic staging-to-final artifact publish、allowlisted diagnostics；
 - canonical Markdown 先生成、Obsidian 与 Bark 独立尝试的 delivery boundary；
-- launch script 的 process-env-first / project `.env` second 软件职责边界。
+- launch script 的 process-env-first / project `.env.local` second 软件职责边界。
 
 以下 Generation 1 semantics 不继承：单个 Curator response 统一承担 selection / clustering / classification / writing、whole-response validation failure 使整个 AI layer 作废、以及 whole-layer legacy writer fallback。
 

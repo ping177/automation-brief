@@ -32,12 +32,29 @@ from llm_gateway import GatewayError, GatewayResponse
 SUMMARY_CHAR_LIMIT = 500
 
 _SELECTOR_SYSTEM_INSTRUCTION = (
-    "Select zero or more story bundles from the supplied report window. "
-    "Return one JSON object with only the selected collection. Each selected "
-    "item must contain only event_candidate_id and a positive integer order. "
-    "The collection may be empty. Keep every bundle's membership unchanged. "
-    "Choose bundles only; do not split memberships, write story text, or assign labels. "
-    "Order is an ordinal editorial sequence, not a rating. Do not add prose."
+    "From the complete event pool of events that actually occurred in roughly the past "
+    "24 hours, select and order only the major events that a reader with about 10 minutes "
+    "this morning most should not miss. Judge the pool as a whole by major real-world "
+    "impact. Major national or societal changes and major natural disasters are examples, "
+    "not categories or rules. Do not use fixed scores, category quotas or weighting, "
+    "source weighting, or a target number of events. Do not select minor events to fill "
+    "space; selecting none is valid. Keep every bundle's membership unchanged. Return "
+    "exactly one JSON object with only selected. Each selected item must contain only "
+    "event_candidate_id and a positive integer order. Order is relative editorial "
+    "priority, not a score. The only valid JSON shape is:\n"
+    "{\n"
+    '  "selected": [\n'
+    "    {\n"
+    '      "event_candidate_id": "example_event_id",\n'
+    '      "order": 1\n'
+    "    }\n"
+    "]\n"
+    "}\n"
+    'The selected array may be empty: {"selected":[]}. Do not add prose.'
+)
+
+_SELECTOR_USER_INSTRUCTION = (
+    "Apply this editorial principle to the complete report-window event pool:\n"
 )
 
 
@@ -64,6 +81,7 @@ def _failure_sort_key(failure: ItemFailure) -> tuple[int, str, str]:
 def _result(
     outputs: Sequence[Event],
     failures: Sequence[ItemFailure],
+    diagnostic_ref: str | None = None,
 ) -> StageResult[Event]:
     ordered_outputs = tuple(outputs)
     ordered_failures = tuple(sorted(failures, key=_failure_sort_key))
@@ -78,6 +96,7 @@ def _result(
         status=status,
         outputs=ordered_outputs,
         failures=ordered_failures,
+        diagnostic_ref=diagnostic_ref,
     )
 
 
@@ -85,8 +104,12 @@ def _invalid_input() -> StageResult[Event]:
     return _result((), (ItemFailure(code=FailureCode.INVALID_INPUT),))
 
 
-def _response_parse_failure() -> StageResult[Event]:
-    return _result((), (ItemFailure(code=FailureCode.RESPONSE_PARSE_FAILED),))
+def _response_parse_failure(reason: str) -> StageResult[Event]:
+    return _result(
+        (),
+        (ItemFailure(code=FailureCode.RESPONSE_PARSE_FAILED),),
+        diagnostic_ref=f"event_selector:{reason}",
+    )
 
 
 def _gateway_failure(error: GatewayError) -> StageResult[Event]:
@@ -98,7 +121,15 @@ def _gateway_failure(error: GatewayError) -> StageResult[Event]:
         "response_parse_failed": FailureCode.RESPONSE_PARSE_FAILED,
     }
     failure_code = code_by_kind.get(error.kind, FailureCode.TRANSPORT_FAILED)
-    return _result((), (ItemFailure(code=failure_code),))
+    diagnostic_ref = None
+    if error.kind == "response_parse_failed":
+        parse_reason = error.parse_reason or "unspecified"
+        diagnostic_ref = f"llm_gateway:{parse_reason}"
+    return _result(
+        (),
+        (ItemFailure(code=failure_code),),
+        diagnostic_ref=diagnostic_ref,
+    )
 
 
 @dataclass(frozen=True)
@@ -141,12 +172,34 @@ def _parse_selection_item(raw_item: Any) -> _SelectionItem:
     )
 
 
+def _json_type_name(value: Any) -> str:
+    if value is None:
+        return "null"
+    if type(value) is bool:
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, Mapping):
+        return "object"
+    if isinstance(value, list):
+        return "array"
+    return "other"
+
+
 def _validate_selection_payload(
     payload: Mapping[str, Any],
     candidates: Mapping[str, EventCandidate],
 ) -> StageResult[Event]:
-    if set(payload) != {"selected"} or not isinstance(payload["selected"], list):
-        return _response_parse_failure()
+    if "selected" not in payload:
+        reason = "selected_missing_empty_payload" if not payload else "selected_missing"
+        return _response_parse_failure(reason)
+    if set(payload) != {"selected"}:
+        return _response_parse_failure("unexpected_top_level_keys")
+    if not isinstance(payload["selected"], list):
+        selected_type = _json_type_name(payload["selected"])
+        return _response_parse_failure(f"selected_wrong_type_{selected_type}")
     raw_items = payload["selected"]
     if not raw_items:
         return _result((), ())
@@ -268,11 +321,14 @@ def _messages(projection: Mapping[str, Any]) -> tuple[dict[str, str], dict[str, 
         {"role": "system", "content": _SELECTOR_SYSTEM_INSTRUCTION},
         {
             "role": "user",
-            "content": json.dumps(
-                projection,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
+            "content": (
+                _SELECTOR_USER_INSTRUCTION
+                + json.dumps(
+                    projection,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
             ),
         },
     )
@@ -313,7 +369,7 @@ def select_events(
 
     payload = response if isinstance(response, Mapping) else getattr(response, "payload", None)
     if not isinstance(payload, Mapping):
-        return _response_parse_failure()
+        return _response_parse_failure("invalid_gateway_payload")
     return _validate_selection_payload(
         payload,
         {candidate.event_candidate_id: candidate for candidate in candidates},

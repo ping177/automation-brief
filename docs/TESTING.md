@@ -45,7 +45,7 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 ## v1.x Implementation Version Roadmap Freeze docs-only checklist
 
-- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest` 与 `v1.3 — Event Clustering` 为 COMPLETED / CLOSED；下一步唯一正式开发任务为 `v1.4 — Event Selector`。
+- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering` 与 `v1.4 — Event Selector` 为 COMPLETED / CLOSED；v1.5 尚未开始。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
 - v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
@@ -117,6 +117,31 @@ deterministic clustering，不使用 LLM。最终接受配置为 E5-small immuta
 production precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected
 memberships `8 / 8` exact。Treasury split 与 temporal Iran merge 分别保留为
 robustness limitation 与 outside-window observation。
+
+## v1.4 Event Selector verification — COMPLETED / CLOSED
+
+v1.4 已完成并 CLOSED，保持 side-by-side、offline-capable，不接管 `main.py` 或 Generation 1
+production routing。Selector 的 provider-facing projection 只包含允许的 Event/article
+context；response contract 保持严格 `selected: [{event_candidate_id, order}]`，outer
+contract failure 不做 salvage，item-level malformed / unknown / duplicate 仍做安全
+item-local salvage。quality runner 默认 dry-run，不读取 credentials、不访问网络、不持久化
+provider response；真实 provider validation 只能由用户显式运行。
+
+```bash
+for f in tests/offline_*.py; do
+  PYTHONDONTWRITEBYTECODE=1 .venv/bin/python "$f" || exit 1
+done
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v14-pyc .venv/bin/python -m py_compile \
+  event_selector.py llm_gateway.py scripts/evaluate_event_selector.py \
+  tests/offline_event_selector_smoke.py tests/offline_event_selector_quality_smoke.py \
+  tests/offline_llm_gateway_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/evaluate_event_selector.py
+```
+
+real-provider quality validation 的接受门槛为多次 runs 均 succeeded、must-include 全部
+覆盖、should-omit 不被凑数选入，且 judgment-call 允许合理波动；3/3 runs、4/4
+must-include、3/3 should-omit 已通过。Selector 不设固定评分、类别配额、来源权重或
+固定选取数量。
 
 显式 real-model acceptance command（需要预先存在的可写本地 model cache）为：
 

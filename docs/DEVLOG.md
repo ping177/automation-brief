@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.4 Event Selector final cleanup / closeout — COMPLETED / CLOSED
+
+- v1.4 Selector 的 side-by-side core、最小 editorial prompt、quality fixture / runner、strict response contract、deterministic projection、global outer failure 和 item-local salvage 保持最小；未接入 `main.py`、Generation 1 或 production routing，未开始 v1.5。
+- 用户完成 real-provider quality validation：3/3 runs succeeded；4/4 must-include 三次全部入选；3/3 should-omit 三次全部排除；judgment-call 具备合理波动；无需继续调整 editorial prompt。
+- 前两轮 debugging 的 `diagnostic_ref` 均有 StageResult / runner consumer 或 canonical safe allowlist 价值，未发现应删除的临时无 consumer residue；offline diagnostic regression 保持 secret-safe。
+- 项目级 `.env` 已安全改名为 `.env.local`，active shell / Bark / Obsidian consumers、README 和当前 runtime contract 已更新；`.env` 与 `.env.local` 均被 Git ignore，实际用户 LaunchAgent / pmset 未修改。v1.4 closeout 已完成。
+
 ## 2026-08-27 — v1.3 Event Clustering closeout — COMPLETED / CLOSED
 
 - 在修正后的 24h Morning Brief reader-level story-bundle semantics 下完成固定 E5-small real-model acceptance：`intfloat/multilingual-e5-small` revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`、`article-title-summary-v1`（summary 前 300 Unicode 字符）、CPU/float32、threshold `0.91`、`connected-components-v1`。

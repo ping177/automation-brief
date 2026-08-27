@@ -32,6 +32,21 @@ _FAILURE_KINDS = frozenset(
         "response_parse_failed",
     }
 )
+RESPONSE_PARSE_REASONS = frozenset(
+    {
+        "invalid_envelope_encoding",
+        "invalid_envelope_json",
+        "invalid_envelope_type",
+        "invalid_choices",
+        "finish_reason_length",
+        "finish_reason_content_filter",
+        "finish_reason_other",
+        "invalid_message",
+        "assistant_content_invalid_json",
+        "assistant_content_invalid_type",
+        "assistant_content_top_level_not_object",
+    }
+)
 
 
 class GatewayError(RuntimeError):
@@ -43,12 +58,19 @@ class GatewayError(RuntimeError):
         attempts: int,
         *,
         status: int | None = None,
+        parse_reason: str | None = None,
     ) -> None:
         if kind not in _FAILURE_KINDS:
             raise ValueError("unsupported gateway failure kind")
+        if parse_reason is not None and (
+            kind != "response_parse_failed"
+            or parse_reason not in RESPONSE_PARSE_REASONS
+        ):
+            raise ValueError("unsupported gateway parse reason")
         self.kind = kind
         self.attempts = attempts
         self.status = status
+        self.parse_reason = parse_reason
         super().__init__(kind)
 
 
@@ -224,20 +246,55 @@ def _serialize_request(
 
 def _parse_provider_response(response_body: bytes, attempts: int) -> dict[str, Any]:
     try:
-        envelope = json.loads(response_body.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        raise GatewayError("response_parse_failed", attempts) from None
+        decoded_body = response_body.decode("utf-8")
+    except UnicodeDecodeError:
+        raise GatewayError(
+            "response_parse_failed",
+            attempts,
+            parse_reason="invalid_envelope_encoding",
+        ) from None
+    try:
+        envelope = json.loads(decoded_body)
+    except json.JSONDecodeError:
+        raise GatewayError(
+            "response_parse_failed",
+            attempts,
+            parse_reason="invalid_envelope_json",
+        ) from None
 
     if not isinstance(envelope, dict):
-        raise GatewayError("response_parse_failed", attempts)
+        raise GatewayError(
+            "response_parse_failed",
+            attempts,
+            parse_reason="invalid_envelope_type",
+        )
     choices = envelope.get("choices")
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
-        raise GatewayError("response_parse_failed", attempts)
-    if choices[0].get("finish_reason") != "stop":
-        raise GatewayError("response_parse_failed", attempts)
+        raise GatewayError(
+            "response_parse_failed",
+            attempts,
+            parse_reason="invalid_choices",
+        )
+    finish_reason = choices[0].get("finish_reason")
+    if finish_reason != "stop":
+        if finish_reason == "length":
+            safe_finish_reason = "finish_reason_length"
+        elif finish_reason == "content_filter":
+            safe_finish_reason = "finish_reason_content_filter"
+        else:
+            safe_finish_reason = "finish_reason_other"
+        raise GatewayError(
+            "response_parse_failed",
+            attempts,
+            parse_reason=safe_finish_reason,
+        )
     message = choices[0].get("message")
     if not isinstance(message, dict):
-        raise GatewayError("response_parse_failed", attempts)
+        raise GatewayError(
+            "response_parse_failed",
+            attempts,
+            parse_reason="invalid_message",
+        )
     content = message.get("content")
     if isinstance(content, dict):
         payload = content
@@ -245,11 +302,23 @@ def _parse_provider_response(response_body: bytes, attempts: int) -> dict[str, A
         try:
             payload = json.loads(content)
         except json.JSONDecodeError:
-            raise GatewayError("response_parse_failed", attempts) from None
+            raise GatewayError(
+                "response_parse_failed",
+                attempts,
+                parse_reason="assistant_content_invalid_json",
+            ) from None
     else:
-        raise GatewayError("response_parse_failed", attempts)
+        raise GatewayError(
+            "response_parse_failed",
+            attempts,
+            parse_reason="assistant_content_invalid_type",
+        )
     if not isinstance(payload, dict):
-        raise GatewayError("response_parse_failed", attempts)
+        raise GatewayError(
+            "response_parse_failed",
+            attempts,
+            parse_reason="assistant_content_top_level_not_object",
+        )
     return payload
 
 
@@ -355,4 +424,5 @@ __all__ = [
     "JSON_RESPONSE_FORMAT",
     "OpenAICompatibleGatewayConfig",
     "OpenAICompatibleJSONGateway",
+    "RESPONSE_PARSE_REASONS",
 ]

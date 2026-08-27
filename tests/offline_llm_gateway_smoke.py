@@ -262,6 +262,7 @@ def expect_gateway_error(
     kind: str,
     expected_attempts: int,
     expected_status: int | None = None,
+    expected_parse_reason: str | None = None,
     max_attempts: int = 2,
 ) -> GatewayError:
     with env_value("AUTOMATION_BRIEF_TEST_API_KEY", "offline-only-secret"):
@@ -273,6 +274,7 @@ def expect_gateway_error(
             assert error.kind == kind
             assert error.attempts == expected_attempts
             assert error.status == expected_status
+            assert error.parse_reason == expected_parse_reason
             return error
     raise AssertionError("gateway call must fail")
 
@@ -350,39 +352,141 @@ def test_non_retryable_http_statuses_call_transport_once() -> None:
         assert len(transport.calls) == 1
 
 
-def test_invalid_provider_responses_do_not_retry() -> None:
-    invalid_bodies = (
-        b"not-json",
-        json.dumps({"choices": []}).encode("utf-8"),
-        json.dumps(
+def test_invalid_provider_responses_report_safe_parse_reasons_without_retry() -> None:
+    invalid_cases = (
+        (b"not-json", "invalid_envelope_json"),
+        (b"\xff", "invalid_envelope_encoding"),
+        (json.dumps([]).encode("utf-8"), "invalid_envelope_type"),
+        (json.dumps({"choices": []}).encode("utf-8"), "invalid_choices"),
+        (
+            json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "length",
+                            "message": {"content": "{}"},
+                        }
+                    ]
+                }
+            ).encode("utf-8"),
+            "finish_reason_length",
+        ),
+        (
+            json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "provider-private-detail",
+                            "message": {"content": "{}"},
+                        }
+                    ]
+                }
+            ).encode("utf-8"),
+            "finish_reason_other",
+        ),
+        (
+            json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": {"private": "provider-detail"},
+                            "message": {"content": "{}"},
+                        }
+                    ]
+                }
+            ).encode("utf-8"),
+            "finish_reason_other",
+        ),
+        (
+            json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": "invalid",
+                        }
+                    ]
+                }
+            ).encode("utf-8"),
+            "invalid_message",
+        ),
+        (
+            json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"content": "not-json-private-detail"},
+                        }
+                    ]
+                }
+            ).encode("utf-8"),
+            "assistant_content_invalid_json",
+        ),
+        (
+            json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"content": None},
+                        }
+                    ]
+                }
+            ).encode("utf-8"),
+            "assistant_content_invalid_type",
+        ),
+        (
+            json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {"content": "[]"},
+                        }
+                    ]
+                }
+            ).encode("utf-8"),
+            "assistant_content_top_level_not_object",
+        ),
+        (
+            json.dumps(
             {
                 "choices": [
                     {
-                        "finish_reason": "length",
+                        "finish_reason": "content_filter",
                         "message": {"content": "{}"},
                     }
                 ]
             }
-        ).encode("utf-8"),
-        json.dumps(
-            {
-                "choices": [
-                    {
-                        "finish_reason": "stop",
-                        "message": {"content": "not-json"},
-                    }
-                ]
-            }
-        ).encode("utf-8"),
+            ).encode("utf-8"),
+            "finish_reason_content_filter",
+        ),
     )
-    for body in invalid_bodies:
+    for body, parse_reason in invalid_cases:
         transport = FakeTransport([(200, body)])
-        expect_gateway_error(
+        error = expect_gateway_error(
             transport,
             kind="response_parse_failed",
             expected_attempts=1,
+            expected_parse_reason=parse_reason,
         )
+        assert "private-detail" not in str(error)
+        assert "private-detail" not in repr(error)
         assert len(transport.calls) == 1
+
+
+def test_parse_reason_contract_rejects_unallowlisted_detail() -> None:
+    try:
+        GatewayError(
+            "response_parse_failed",
+            1,
+            parse_reason="provider-body-private-detail",
+        )
+    except ValueError as error:
+        assert "private-detail" not in str(error)
+    else:
+        raise AssertionError("parse reasons must be selected from the safe allowlist")
 
 
 def test_invalid_configuration_and_request_fail_before_transport() -> None:
@@ -503,7 +607,8 @@ def main() -> None:
     test_transport_failure_classes_retry_once()
     test_retryable_failures_exhaust_at_two_attempts()
     test_non_retryable_http_statuses_call_transport_once()
-    test_invalid_provider_responses_do_not_retry()
+    test_invalid_provider_responses_report_safe_parse_reasons_without_retry()
+    test_parse_reason_contract_rejects_unallowlisted_detail()
     test_invalid_configuration_and_request_fail_before_transport()
     test_max_attempts_values_fail_closed_before_transport()
     test_gateway_response_and_errors_do_not_expose_api_key()

@@ -91,7 +91,72 @@ def projection_from(gateway: FakeGateway) -> dict[str, Any]:
     assert messages[1]["role"] == "user"
     content = messages[1]["content"]
     assert isinstance(content, str)
-    return json.loads(content)
+    _, separator, projection_json = content.partition("\n")
+    return json.loads(projection_json if separator else content)
+
+
+def test_prompt_encodes_the_minimal_editorial_principle_without_a_rule_system() -> None:
+    item = article("prompt-principle")
+    item_candidate = candidate(item)
+    gateway = FakeGateway({"selected": []})
+
+    result = select([item_candidate], [item], gateway)
+
+    assert result.status == StageStatus.SUCCEEDED
+    messages, parameters = gateway.calls[0]
+    assert parameters is None
+    system_prompt = messages[0]["content"]
+    user_prompt = messages[1]["content"]
+    assert isinstance(system_prompt, str)
+    assert isinstance(user_prompt, str)
+    normalized_system = " ".join(system_prompt.casefold().split())
+    for required_text in (
+        "complete event pool",
+        "events that actually occurred in roughly the past 24 hours",
+        "about 10 minutes",
+        "major real-world impact",
+        "examples, not categories or rules",
+        "fixed scores",
+        "category quotas or weighting",
+        "source weighting",
+        "target number",
+        "minor events to fill space",
+        "selecting none is valid",
+        '"selected": [',
+        '"event_candidate_id": "example_event_id"',
+        '"order": 1',
+        "selected array may be empty",
+    ):
+        assert required_text in normalized_system
+    assert (
+        "do not use fixed scores, category quotas or weighting, source weighting, or a "
+        "target number of events"
+    ) in normalized_system
+    assert (
+        "do not select minor events to fill space; selecting none is valid"
+        in normalized_system
+    )
+    assert 'the selected array may be empty: {"selected":[]}' in normalized_system
+    for forbidden_text in (
+        "material_change",
+        "decision_relevance",
+        "five-dimensional",
+        "classifier",
+        "classification",
+        "select exactly",
+        "select at least",
+        "select at most",
+        "top 10",
+        "max_events",
+    ):
+        assert forbidden_text not in normalized_system
+    assert user_prompt.startswith(
+        "Apply this editorial principle to the complete report-window event pool:\n"
+    )
+    projection = projection_from(gateway)
+    assert projection["event_candidates"][0]["event_candidate_id"] == (
+        item_candidate.event_candidate_id
+    )
 
 
 def assert_no_forbidden_projection_keys(value: object) -> None:
@@ -537,19 +602,31 @@ def test_duplicate_order_excludes_all_items_sharing_order() -> None:
 def test_outer_response_failures_are_global_and_not_salvaged() -> None:
     item = article("outer-failure")
     item_candidate = candidate(item)
-    for payload in (
-        {},
-        {"selected": {}},
-        {"selected": [], "unexpected": True},
-        [
-            {"selected": []},
-        ],
-    ):
+    cases = (
+        ({}, "event_selector:selected_missing_empty_payload"),
+        (
+            {"provider-private-key": "provider-private-value"},
+            "event_selector:selected_missing",
+        ),
+        ({"selected": {}}, "event_selector:selected_wrong_type_object"),
+        ({"selected": None}, "event_selector:selected_wrong_type_null"),
+        ({"selected": "private-value"}, "event_selector:selected_wrong_type_string"),
+        ({"selected": True}, "event_selector:selected_wrong_type_boolean"),
+        ({"selected": 1}, "event_selector:selected_wrong_type_number"),
+        (
+            {"selected": [], "provider-private-key": "provider-private-value"},
+            "event_selector:unexpected_top_level_keys",
+        ),
+        ([{"selected": []}], "event_selector:invalid_gateway_payload"),
+    )
+    for payload, expected_diagnostic in cases:
         gateway = FakeGateway(payload)
         result = select([item_candidate], [item], gateway)
         assert result.status == StageStatus.FAILED
         assert result.outputs == ()
         assert result.failures[0].code == FailureCode.RESPONSE_PARSE_FAILED
+        assert result.diagnostic_ref == expected_diagnostic
+        assert "private" not in result.diagnostic_ref
         assert len(gateway.calls) == 1
 
 
@@ -572,6 +649,26 @@ def test_gateway_failures_map_without_selector_retry() -> None:
         assert result.failures[0].item_id is None
         assert result.failures[0].code == expected_code
         assert len(gateway.calls) == 1
+
+
+def test_parse_failures_preserve_only_safe_diagnostic_references() -> None:
+    item = article("parse-diagnostic")
+    item_candidate = candidate(item)
+    gateway = FakeGateway(
+        error=GatewayError(
+            "response_parse_failed",
+            1,
+            parse_reason="assistant_content_invalid_json",
+        )
+    )
+
+    result = select([item_candidate], [item], gateway)
+
+    assert result.status == StageStatus.FAILED
+    assert result.failures[0].code == FailureCode.RESPONSE_PARSE_FAILED
+    assert result.diagnostic_ref == (
+        "llm_gateway:assistant_content_invalid_json"
+    )
 
 
 def test_unexpected_gateway_exception_maps_to_transport_failure() -> None:
@@ -631,7 +728,7 @@ def test_selector_has_no_generation_one_or_semantic_ranking_dependencies() -> No
         "hotness_score",
         "source_score",
         "confidence_score",
-        "category",
+        "EventCategory",
         "embedding",
         "similarity",
         "legacy",
@@ -640,6 +737,7 @@ def test_selector_has_no_generation_one_or_semantic_ranking_dependencies() -> No
 
 
 def main() -> None:
+    test_prompt_encodes_the_minimal_editorial_principle_without_a_rule_system()
     test_empty_pool_is_success_without_gateway_call()
     test_duplicate_candidate_input_fails_before_gateway()
     test_non_canonical_candidate_input_fails_before_gateway()
@@ -660,6 +758,7 @@ def main() -> None:
     test_duplicate_order_excludes_all_items_sharing_order()
     test_outer_response_failures_are_global_and_not_salvaged()
     test_gateway_failures_map_without_selector_retry()
+    test_parse_failures_preserve_only_safe_diagnostic_references()
     test_unexpected_gateway_exception_maps_to_transport_failure()
     test_invalid_gateway_dependency_fails_before_call()
     test_projection_and_response_boundaries_exclude_semantic_side_channels()

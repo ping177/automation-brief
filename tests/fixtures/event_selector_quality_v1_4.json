@@ -1,0 +1,116 @@
+{
+  "fixture_id": "v1-4-minimal-editorial-mix",
+  "provenance": "synthetic",
+  "window_start": "2026-08-26T00:00:00+00:00",
+  "window_end": "2026-08-27T00:00:00+00:00",
+  "events": [
+    {
+      "event_key": "major-earthquake",
+      "expectation": "must_include",
+      "articles": [
+        {
+          "source": "Fixture Wire A",
+          "title": "Magnitude 7.8 earthquake strikes coastal Ardin; hundreds reported dead",
+          "summary": "The government declared a national emergency after widespread building collapses, hospital damage and disrupted communications.",
+          "published_at": "2026-08-26T02:10:00+00:00"
+        },
+        {
+          "source": "Fixture Public Service",
+          "title": "International rescue teams deploy after Ardin earthquake",
+          "summary": "Emergency agencies said the confirmed death toll was rising and several coastal cities remained without power or clean water.",
+          "published_at": "2026-08-26T05:40:00+00:00"
+        }
+      ]
+    },
+    {
+      "event_key": "ceasefire-agreement",
+      "expectation": "must_include",
+      "articles": [
+        {
+          "source": "Fixture World Desk",
+          "title": "Beloria and Carden sign immediate ceasefire after six weeks of fighting",
+          "summary": "The agreement halts cross-border attacks, opens humanitarian corridors and begins monitored troop withdrawals at midnight.",
+          "published_at": "2026-08-26T07:20:00+00:00"
+        },
+        {
+          "source": "Fixture Regional Wire",
+          "title": "Displaced residents begin returning after Beloria-Carden ceasefire",
+          "summary": "Aid groups said the truce could restore access to communities cut off during the conflict, though implementation risks remain.",
+          "published_at": "2026-08-26T10:15:00+00:00"
+        }
+      ]
+    },
+    {
+      "event_key": "constitutional-transition",
+      "expectation": "must_include",
+      "articles": [
+        {
+          "source": "Fixture National Desk",
+          "title": "Demeria approves interim government after president resigns",
+          "summary": "Parliament backed a constitutional transfer of power and scheduled an early national election following weeks of mass protests.",
+          "published_at": "2026-08-26T12:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "event_key": "nationwide-power-emergency",
+      "expectation": "must_include",
+      "articles": [
+        {
+          "source": "Fixture Infrastructure Desk",
+          "title": "Grid failure leaves 40 million people without power across Estara",
+          "summary": "The outage halted rail networks, disrupted water systems and forced hospitals onto backup generation while authorities investigated the cause.",
+          "published_at": "2026-08-26T16:05:00+00:00"
+        }
+      ]
+    },
+    {
+      "event_key": "global-chipmaker-earnings",
+      "expectation": "judgment_call",
+      "articles": [
+        {
+          "source": "Fixture Business Desk",
+          "title": "Leading chipmaker reports record quarterly revenue on data-center demand",
+          "summary": "Revenue exceeded forecasts and the company raised its outlook, while warning that advanced packaging capacity remained constrained.",
+          "published_at": "2026-08-26T20:10:00+00:00"
+        }
+      ]
+    },
+    {
+      "event_key": "regional-transit-delay",
+      "expectation": "should_omit",
+      "articles": [
+        {
+          "source": "Fixture City Desk",
+          "title": "Signal fault delays one regional rail line during evening commute",
+          "summary": "Service returned to normal after 45 minutes and no injuries were reported.",
+          "published_at": "2026-08-26T18:35:00+00:00"
+        }
+      ]
+    },
+    {
+      "event_key": "celebrity-restaurant-opening",
+      "expectation": "should_omit",
+      "articles": [
+        {
+          "source": "Fixture Culture Desk",
+          "title": "Television actor announces opening date for new restaurant",
+          "summary": "The restaurant will begin taking reservations next month and released photographs of its menu.",
+          "published_at": "2026-08-26T14:45:00+00:00"
+        }
+      ]
+    },
+    {
+      "event_key": "phone-theme-update",
+      "expectation": "should_omit",
+      "articles": [
+        {
+          "source": "Fixture Gadget Desk",
+          "title": "Phone maker releases seasonal wallpaper and icon theme",
+          "summary": "The optional download adds new colors and animated lock-screen images but does not change device functionality.",
+          "published_at": "2026-08-26T09:00:00+00:00"
+        }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.5 Event Classifier + Writer closeout — COMPLETED / CLOSED
+
+- v1.5 三个 implementation slices 均已完成：Slice 1 Event Classifier、Slice 2 Event Writer 和 Slice 3 Classifier → Writer Continuation Regression。Classifier 遵循 specific natural category → canonical category、无自然匹配 → `other`、technical/transport/parse/contract failure → `ItemFailure`，不使用 keyword rules、scores、category weighting 或 semantic fallback machinery。Writer 使用完整 Event bundle 和 Article provenance 生成 `title_zh`、`summary_zh`、`why_it_matters_zh`，不逐篇翻译、不加外部知识、不提供回退 writer。
+- 最终真实 DeepSeek validation 复用同一 6-Event representative synthetic fixture：provider=`deepseek`、model=`deepseek-v4-flash`、classifier_stage_status=`succeeded`、writer_stage_status=`succeeded`、event_count=`6`、classifier technical failures=`0`、writer technical failures=`0`。分类结果均合理，无 `other` 滥用；Event-level synthesis、Chinese readability 和 evidence grounding 均 PASS。
+- 首轮 `why_it_matters_zh` 读者建议问题已通过最小 prompt correction 解决；revalidation 未发现 release blocker。v1.5 保持 side-by-side，未改变 production routing；本轮不开始 v1.6 implementation。
+- closeout 只同步治理文档：未修改 classifier/writer behavior、prompts、frozen contracts、schema、dependencies 或 production routing。全部 offline smoke、Project-State Push Gate tests、compile checks 和 `git diff --check` 通过。
+
 ## 2026-08-27 — v1.5 Writer significance guidance correction — REVALIDATION PENDING
 
 - 用户执行的真实 DeepSeek validation 为 classifier/writer 全部 succeeded、6/6 Events written、0 technical failures；Classifier quality、Event synthesis 和整体中文质量 PASS。唯一问题出现在 `why_it_matters_zh`：有面向读者的投资/购买建议，并有从 evidence 支持的现实意义滑向额外风险推测的情况。

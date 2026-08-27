@@ -324,11 +324,25 @@
 - global selector failure semantics
 - safe item salvage
 
-### v1.5 — Event Classifier + Writer
+### v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 
 - canonical category
 - `title_zh`、`summary_zh`、`why_it_matters_zh`
 - per-event validation / partial failure
+- Slice 1 Classifier、Slice 2 Writer 与 Slice 3 Classifier → Writer continuation regression
+  已完成并保持 side-by-side；Classifier 仅采用 specific natural category → canonical category、
+  no natural specific category → `other`、technical/transport/parse/contract failure →
+  `ItemFailure` 的既定语义，不引入 keyword rules、scores、category weighting 或 semantic
+  fallback machinery。
+- Writer 完成 Event bundle synthesis，输出自然 zh-CN 的 `title_zh`、`summary_zh` 与
+  `why_it_matters_zh`；仅使用 supplied Article evidence，不做逐篇翻译、外部知识/来源
+  推断或读者导向的投资、购买及行为建议，不提供 fallback writer。Classifier failure 仍
+  继续原 selected Event → Writer → `written-unclassified`。
+- 最终 real-provider acceptance 使用 `deepseek` / `deepseek-v4-flash` 与同一 6-Event
+  synthetic fixture：classifier/writer stages 均 `succeeded`，6/6 Events written，双方
+  technical failures 均为 0；分类合理且无 `other` 滥用，Event-level synthesis、中文
+  可读性与 evidence grounding PASS。首次 `why_it_matters_zh` 读者建议问题由最小 prompt
+  correction 解决，revalidation 无 release blocker。
 
 ### v1.6 — Renderer + Artifacts + Orchestrator Integration
 
@@ -382,5 +396,5 @@ Market 不属于 v1.x core；Holdings 不进入 v1.x。v1.8 之前 Generation 1 
 1. 正式版本 token 只使用纯数字：`v1.0`、`v1.1`、`v1.2` … `v1.10`；不使用 alpha、beta、Phase A/B 或其它阶段型 version token。
 2. v1.0 已冻结的 Architecture、Core Data Contract、Runtime / Failure Contract 默认不在 implementation 中重新打开。
 3. 如果真实实现发现 frozen contract 存在不可实现矛盾，不得在业务代码中静默改变；必须先报告证据，做最小、显式、可审计的 contract amendment，不扩大架构范围。
-4. v1.2 已完成；v1.3 是下一步唯一正式开发任务。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
+4. v1.5 已完成并关闭；v1.6 是下一步唯一正式开发任务。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
 5. 本路线不提前选择 embedding model、模型迁移、prompt、token budget 或其它 implementation tuning。

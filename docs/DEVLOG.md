@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.5 Slice 3 Classifier → Writer Continuation Regression — COMPLETED
+
+- 新增独立 `tests/offline_event_classifier_writer_continuation_smoke.py`，只在测试内按原 selected Event 顺序将 classifier 成功 output 与未分类的 original Event 组合后传给 Writer；未新增 production orchestration helper。
+- 覆盖 classifier partial（A classified、B failure）继续写作并得到 `written-unclassified`、classifier all-failed 仍由 Writer 全部成功写作，以及 Writer failure 保持 event-local；同时验证 classifier / writer `StageResult` 独立、`event_id` / `article_ids` / `selection_order` 不变。
+- 新 continuation smoke、Writer smoke、Classifier smoke、全部 `tests/offline_*.py`、Project-State Push Gate、Python `py_compile` / tracked `compileall` 与 `git diff --check` 均通过；未调用真实 DeepSeek，未修改 frozen contracts、production routing、dependencies 或 production modules。
+- v1.5 Slice 1 Classifier、Slice 2 Writer 与 Slice 3 Continuation Regression 已完成；v1.5 implementation complete，下一步为 real DeepSeek Classifier + Writer quality validation。
+
 ## 2026-08-27 — v1.5 Slice 2 Event Writer — IN PROGRESS
 
 - 新增 side-by-side `event_writer.py` 与离线 `tests/offline_event_writer_smoke.py`。Public stage 接收 selected classified/unclassified `Event[]`、canonical `Article[]` 和 injectable gateway，返回 `StageResult[Event]`；physical batch size 固定为 1，provider projection 保持 batch-ready `target_language` + `events` shape。

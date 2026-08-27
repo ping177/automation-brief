@@ -45,7 +45,7 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 ## v1.x Implementation Version Roadmap Freeze docs-only checklist
 
-- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering` 与 `v1.4 — Event Selector` 为 COMPLETED / CLOSED；v1.5 Slice 1 Classifier 与 Slice 2 Writer 已实现，Slice 3 continuation regression 尚未开始。
+- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering` 与 `v1.4 — Event Selector` 为 COMPLETED / CLOSED；v1.5 Slice 1 Classifier、Slice 2 Writer 与 Slice 3 Continuation Regression 已完成，real-provider quality acceptance pending。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
 - v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
@@ -203,7 +203,30 @@ PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v15-writer-pyc .venv/bin/pytho
 
 本 Slice 还应运行全部 `tests/offline_*.py`、`tests.test_project_state_push_gate` 与
 `git diff --check`；验证不得读取 secrets、写入 runtime data/cache、调用真实 provider
-或修改 frozen contracts。下一步为 Slice 3 classifier → writer continuation regression。
+或修改 frozen contracts。Slice 3 continuation regression 已在下一节完成。
+
+## v1.5 Slice 3 Classifier → Writer Continuation Regression — COMPLETED
+
+新增独立 `tests/offline_event_classifier_writer_continuation_smoke.py`，只在测试内按原
+selected Event 顺序将 classifier 成功输出与未分类的原 Event 组合后传给 Writer；不新增
+production orchestration helper。回归覆盖 classifier partial、classifier all-failed 仍继续
+Writer、`written-unclassified`、Writer failure event-local，以及两个 StageResult 相互独立。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_classifier_writer_continuation_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_writer_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_classifier_smoke.py
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v15-slice3-pyc .venv/bin/python -m py_compile \
+  event_classifier.py event_writer.py tests/offline_event_classifier_writer_continuation_smoke.py
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v15-slice3-pyc .venv/bin/python -m compileall -q -f \
+  canonical_domain.py event_selector.py llm_gateway.py event_classifier.py event_writer.py \
+  tests/offline_event_classifier_smoke.py tests/offline_event_writer_smoke.py \
+  tests/offline_event_classifier_writer_continuation_smoke.py
+```
+
+本 Slice 还应运行全部 `tests/offline_*.py`、`tests.test_project_state_push_gate` 与
+`git diff --check`；验证不得读取 secrets、写入 runtime data/cache、调用真实 provider
+或修改 frozen contracts。下一步为 v1.5 real DeepSeek Classifier + Writer quality validation。
 
 ## v1.2 regression checklist
 

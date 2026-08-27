@@ -2,6 +2,15 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.6 Renderer + Artifacts + Orchestrator Integration — COMPLETED / CLOSED
+
+- 新增 side-by-side `orchestrator.py` 与 `tests/offline_orchestrator_smoke.py`。Public seam `run_generation_2(...)` 接受 explicit report slot、sources、injectable gateways/embedder/fetcher、Artifact Manager和可选run identity，返回runtime-only `GenerationRunResult`；不接入Generation 1 production routing或delivery。
+- Orchestrator机械执行 collector → normalizer → inclusive report-window admission → dedup → cluster → selector → classifier → classifier overlay → `events-writer-input` → writer → renderer → artifact finalization。每个真实stage先持久化safe diagnostic与StageResult/object checkpoint，artifact persistence failure直接抛出并阻止downstream。
+- Classifier partial/all-failed时，以selected sequence为authority覆盖成功分类，失败项保持`classification=None`并全部继续Writer；Writer partial只将written-success Events交给Renderer，non-empty selection all-failed、collector/selector/renderer failed均hard stop且无Brief。clean empty、upstream partial empty、classifier/writer degradation的complete/partial语义按frozen contract机械推导。
+- `normalizer.py`新增deterministic report-window admission：known inclusive in-window保留、known outside正常排除、unknown timestamp保留。Gen1 `parse_feed_with_retry()`仅增加exception cause chaining，原message/retry/control flow不变；Gen2 collector沿cause chain恢复timeout/transport typed failure。
+- Orchestrator、renderer、artifact、canonical、deterministic ingest、cluster、selector、classifier、writer、continuation、production routing、project paths smoke与Python compile通过；代表性 3/1/4-source reader-layout fixture 已经完整 offline pipeline 生成并通过人工验收。implementation acceptance: PASS；offline full-pipeline E2E: PASS；human reader-facing layout acceptance: PASS。未联网、未调用真实DeepSeek、未读取secret、未修改三份frozen contracts、dependencies或production routing。v1.6 正式 `COMPLETED / CLOSED`，下一步为 v1.7 — Offline / Snapshot Validation。
+- 原计划 Slice 4 的 Complete offline E2E acceptance 已由 Slice 3 orchestrator smoke 覆盖，无需重复实现独立 Slice 4。
+
 ## 2026-08-27 — v1.5 Event Classifier + Writer closeout — COMPLETED / CLOSED
 
 - v1.5 三个 implementation slices 均已完成：Slice 1 Event Classifier、Slice 2 Event Writer 和 Slice 3 Classifier → Writer Continuation Regression。Classifier 遵循 specific natural category → canonical category、无自然匹配 → `other`、technical/transport/parse/contract failure → `ItemFailure`，不使用 keyword rules、scores、category weighting 或 semantic fallback machinery。Writer 使用完整 Event bundle 和 Article provenance 生成 `title_zh`、`summary_zh`、`why_it_matters_zh`，不逐篇翻译、不加外部知识、不提供回退 writer。

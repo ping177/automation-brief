@@ -14,13 +14,13 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.6 Renderer + Artifacts + Orchestrator Integration）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.7 Offline / Snapshot Validation）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
 v1.4 — Event Selector（COMPLETED / CLOSED）
 v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
-v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
+v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（PLANNED）
 v1.8 — Shadow / Parallel Validation（PLANNED）
 v1.9 — Production Cutover（PLANNED）
@@ -88,13 +88,13 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - canonical semantics 是同一约 24h Morning Brief report window 内的 reader-level story bundle，不是 persistent atomic occurrence identity。announcement / reaction / clarification / closely related follow-up 在读者视角下可以合并；共享关键词、国家、公司或主题不足以合并明显不同的新闻。
 - accepted configuration 为 `intfloat/multilingual-e5-small` immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`、`article-title-summary-v1`、summary cap 300、threshold `0.91`、`connected-components-v1`。四个 production-relevant cases 的 overmerge / split 为 `0 / 0`，production precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected reader memberships `8 / 8` exact。
 - Treasury cross-language split 与 connected-components chaining 仅作 synthetic robustness evidence；temporal Iran early/later merge 是 outside-normal-window observation，不作为 production gate。v1.3 不使用 DeepSeek、任何 LLM、translation、keyword override、multiple thresholds、source/category weighting 或 Gen1 fallback。详见非权威 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](V1.3_EVENT_CLUSTERING_SPEC.md)。
-- direct runtime dependencies are `sentence-transformers==3.4.1`、`transformers==4.48.1`、`torch==2.5.1`。显式 evaluator 默认使用 writable `AUTOMATION_BRIEF_MODEL_CACHE`，未设置时落到 canonical data root 的 `runs/model-cache`；model/cache binaries 不进入 repository。后续 v1.4、v1.5 milestones 均已完成并关闭，当前下一步唯一任务为 v1.6 Renderer + Artifacts + Orchestrator Integration。
+- direct runtime dependencies are `sentence-transformers==3.4.1`、`transformers==4.48.1`、`torch==2.5.1`。显式 evaluator 默认使用 writable `AUTOMATION_BRIEF_MODEL_CACHE`，未设置时落到 canonical data root 的 `runs/model-cache`；model/cache binaries 不进入 repository。后续 v1.4、v1.5、v1.6 milestones 均已完成并关闭，当前下一步唯一任务为 v1.7 Offline / Snapshot Validation。
 
 ### v1.4 Event Selector — COMPLETED / CLOSED
 
 - 新增 side-by-side `event_selector.py`、严格 `selected: [{event_candidate_id, order}]` response contract、最小 editorial prompt、quality fixture / runner 与 offline regression；不接入 `main.py`、Generation 1、production routing 或 v1.5 stages。
 - Selector 保持完整 Event pool 的整体 editorial judgment，不使用固定评分、类别配额、来源权重或固定选取数量；deterministic projection、global outer failure 与 item-local salvage 均保持 frozen contract。
-- real-provider quality validation 已通过：3/3 runs succeeded；4/4 must-include 在三次运行中全部入选；3/3 should-omit 在三次运行中全部排除；judgment-call 具备合理波动。v1.4 closeout 已完成；v1.5 Slice 1 Classifier、Slice 2 Writer、Slice 3 classifier → writer continuation regression 与最终 real-provider acceptance 均已完成并关闭，下一项工作为 v1.6 Renderer + Artifacts + Orchestrator Integration。
+- real-provider quality validation 已通过：3/3 runs succeeded；4/4 must-include 在三次运行中全部入选；3/3 should-omit 在三次运行中全部排除；judgment-call 具备合理波动。v1.4 closeout 已完成；v1.5 与 v1.6 均已完成并关闭，下一项工作为 v1.7 Offline / Snapshot Validation。
 
 ### v1.5 Event Classifier + Writer — COMPLETED / CLOSED
 
@@ -105,7 +105,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - Slice 3 新增独立 `tests/offline_event_classifier_writer_continuation_smoke.py`：以 test-local composition 验证 classifier partial/all-failed 时所有 selected Events 继续进入 Writer，失败分类的 Event 可成为 `written-unclassified`，以及 Writer failure 保持 event-local；不新增 production orchestration helper。
 - Slice 1 Classifier、Slice 2 Writer 与 Slice 3 Continuation Regression 均已通过 relevant offline smoke、Python compile/compileall、Project-State gate 与 `git diff --check`；v1.5 implementation complete。
 - 首次 real-provider validation 为 classifier/writer 全部 succeeded、6/6 Events written、0 technical failures；Classifier 分类均合理且无 `other` 滥用，Event-level synthesis、Chinese readability 和 evidence grounding 均 PASS。首轮 `why_it_matters_zh` 读者建议问题已通过最小 prompt correction 解决，revalidation 未发现 release blocker。
-- v1.5 现已 `COMPLETED / CLOSED`；保持 side-by-side，不改变 production routing，下一步为 v1.6 Renderer + Artifacts + Orchestrator Integration，但本轮不开始 v1.6 implementation。报告不持久化 provider request，不输出 secrets，不新增评分或 benchmark。
+- v1.5 现已 `COMPLETED / CLOSED`；v1.6 Renderer + Artifacts + Orchestrator Integration 也已 `COMPLETED / CLOSED`，保持 side-by-side，不改变 production routing，下一步为 v1.7 Offline / Snapshot Validation。报告不持久化 provider request，不输出 secrets，不新增评分或 benchmark。
 
 ### v1.x Implementation Version Roadmap — FROZEN
 
@@ -118,8 +118,8 @@ v1.2  Deterministic Ingest（COMPLETED / CLOSED）
 v1.3  Event Clustering
 v1.4  Event Selector（COMPLETED / CLOSED）
 v1.5  Event Classifier + Writer（COMPLETED / CLOSED）
-v1.6  Renderer + Artifacts + Orchestrator Integration
-v1.7  Offline / Snapshot Validation
+v1.6  Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
+v1.7  Offline / Snapshot Validation（NEXT）
 v1.8  Shadow / Parallel Validation
 v1.9  Production Cutover
 v1.10 Legacy Retirement & v1.x Closeout

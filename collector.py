@@ -190,13 +190,18 @@ def _feed_entries(parsed_feed: Any) -> tuple[Any, ...]:
 
 
 def _failure_code(error: BaseException) -> FailureCode:
-    if isinstance(error, TimeoutError):
-        return FailureCode.TIMEOUT
-    reason = getattr(error, "reason", None)
-    if isinstance(reason, TimeoutError):
-        return FailureCode.TIMEOUT
-    if isinstance(error, (OSError, URLError)):
-        return FailureCode.TRANSPORT_FAILED
+    current: BaseException | None = error
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, TimeoutError):
+            return FailureCode.TIMEOUT
+        reason = getattr(current, "reason", None)
+        if isinstance(reason, TimeoutError):
+            return FailureCode.TIMEOUT
+        if isinstance(current, (OSError, URLError)):
+            return FailureCode.TRANSPORT_FAILED
+        current = current.__cause__ or current.__context__
     return FailureCode.SOURCE_FETCH_FAILED
 
 

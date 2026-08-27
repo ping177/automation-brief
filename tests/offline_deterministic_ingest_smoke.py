@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +20,7 @@ from collector import (  # noqa: E402
     load_sources,
     normalize_sources,
 )
-from normalizer import normalize_source_batches  # noqa: E402
+from normalizer import admit_articles_to_report_window, normalize_source_batches  # noqa: E402
 from article_dedup import deduplicate_articles  # noqa: E402
 
 
@@ -113,6 +114,44 @@ def test_all_source_failures_are_failed() -> None:
     assert result.outputs == ()
     assert len(result.failures) == 2
     assert {failure.code for failure in result.failures} == {FailureCode.SOURCE_FETCH_FAILED}
+
+
+def test_gen1_fetch_retry_preserves_root_cause_without_changing_message() -> None:
+    import main
+
+    root_cause = TimeoutError("fixture timeout")
+    with (
+        patch.object(main, "FEED_FETCH_ATTEMPTS", 1),
+        patch.object(main.urllib.request, "urlopen", side_effect=root_cause),
+    ):
+        try:
+            main.parse_feed_with_retry(
+                {"name": "Cause fixture", "url": "https://example.com/feed.xml"}
+            )
+        except RuntimeError as error:
+            assert str(error) == "fixture timeout"
+            assert error.__cause__ is root_cause
+        else:
+            raise AssertionError("feed retry unexpectedly succeeded")
+
+
+def test_collector_types_preserved_timeout_and_transport_causes() -> None:
+    failures = (
+        (TimeoutError("fixture timeout"), FailureCode.TIMEOUT),
+        (OSError("fixture transport"), FailureCode.TRANSPORT_FAILED),
+    )
+    for index, (root_cause, expected_code) in enumerate(failures, start=1):
+        def fetcher(_: SourceConfig, *, cause: BaseException = root_cause) -> FakeFeed:
+            raise RuntimeError(str(cause)) from cause
+
+        result = collect_sources(
+            (source(f"Cause {index}"),),
+            fetcher=fetcher,
+            clock=lambda: COLLECTED_AT,
+        )
+
+        assert result.status is StageStatus.FAILED
+        assert result.failures[0].code is expected_code
 
 
 def test_malformed_source_feed_isolated_from_successful_source() -> None:
@@ -325,6 +364,61 @@ def test_normalizer_uses_description_only_as_summary_fallback() -> None:
     assert [article.summary for article in result.outputs] == ["Description text", None]
 
 
+def test_report_window_admission_is_inclusive_and_retains_unknown_timestamps() -> None:
+    configured = source("Window")
+    normalized = normalize_source_batches(
+        (
+            source_batch(
+                configured,
+                [
+                    {
+                        "title": "At start",
+                        "link": "https://example.com/at-start",
+                        "published": "2026-08-26T00:00:00+00:00",
+                    },
+                    {
+                        "title": "Inside",
+                        "link": "https://example.com/inside",
+                        "published": "2026-08-26T12:00:00+00:00",
+                    },
+                    {
+                        "title": "At end",
+                        "link": "https://example.com/at-end",
+                        "published": "2026-08-27T00:00:00+00:00",
+                    },
+                    {
+                        "title": "Unknown",
+                        "link": "https://example.com/unknown",
+                    },
+                    {
+                        "title": "Before",
+                        "link": "https://example.com/before",
+                        "published": "2026-08-25T23:59:59+00:00",
+                    },
+                    {
+                        "title": "After",
+                        "link": "https://example.com/after",
+                        "published": "2026-08-27T00:00:01+00:00",
+                    },
+                ],
+            ),
+        )
+    )
+
+    admitted = admit_articles_to_report_window(
+        normalized.outputs,
+        datetime(2026, 8, 26, 0, 0, tzinfo=timezone.utc),
+        datetime(2026, 8, 27, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert [article.title for article in admitted] == [
+        "At start",
+        "Inside",
+        "At end",
+        "Unknown",
+    ]
+
+
 def test_exact_article_dedup_keeps_first_valid_in_ingest_order() -> None:
     result = normalize_source_batches(
         (
@@ -515,6 +609,8 @@ def main() -> None:
     test_collector_keeps_successful_empty_batch_and_isolates_failure()
     test_all_successful_empty_sources_are_successful()
     test_all_source_failures_are_failed()
+    test_gen1_fetch_retry_preserves_root_cause_without_changing_message()
+    test_collector_types_preserved_timeout_and_transport_causes()
     test_malformed_source_feed_isolated_from_successful_source()
     test_successful_entries_are_extracted_without_raw_payload()
     test_normalizer_emits_only_canonical_articles()
@@ -522,6 +618,7 @@ def main() -> None:
     test_normalizer_requires_timestamp_for_linkless_entry()
     test_normalizer_rejects_naive_and_malformed_timestamps_without_guessing()
     test_normalizer_uses_description_only_as_summary_fallback()
+    test_report_window_admission_is_inclusive_and_retains_unknown_timestamps()
     test_exact_article_dedup_keeps_first_valid_in_ingest_order()
     test_exact_article_dedup_keeps_different_source_reports_separate()
     test_exact_article_dedup_preserves_linkless_identity_and_empty_success()

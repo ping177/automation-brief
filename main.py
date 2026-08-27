@@ -677,7 +677,7 @@ def parse_feed_with_retry(feed: dict[str, str]) -> Any:
             time_module.sleep(FEED_FETCH_RETRY_DELAY_SECONDS)
 
     if last_error:
-        raise RuntimeError(str(last_error))
+        raise RuntimeError(str(last_error)) from last_error
     raise RuntimeError("Unknown feed parse error")
 
 

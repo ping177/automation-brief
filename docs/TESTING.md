@@ -45,7 +45,7 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 ## v1.x Implementation Version Roadmap Freeze docs-only checklist
 
-- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering`、`v1.4 — Event Selector` 与 `v1.5 — Event Classifier + Writer` 均为 `COMPLETED / CLOSED`；v1.5 的三段实现、offline regression 与最终 real-provider acceptance 已完成。
+- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering`、`v1.4 — Event Selector`、`v1.5 — Event Classifier + Writer` 与 `v1.6 — Renderer + Artifacts + Orchestrator Integration` 均为 `COMPLETED / CLOSED`；v1.5 的三段实现、offline regression 与最终 real-provider acceptance 已完成，v1.6 的 implementation acceptance、offline full-pipeline E2E 与 human reader-facing layout acceptance 均 PASS。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
 - v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
@@ -226,7 +226,7 @@ PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v15-slice3-pyc .venv/bin/pytho
 
 本 Slice 还应运行全部 `tests/offline_*.py`、`tests.test_project_state_push_gate` 与
 `git diff --check`；验证不得读取 secrets、写入 runtime data/cache、调用真实 provider
-或修改 frozen contracts。v1.5 real-provider acceptance 记录见下一节；下一步为 v1.6 Renderer + Artifacts + Orchestrator Integration。
+或修改 frozen contracts。v1.5 real-provider acceptance 记录见下一节；v1.6 closeout 已完成，下一步为 v1.7 Offline / Snapshot Validation。
 
 ## v1.5 real DeepSeek Classifier + Writer quality acceptance — COMPLETED / CLOSED
 
@@ -266,9 +266,10 @@ revalidation 使用 `deepseek` / `deepseek-v4-flash`：classifier stage 与 writ
 `succeeded`，6 个 Event 全部写出，classifier 与 writer technical failures 均为 0；分类
 结果合理且无 `other` 滥用，Event-level synthesis、中文可读性与 evidence grounding 均
 通过。首次 `why_it_matters_zh` 的读者导向建议问题已通过最小 prompt correction 解决，
-revalidation 未发现 release blocker。v1.5 标记为 `COMPLETED / CLOSED`；下一步为
-`v1.6 — Renderer + Artifacts + Orchestrator Integration`，本次 closeout 未开始 v1.6
-implementation。
+revalidation 未发现 release blocker。v1.5 标记为 `COMPLETED / CLOSED`；v1.6
+`Renderer + Artifacts + Orchestrator Integration` 已完成 implementation acceptance、offline
+full-pipeline E2E 与 human reader-facing layout acceptance，并标记为 `COMPLETED / CLOSED`；
+下一步为 `v1.7 — Offline / Snapshot Validation`。本轮不开始 v1.7 implementation。
 
 ## v1.2 regression checklist
 

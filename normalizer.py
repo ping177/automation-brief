@@ -16,7 +16,9 @@ from canonical_domain import (
     StageName,
     StageResult,
     StageStatus,
+    datetime_in_report_window,
     normalize_canonical_datetime,
+    validate_report_window,
 )
 from collector import RawFeedEntry, SourceBatch
 
@@ -141,4 +143,32 @@ def normalize_source_batches(batches: Iterable[SourceBatch]) -> StageResult[Arti
     )
 
 
-__all__ = ["normalize_source_batches", "parse_source_timestamp"]
+def admit_articles_to_report_window(
+    articles: Iterable[Article],
+    window_start: datetime,
+    window_end: datetime,
+) -> tuple[Article, ...]:
+    """Retain Articles admitted by the frozen inclusive report-window rule."""
+
+    normalized_start, normalized_end = validate_report_window(window_start, window_end)
+    if isinstance(articles, (str, bytes)):
+        raise ValueError("articles must be an iterable")
+    try:
+        values = tuple(articles)
+    except TypeError:
+        raise ValueError("articles must be an iterable") from None
+    if any(not isinstance(article, Article) for article in values):
+        raise ValueError("articles must contain Article objects")
+    return tuple(
+        article
+        for article in values
+        if article.published_at is None
+        or datetime_in_report_window(article.published_at, normalized_start, normalized_end)
+    )
+
+
+__all__ = [
+    "admit_articles_to_report_window",
+    "normalize_source_batches",
+    "parse_source_timestamp",
+]

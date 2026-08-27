@@ -49,7 +49,7 @@ v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
 v1.4 — Event Selector（COMPLETED / CLOSED）
-v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier + Slice 2 Writer + Slice 3 Continuation Regression complete；real-provider quality acceptance pending）
+v1.5 — Event Classifier + Writer（IN PROGRESS — real-provider revalidation pending）
 v1.6 — Renderer + Artifacts + Orchestrator Integration
 v1.7 — Offline / Snapshot Validation
 v1.8 — Shadow / Parallel Validation
@@ -101,13 +101,13 @@ real-provider quality validation 已完成：3/3 runs succeeded，4/4 must-inclu
 
 ## v1.5 — Event Classifier + Writer（IN PROGRESS）
 
-v1.5 Slice 1 已新增 side-by-side `event_classifier.py` 与离线 smoke：Classifier 只写 canonical `category`，使用 batch-ready `classifications` response shape、physical batch size 1、严格 item validation 和 per-event failure isolation。Slice 2 已新增 side-by-side `event_writer.py` 与离线 smoke：Writer 只写 `title_zh`、`summary_zh`、`why_it_matters_zh`，接受 classified/unclassified Events，投影完整 Article provenance，使用严格 response validation 与最小 zh-CN gate。Slice 3 新增独立 continuation regression，证明 classifier partial/all-failed 时 Writer 仍可继续，以及 Writer failure 保持 event-local。三者均不接入 `main.py`、renderer、artifacts、production routing，也不调用真实 DeepSeek。现已新增 validation-only `scripts/evaluate_event_classifier_writer_quality.py`、6-event synthetic fixture 与 offline smoke；默认 dry-run，只有显式 `--real-provider deepseek` 才进入 neutral gateway。下一步为 v1.5 real DeepSeek Classifier + Writer quality validation。
+v1.5 Slice 1 已新增 side-by-side `event_classifier.py` 与离线 smoke：Classifier 只写 canonical `category`，使用 batch-ready `classifications` response shape、physical batch size 1、严格 item validation 和 per-event failure isolation。Slice 2 已新增 side-by-side `event_writer.py` 与离线 smoke：Writer 只写 `title_zh`、`summary_zh`、`why_it_matters_zh`，接受 classified/unclassified Events，投影完整 Article provenance，使用严格 response validation 与最小 zh-CN gate。Slice 3 新增独立 continuation regression，证明 classifier partial/all-failed 时 Writer 仍可继续，以及 Writer failure 保持 event-local。三者均不接入 `main.py`、renderer、artifacts 或 production routing。validation-only runner 的首次真实 DeepSeek 验证为 classifier/writer 全部 succeeded、6/6 Events written、0 technical failures；Classifier quality、Event synthesis 和整体中文质量 PASS。唯一问题是 `why_it_matters_zh` 出现面向读者的建议和 evidence 之外的推测；Writer prompt 已做最小修正，当前等待使用同一 runner 做 real-provider revalidation。
 
 ## v1.x Implementation Version Roadmap（FROZEN）
 
 v1.3 acceptance 已按修正后的 24h Morning Brief story-bundle semantics 通过，并冻结 `intfloat/multilingual-e5-small` 的 immutable revision、`article-title-summary-v1` projection 和 threshold `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。
 
-正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1、v1.2、v1.3 与 v1.4 已完成并关闭；v1.5 implementation complete，已完成 Slice 1 Classifier、Slice 2 Writer 与 Slice 3 classifier → writer continuation regression，real-provider quality acceptance pending，下一步为 v1.5 real DeepSeek Classifier + Writer quality validation。v1.6 仍不做 production cutover，v1.8 不发送 reader-facing v1.x output，v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1、v1.2、v1.3 与 v1.4 已完成并关闭；v1.5 implementation complete，已完成 Slice 1 Classifier、Slice 2 Writer 与 Slice 3 classifier → writer continuation regression。首次 real-provider validation 已完成并定位一项 Writer significance prompt 问题，最小修正已落地；v1.5 保持 `IN PROGRESS — real-provider revalidation pending`，不进入 v1.6。v1.6 仍不做 production cutover，v1.8 不发送 reader-facing v1.x output，v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。旧产品 retirement 必须等 v1.8 完成 shadow / parallel validation、v1.9 完成 production cutover 后，进入 v1.10 才开始。
 

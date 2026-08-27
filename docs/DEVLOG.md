@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.5 Writer significance guidance correction — REVALIDATION PENDING
+
+- 用户执行的真实 DeepSeek validation 为 classifier/writer 全部 succeeded、6/6 Events written、0 technical failures；Classifier quality、Event synthesis 和整体中文质量 PASS。唯一问题出现在 `why_it_matters_zh`：有面向读者的投资/购买建议，并有从 evidence 支持的现实意义滑向额外风险推测的情况。
+- 仅修正 `event_writer.py` 中 `why_it_matters_zh` prompt：要求只陈述 supplied Article evidence 直接支持的具体意义，并禁止直接称呼读者、个人投资/购买/行为建议、evidence 之外的推测和“pay attention / keep watching”类通用 meta-language。其它 Writer prompt 语义、schema/contracts、Classifier 和 production routing 不变。
+- `tests/offline_event_writer_smoke.py` 只新增 prompt-intent regression，不对模型输出做 deterministic advice-word 检测；未增加长度/句数、keyword rules、writing score、language detector、第二 LLM 或 LLM judge。v1.5 保持 `IN PROGRESS — real-provider revalidation pending`。Codex 本轮未调用真实 DeepSeek。
+- Writer smoke、全部 offline smoke、Project-State Push Gate 16/16、Python `py_compile` / tracked `compileall` 与 `git diff --check` 全部通过。
+
 ## 2026-08-27 — v1.5 real DeepSeek Classifier + Writer quality validation harness — PREPARED
 
 - 新增 validation-only `scripts/evaluate_event_classifier_writer_quality.py`、`tests/fixtures/event_classifier_writer_quality_v1_5.json` 与 `tests/offline_event_classifier_writer_quality_smoke.py`；fixture 构造 6 个已选中的 synthetic canonical Event bundle，每个包含 2 篇完整 Article，覆盖 geopolitics、macro/economic、technology/company、public safety/disaster 与 category-boundary review cases。

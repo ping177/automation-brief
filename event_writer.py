@@ -40,8 +40,13 @@ _WRITER_SYSTEM_INSTRUCTION = (
     "follow-up developments. Use only the supplied Article evidence; do not add outside "
     "knowledge or guess provenance such as source, URL, or time. The title_zh, summary_zh, "
     "and why_it_matters_zh fields should be concise and concrete. why_it_matters_zh must "
-    "explain why an ordinary reader should know this morning; avoid generic statements "
-    "such as '这一事件值得持续关注。' or '该事件可能产生深远影响。'. Do not select, "
+    "state the concrete significance of the Event using only implications directly "
+    "supported by the supplied Article evidence. Do not directly address the reader; "
+    "do not give personal investment, purchase, or behavioral advice; do not speculate "
+    "beyond the supplied evidence; and do not use generic meta-language telling readers "
+    "to 'pay attention' "
+    "or 'keep watching', such as '这一事件值得持续关注。' or "
+    "'该事件可能产生深远影响。'. Do not select, "
     "rank, classify, or change the Event bundle. Return exactly one JSON object with only "
     '"writings". Each item must contain only "event_id", "title_zh", "summary_zh", and '
     '"why_it_matters_zh". Do not add prose.'

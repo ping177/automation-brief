@@ -333,9 +333,14 @@ def test_prompt_states_evidence_based_simplified_chinese_synthesis() -> None:
         "outside knowledge",
         "provenance",
         "why_it_matters_zh",
-        "ordinary reader",
-        "这一事件值得持续关注",
-        "该事件可能产生深远影响",
+        "state the concrete significance of the event",
+        "implications directly supported by the supplied article evidence",
+        "do not directly address the reader",
+        "personal investment, purchase, or behavioral advice",
+        "do not speculate beyond the supplied evidence",
+        "generic meta-language",
+        "pay attention",
+        "keep watching",
     ):
         assert required_text in normalized
 

@@ -8,13 +8,13 @@
 
 ## Current version
 
-v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier + Slice 2 Writer + Slice 3 Continuation Regression complete；real-provider quality acceptance pending；v1.x implementation roadmap FROZEN）
+v1.5 — Event Classifier + Writer（IN PROGRESS — real-provider revalidation pending；v1.x implementation roadmap FROZEN）
 
 ## Current status
 
-v1.5 Slice 1 Event Classifier、Slice 2 Event Writer 与 Slice 3 Continuation Regression 已完成：side-by-side canonical classifier/writer、strict response validation、完整 Article provenance projection、最小 zh-CN writing gate、per-event failure isolation、classifier → writer continuation 与 `written-unclassified` lifecycle regression 均已落地；不改变 Generation 1 production routing。v1.5 implementation complete，real-provider quality acceptance pending；renderer、artifacts、orchestrator 与 production integration 尚未开始。现已准备 validation-only real-provider runner、representative synthetic Event fixture 与 offline harness smoke，仍未调用真实 DeepSeek。
+v1.5 Slice 1 Event Classifier、Slice 2 Event Writer 与 Slice 3 Continuation Regression 已完成：side-by-side canonical classifier/writer、strict response validation、完整 Article provenance projection、最小 zh-CN writing gate、per-event failure isolation、classifier → writer continuation 与 `written-unclassified` lifecycle regression 均已落地；不改变 Generation 1 production routing。validation-only runner 的首次真实 DeepSeek 验证为 classifier/writer 全部 succeeded、6/6 Events written、0 technical failures；Classifier quality、Event synthesis 和整体中文质量 PASS。唯一问题是 `why_it_matters_zh` 出现面向读者的建议和 evidence 之外的推测；Writer prompt 已做最小修正。v1.5 保持 `IN PROGRESS — real-provider revalidation pending`；renderer、artifacts、orchestrator 与 production integration 尚未开始。
 
-v1.4 real-provider quality validation 为 3/3 runs succeeded；4/4 must-include 在三次运行中全部入选，3/3 should-omit 在三次运行中全部排除，judgment-call 具备合理波动。Selector、v1.5 Classifier 与 Writer 尚未接入 production；v1.5 real-provider quality acceptance pending。
+v1.4 real-provider quality validation 为 3/3 runs succeeded；4/4 must-include 在三次运行中全部入选，3/3 should-omit 在三次运行中全部排除，judgment-call 具备合理波动。Selector、v1.5 Classifier 与 Writer 尚未接入 production；v1.5 real-provider revalidation pending。
 
 v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不是 Generation 1 完全达到长期产品目标；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。该 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 v1.0 Event-driven architecture rebuild。
 
@@ -23,6 +23,8 @@ v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不�
 READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；v1.1 canonical domain foundation、v1.2 deterministic ingest、v1.3 event clustering 与 v1.4 event selector 已实现并完成各自验收门槛，v1.5 Slice 1 classifier、Slice 2 writer 与 Slice 3 continuation regression 已实现并通过离线验收。v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。v1.4 与 v1.5 Slice 1/2/3 仍是 side-by-side，未接入 production routing；Generation 1 继续作为正式 baseline，直到 v1.9 production cutover。
 
 ## Latest completed
+
+2026-08-27 完成 v1.5 Writer significance guidance 最小修正：根据首次真实 DeepSeek validation 的 6/6 成功输出，仅收紧 `why_it_matters_zh` prompt，要求只陈述 supplied Article evidence 直接支持的具体意义，并禁止直接称呼读者、个人投资/购买/行为建议、evidence 之外的推测和“关注/继续观察”类通用 meta-language。offline regression 只锁定 prompt intent，未增加确定性文本规则、score、language detector、第二 LLM 或 judge；未改 schema、Classifier 或 production routing。Writer smoke、全部 offline smoke、Project-State Push Gate 16/16、Python compile 与 `git diff --check` 全部通过。下一步使用同一 v1.5 runner 做 real-provider revalidation。
 
 2026-08-27 准备 v1.5 Classifier + Writer real DeepSeek quality validation harness：新增 `scripts/evaluate_event_classifier_writer_quality.py`、`tests/fixtures/event_classifier_writer_quality_v1_5.json` 与 `tests/offline_event_classifier_writer_quality_smoke.py`。runner 默认使用 no-network fake gateway，只有显式 `--real-provider deepseek` 才复用 neutral OpenAI-compatible gateway；fixture 含 6 个完整 Article bundle 与人工 classification review note，报告只输出安全的 Event writing / stage failure 结果。离线 smoke、现有相关 smoke、compile 与 `git diff --check` 通过；本轮未读取 key、未调用真实 provider、未修改 production routing、frozen contracts 或 dependencies。下一步为用户在 Terminal 执行 real DeepSeek quality validation。
 
@@ -96,7 +98,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 - v1.3 — Event Clustering（COMPLETED / CLOSED）
 - v1.4 — Event Selector（COMPLETED / CLOSED；implementation + real-provider quality validation complete）
-- v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier + Slice 2 Writer + Slice 3 Continuation Regression complete；real-provider quality acceptance pending）
+- v1.5 — Event Classifier + Writer（IN PROGRESS — real-provider revalidation pending）
 - v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
 - v1.7 — Offline / Snapshot Validation（PLANNED）
 - v1.8 — Shadow / Parallel Validation（PLANNED）
@@ -109,7 +111,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-v1.5 real DeepSeek Classifier + Writer quality validation
+v1.5 real DeepSeek Classifier + Writer quality revalidation
 
 ## Blockers
 

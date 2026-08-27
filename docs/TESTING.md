@@ -45,7 +45,7 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 ## v1.x Implementation Version Roadmap Freeze docs-only checklist
 
-- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering` 与 `v1.4 — Event Selector` 为 COMPLETED / CLOSED；v1.5 Slice 1 Classifier、Slice 2 Writer 与 Slice 3 Continuation Regression 已完成，real-provider quality acceptance pending。
+- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering` 与 `v1.4 — Event Selector` 为 COMPLETED / CLOSED；v1.5 Slice 1 Classifier、Slice 2 Writer 与 Slice 3 Continuation Regression 已完成，首次 real-provider validation 已完成，当前为 `IN PROGRESS — real-provider revalidation pending`。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
 - v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
@@ -228,7 +228,7 @@ PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v15-slice3-pyc .venv/bin/pytho
 `git diff --check`；验证不得读取 secrets、写入 runtime data/cache、调用真实 provider
 或修改 frozen contracts。下一步为 v1.5 real DeepSeek Classifier + Writer quality validation。
 
-## v1.5 real DeepSeek Classifier + Writer quality validation harness — PENDING
+## v1.5 real DeepSeek Classifier + Writer quality revalidation — PENDING
 
 新增 validation-only `scripts/evaluate_event_classifier_writer_quality.py` 与
 `tests/fixtures/event_classifier_writer_quality_v1_5.json`，fixture 包含 6 个已选中的
@@ -245,6 +245,13 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_classifier_writer
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/evaluate_event_classifier_writer_quality.py
 ```
 
+首次真实 DeepSeek validation 的 classifier/writer 均 succeeded，6/6 Events written，
+0 technical failures；Classifier quality、Event synthesis 和整体中文质量 PASS。
+`why_it_matters_zh` 的唯一真实问题是面向读者的建议与 evidence 之外的推测。
+Writer prompt 已做最小修正：只允许 supplied Article evidence 直接支持的具体意义，
+并禁止直接称呼读者、个人建议、超出 evidence 的推测与通用 meta-language。offline
+regression 只检查 prompt intent，不对模型输出做 deterministic advice detection。
+
 用户后续应在自己的 Terminal 环境准备 `AUTOMATION_BRIEF_CURATOR_API_KEY`（沿用项目
 `.env.local` 的既有 process-env-first 使用方式）后，显式执行：
 
@@ -254,9 +261,9 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/evaluate_event_classifier_wri
 ```
 
 本 harness 不做自动中文质量评分、LLM judge、rule-based writing score 或 benchmark；
-真实结果由人工审阅 fixture note、category、三项中文写作和技术 failure。v1.5 仍为
-IN PROGRESS，real-provider quality acceptance pending；下一步不进入 v1.6，先完成该
-real DeepSeek quality validation。
+真实结果由人工审阅 fixture note、category、三项中文写作和技术 failure。v1.5 保持
+`IN PROGRESS — real-provider revalidation pending`；下一步不进入 v1.6，先用同一
+runner 完成 real DeepSeek quality revalidation。
 
 ## v1.2 regression checklist
 

@@ -151,6 +151,10 @@ routing，不调用真实 DeepSeek。physical batch size 固定为 1；projectio
 semantics 均由离线 fake gateway 验证。Writer、renderer、artifacts、orchestrator 和
 production integration 不属于本 Slice。
 
+Classifier semantic regression additionally verifies that an Event with no naturally
+matching specific category can successfully return canonical `other`; semantic uncertainty
+is not a failure, while an unknown provider category remains an item validation failure.
+
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_classifier_smoke.py
 PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v15-classifier-pyc .venv/bin/python -m py_compile \

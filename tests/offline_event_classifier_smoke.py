@@ -179,6 +179,26 @@ def test_all_nine_categories_are_accepted_and_update_event_immutably() -> None:
         assert original.classification is None
 
 
+def test_other_is_normal_success_when_no_specific_category_fits() -> None:
+    item = article(
+        "other-natural-match",
+        title="Community festival opens",
+        summary="A local cultural event is reported.",
+    )
+    event = selected_event(item)
+    gateway = FakeGateway(
+        payload={"classifications": [{"event_id": event.event_id, "category": "other"}]}
+    )
+
+    result = classify([event], [item], gateway)
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.failures == ()
+    assert len(result.outputs) == 1
+    assert result.outputs[0].classification is not None
+    assert result.outputs[0].classification.category == EventCategory.OTHER
+
+
 def test_projection_contains_complete_membership_in_canonical_order_and_no_side_channels() -> None:
     first = article("projection-first", title="First article", summary=None)
     second = article("projection-second", title="Second article", language="zh-CN")
@@ -212,6 +232,9 @@ def test_projection_contains_complete_membership_in_canonical_order_and_no_side_
         "importance",
         "selection order",
         "frozen vocabulary",
+        "no specific category naturally fits",
+        'choose "other"',
+        "semantic uncertainty is not a failure",
         "classifications",
     ):
         assert required_text in normalized_prompt
@@ -470,6 +493,7 @@ def test_classifier_has_no_generation_one_or_semantic_ranking_dependencies() -> 
 def main() -> None:
     test_empty_input_is_success_without_gateway_call()
     test_all_nine_categories_are_accepted_and_update_event_immutably()
+    test_other_is_normal_success_when_no_specific_category_fits()
     test_projection_contains_complete_membership_in_canonical_order_and_no_side_channels()
     test_projection_is_deterministic_for_article_lookup_order()
     test_response_shape_and_category_validation_are_item_local()

@@ -35,7 +35,9 @@ _CLASSIFIER_SYSTEM_INSTRUCTION = (
     "provenance, legacy category, or clustering diagnostics. Use exactly one value from "
     "the frozen vocabulary: "
     + ", ".join(category.value for category in EventCategory)
-    + '. Return exactly one JSON object with only "classifications". Each item must '
+    + '. If no specific category naturally fits the event, choose "other"; semantic '
+    + 'uncertainty is not a failure. Return exactly one JSON object with only '
+    + '"classifications". Each item must '
     'contain only "event_id" and "category". Do not add prose.'
 )
 

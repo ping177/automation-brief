@@ -2,6 +2,12 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.5 Slice 1 classifier `other` semantic alignment
+
+- Classifier prompt 明确：当没有具体 category 自然匹配 Event 时选择 canonical `other`；semantic uncertainty 本身不是 failure。
+- 新增 offline regression，证明无具体类别自然匹配时 provider 返回 `other` 仍是正常 `succeeded` classification；非法 category 仍按既有 contract validation failure 处理，不做映射或 fallback。
+- 未修改 frozen contracts、canonical domain、selector、gateway、production routing 或 dependencies；v1.5 Writer 尚未开始。
+
 ## 2026-08-27 — v1.5 Slice 1 Event Classifier — IN PROGRESS
 
 - 新增 side-by-side `event_classifier.py` 与离线 `tests/offline_event_classifier_smoke.py`。Public stage 接收 selected `Event[]`、canonical `Article[]` 和 injectable gateway，返回 `StageResult[Event]`；physical batch size 固定为 1，provider projection 保持 batch-ready `events` shape。

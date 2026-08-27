@@ -14,12 +14,12 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.5）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.5 Slice 3 continuation regression）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
 v1.4 — Event Selector（COMPLETED / CLOSED）
-v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier implemented）
+v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier + Slice 2 Writer implemented）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
 v1.7 — Offline / Snapshot Validation（PLANNED）
 v1.8 — Shadow / Parallel Validation（PLANNED）
@@ -94,13 +94,14 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 
 - 新增 side-by-side `event_selector.py`、严格 `selected: [{event_candidate_id, order}]` response contract、最小 editorial prompt、quality fixture / runner 与 offline regression；不接入 `main.py`、Generation 1、production routing 或 v1.5 stages。
 - Selector 保持完整 Event pool 的整体 editorial judgment，不使用固定评分、类别配额、来源权重或固定选取数量；deterministic projection、global outer failure 与 item-local salvage 均保持 frozen contract。
-- real-provider quality validation 已通过：3/3 runs succeeded；4/4 must-include 在三次运行中全部入选；3/3 should-omit 在三次运行中全部排除；judgment-call 具备合理波动。v1.4 closeout 已完成；v1.5 Slice 1 Classifier 已开始，下一项工作为 Slice 2 Event Writer。
+- real-provider quality validation 已通过：3/3 runs succeeded；4/4 must-include 在三次运行中全部入选；3/3 should-omit 在三次运行中全部排除；judgment-call 具备合理波动。v1.4 closeout 已完成；v1.5 Slice 1 Classifier 与 Slice 2 Writer 已实现，下一项工作为 Slice 3 classifier → writer continuation regression。
 
 ### v1.5 Event Classifier + Writer — IN PROGRESS
 
 - Slice 1 新增 side-by-side `event_classifier.py` 与 `tests/offline_event_classifier_smoke.py`：只拥有 canonical `category`，使用 9-category vocabulary、batch-ready response shape（physical batch size 1）、strict exact-key validation 与 per-event failure isolation。
 - Classifier 保留 Event membership、`selection_order`、writing 与其它 upstream-owned fields；Article lookup 缺失在 gateway 前 fail closed；成功输出只含 classified Events，失败以现有 `ItemFailure` taxonomy 表达。
-- Slice 1 已通过全部 relevant offline smoke、Python compile/compileall、Project-State gate 与 `git diff --check`；不调用真实 DeepSeek，不接入 `main.py`、renderer、artifacts、orchestrator 或 production routing。Slice 2 Event Writer 尚未开始。
+- Slice 1 已通过全部 relevant offline smoke、Python compile/compileall、Project-State gate 与 `git diff --check`；不调用真实 DeepSeek，不接入 `main.py`、renderer、artifacts、orchestrator 或 production routing。
+- Slice 2 新增 side-by-side `event_writer.py` 与 `tests/offline_event_writer_smoke.py`：只拥有三项 reader-facing zh-CN writing 字段，接受 classified/unclassified/mixed Events，完整投影 Article provenance，使用 strict response validation、最小 CJK gate 与 per-event failure isolation；不提供 raw/legacy/placeholder/backfill fallback。Slice 3 classifier → writer continuation regression 尚未开始。
 
 ### v1.x Implementation Version Roadmap — FROZEN
 
@@ -112,7 +113,7 @@ v1.1  Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2  Deterministic Ingest（COMPLETED / CLOSED）
 v1.3  Event Clustering
 v1.4  Event Selector（COMPLETED / CLOSED）
-v1.5  Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier implemented）
+v1.5  Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier + Slice 2 Writer implemented）
 v1.6  Renderer + Artifacts + Orchestrator Integration
 v1.7  Offline / Snapshot Validation
 v1.8  Shadow / Parallel Validation

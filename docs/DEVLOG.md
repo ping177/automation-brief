@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-27 — v1.5 Slice 2 Event Writer — IN PROGRESS
+
+- 新增 side-by-side `event_writer.py` 与离线 `tests/offline_event_writer_smoke.py`。Public stage 接收 selected classified/unclassified `Event[]`、canonical `Article[]` 和 injectable gateway，返回 `StageResult[Event]`；physical batch size 固定为 1，provider projection 保持 batch-ready `target_language` + `events` shape。
+- Writer 只写 `EventWriting` 的 `title_zh`、`summary_zh`、`why_it_matters_zh`，使用完整 Article provenance 与 canonical membership 顺序；不携带 selection、importance、score、legacy、market/holdings 或 clustering diagnostics side channels，summary 不做 Selector-style 截断。
+- Response 采用 strict exact-key `writings` shape；unknown/duplicate/missing/malformed/extra response、中文 gate、Article lookup、gateway、transport 与 parse failure 均按 event-local `ItemFailure` 处理，成功 sibling 保留，all-fail 为 `failed`，mixed 为 `partial`，empty input 不调用 gateway。失败 Event 不输出 raw/legacy/placeholder/backfill 内容。
+- Writer smoke、Classifier smoke、全部 offline smoke、Python compile/compileall、Project-State gate 与 `git diff --check` 通过；未调用真实 DeepSeek，未修改 frozen contracts、canonical domain、selector、gateway、`main.py`、renderer、artifacts、orchestrator、production routing 或 dependencies。下一步为 Slice 3 classifier → writer continuation regression。
+
 ## 2026-08-27 — v1.5 Slice 1 classifier `other` semantic alignment
 
 - Classifier prompt 明确：当没有具体 category 自然匹配 Event 时选择 canonical `other`；semantic uncertainty 本身不是 failure。

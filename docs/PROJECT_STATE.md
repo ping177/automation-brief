@@ -8,23 +8,25 @@
 
 ## Current version
 
-v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier implemented；v1.x implementation roadmap FROZEN）
+v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier + Slice 2 Writer implemented；v1.x implementation roadmap FROZEN）
 
 ## Current status
 
-v1.5 Slice 1 Event Classifier 已完成：side-by-side canonical classifier、strict category response validation、per-event failure isolation 与离线 smoke 均已落地；不改变 Generation 1 production routing。v1.5 尚未完成，Event Writer、renderer、artifacts、orchestrator 与 production integration 尚未开始。
+v1.5 Slice 1 Event Classifier 与 Slice 2 Event Writer 已完成：side-by-side canonical classifier/writer、strict response validation、完整 Article provenance projection、最小 zh-CN writing gate、per-event failure isolation 与离线 smoke 均已落地；不改变 Generation 1 production routing。v1.5 尚未完成，Slice 3 classifier → writer continuation regression、renderer、artifacts、orchestrator 与 production integration 尚未开始。
 
-v1.4 real-provider quality validation 为 3/3 runs succeeded；4/4 must-include 在三次运行中全部入选，3/3 should-omit 在三次运行中全部排除，judgment-call 具备合理波动。Selector 与 v1.5 Classifier 尚未接入 production；v1.5 Writer 尚未开始。
+v1.4 real-provider quality validation 为 3/3 runs succeeded；4/4 must-include 在三次运行中全部入选，3/3 should-omit 在三次运行中全部排除，judgment-call 具备合理波动。Selector、v1.5 Classifier 与 Writer 尚未接入 production；v1.5 Slice 3 continuation regression 尚未开始。
 
 v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不是 Generation 1 完全达到长期产品目标；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。该 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 v1.0 Event-driven architecture rebuild。
 
-当前 production 仍运行 Generation 1 pipeline；v1.2、v1.3、v1.4 与 v1.5 Slice 1 当前均仅以 side-by-side 组件落地，real-model/quality/offline runner 只用于显式 acceptance，在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
+当前 production 仍运行 Generation 1 pipeline；v1.2、v1.3、v1.4 与 v1.5 Slice 1/2 当前均仅以 side-by-side 组件落地，real-model/quality/offline runner 只用于显式 acceptance，在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
 
-READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；v1.1 canonical domain foundation、v1.2 deterministic ingest、v1.3 event clustering 与 v1.4 event selector 已实现并完成各自验收门槛，v1.5 Slice 1 classifier 已实现并通过离线验收。v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。v1.4 与 v1.5 Slice 1 仍是 side-by-side，未接入 production routing；Generation 1 继续作为正式 baseline，直到 v1.9 production cutover。
+READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 已 COMPLETED / CLOSED；v1.1 canonical domain foundation、v1.2 deterministic ingest、v1.3 event clustering 与 v1.4 event selector 已实现并完成各自验收门槛，v1.5 Slice 1 classifier 与 Slice 2 writer 已实现并通过离线验收。v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。v1.4 与 v1.5 Slice 1/2 仍是 side-by-side，未接入 production routing；Generation 1 继续作为正式 baseline，直到 v1.9 production cutover。
 
 ## Latest completed
 
-2026-08-27 开始 v1.5 Event Classifier + Writer：完成 Slice 1 Classifier，新增 `event_classifier.py` 与 `tests/offline_event_classifier_smoke.py`；覆盖 9 个 category、严格 response shape、完整 membership projection、duplicate/unknown/malformed response、gateway/parse/transport per-event isolation 和 succeeded/partial/failed 状态。全部 relevant offline smoke、compile/compileall、Project-State gate 与 `git diff --check` 通过；未调用真实 DeepSeek，未修改 frozen contracts、既有业务路由或 dependencies。Slice 2 Writer 尚未开始。
+2026-08-27 完成 v1.5 Slice 2 Event Writer：新增 `event_writer.py` 与 `tests/offline_event_writer_smoke.py`；覆盖 classified/unclassified/mixed Event lifecycle、完整 Article provenance 与 canonical member ordering、strict writing response、duplicate/unknown/malformed response、最小 zh-CN gate、gateway/parse/transport/Article lookup per-event isolation 和 succeeded/partial/failed 状态。全部 relevant offline smoke、compile/compileall、Project-State gate 与 `git diff --check` 通过；未调用真实 DeepSeek，未修改 frozen contracts、既有业务路由或 dependencies。下一步为 Slice 3 classifier → writer continuation regression。
+
+2026-08-27 完成 v1.5 Slice 1 Event Classifier：新增 `event_classifier.py` 与 `tests/offline_event_classifier_smoke.py`；覆盖 9 个 category、严格 response shape、完整 membership projection、duplicate/unknown/malformed response、gateway/parse/transport per-event isolation 和 succeeded/partial/failed 状态。未调用真实 DeepSeek，未修改 frozen contracts、既有业务路由或 dependencies。
 
 2026-08-27 完成并关闭 v1.4 Event Selector：real-provider quality validation 为 3/3 runs succeeded，4/4 must-include 三次全部入选，3/3 should-omit 三次全部排除，judgment-call 具备合理波动；Selector prompt/core/runner/tests 保持最小，未发现无 consumer 的 diagnostic residue。项目级 credential file 已从 `.env` 安全改名为 `.env.local`，3 个 active consumers、README 和当前 runtime contract 已更新，两个文件均被 Git ignore。
 
@@ -90,7 +92,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 - v1.3 — Event Clustering（COMPLETED / CLOSED）
 - v1.4 — Event Selector（COMPLETED / CLOSED；implementation + real-provider quality validation complete）
-- v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier implemented）
+- v1.5 — Event Classifier + Writer（IN PROGRESS；Slice 1 Classifier + Slice 2 Writer implemented）
 - v1.6 — Renderer + Artifacts + Orchestrator Integration（PLANNED）
 - v1.7 — Offline / Snapshot Validation（PLANNED）
 - v1.8 — Shadow / Parallel Validation（PLANNED）
@@ -103,7 +105,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-v1.5 Slice 2 — Event Writer（implementation not started）
+v1.5 Slice 3 — classifier → writer continuation regression（implementation not started）
 
 ## Blockers
 
@@ -138,7 +140,7 @@ v1.5 Slice 2 — Event Writer（implementation not started）
 - The v1.0 canonical architecture is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`; it does not prescribe immediate Python filenames, package hierarchy, feature flags, or business implementation. `Article` is input, `Event` is the core object, and `Brief` is output; Article dedup and event clustering remain separate.
 - The v1.0 canonical core data contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`; it freezes Article/EventCandidate/Event/Brief identity and ownership, deterministic Evidence projection, immutable Event stage derivation, and the minimal component-local result envelope without implementing runtime behavior.
 - The v1.0 canonical runtime / failure contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`; it freezes run identity, StageResult semantics, per-component isolation, LLM batch/retry boundaries, Brief status, artifact/delivery behavior and no automatic post-cutover legacy semantic fallback. The contract is docs-only and not implemented.
-- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 through v1.4 are complete and closed, and v1.5 Slice 1 Classifier is in progress with Writer still pending. v1.6 does not cut over production, v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
+- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 through v1.4 are complete and closed, and v1.5 Slice 1 Classifier plus Slice 2 Writer are implemented with Slice 3 continuation regression pending. v1.6 does not cut over production, v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
 - v1.3 side-by-side implementation is present in `event_cluster.py` with fake-embedder smoke, labeled fixtures, and a separate real-model evaluator. The accepted fixed configuration is E5-small revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`, `article-title-summary-v1`, summary cap 300, threshold `0.91`, and `connected-components-v1`; production-critical acceptance is exact `8 / 8` with zero overmerge and split.
 - Canonical Event / EventCandidate semantics are reader-level story bundles inside one approximately 24-hour Morning Brief report window, not persistent atomic occurrence identity. Announcement, immediate reaction, clarification, closely related follow-up, and complementary perspectives may cluster when separate reader-facing items would be materially repetitive. v1.5 Event Writer must read complete Article provenance and preserve material facts and perspectives in `title_zh`, `summary_zh`, and `why_it_matters_zh`.
 - v1.3 clustering remains local embedding + semantic similarity + simple deterministic clustering. DeepSeek, local LLM pair verification, LLM adjudication, translation, and second-pass AI clustering are prohibited in this stage.
@@ -167,4 +169,4 @@ v1.5 Slice 2 — Event Writer（implementation not started）
 
 ## Handoff Prompt
 
-v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains unchanged; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete; v1.1 through v1.4 side-by-side implementation milestones are COMPLETE / CLOSED and v1.5 Slice 1 Classifier is in progress. v1.5 Writer, v1.6 integration and production routing have not started. v1.4 and v1.5 remain side-by-side and do not alter Generation 1 production routing; Generation 1 remains the formal baseline through v1.9 production cutover, and legacy retirement starts only at v1.10 after consumer audit. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0.
+v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains unchanged; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete; v1.1 through v1.4 side-by-side implementation milestones are COMPLETE / CLOSED and v1.5 Slice 1 Classifier plus Slice 2 Writer are implemented. v1.5 Slice 3 continuation regression, v1.6 integration and production routing have not started. v1.4 and v1.5 remain side-by-side and do not alter Generation 1 production routing; Generation 1 remains the formal baseline through v1.9 production cutover, and legacy retirement starts only at v1.10 after consumer audit. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0.

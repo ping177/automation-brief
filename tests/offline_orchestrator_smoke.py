@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import sys
 import tempfile
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 from unittest.mock import patch
 
 
@@ -37,6 +37,11 @@ WINDOW_END = datetime(2026, 8, 27, 0, 0, tzinfo=timezone.utc)
 COLLECTED_AT = datetime(2026, 8, 27, 1, 0, tzinfo=timezone.utc)
 TARGET_LANGUAGE = "zh-CN"
 ID_PATTERN = re.compile(r'"(event_candidate_id|event_id)":"([^"]+)"')
+V17_FIXTURE_PATH = PROJECT_ROOT / "tests" / "fixtures" / "v1_7" / "representative_morning.json"
+V17_EXPECTED_PATH = (
+    PROJECT_ROOT / "tests" / "fixtures" / "v1_7" / "representative_morning.expected.json"
+)
+ARTIFACT_CLOCK = datetime(2026, 8, 27, 2, 3, 4, 500000, tzinfo=timezone.utc)
 
 
 class FakeFeed:
@@ -50,12 +55,29 @@ class FakeEmbedder:
 
 
 class RepresentativeEmbedder:
-    def embed(self, text: str) -> tuple[float, float, float]:
-        if "[A]" in text:
-            return (1.0, 0.0, 0.0)
-        if "[B]" in text:
-            return (0.0, 1.0, 0.0)
-        return (0.0, 0.0, 1.0)
+    def __init__(
+        self,
+        embeddings: Mapping[str, Sequence[float]],
+        cluster_by_title: Mapping[str, str],
+    ) -> None:
+        self.embeddings = {
+            topic: tuple(float(value) for value in vector)
+            for topic, vector in embeddings.items()
+        }
+        self.cluster_by_title = dict(cluster_by_title)
+
+    def embed(self, text: str) -> tuple[float, ...]:
+        cluster = next(
+            (
+                cluster
+                for title, cluster in self.cluster_by_title.items()
+                if text.startswith(f"query: {title}")
+            ),
+            None,
+        )
+        if cluster is None or cluster not in self.embeddings:
+            raise ValueError("fixture embedding lookup is missing")
+        return self.embeddings[cluster]
 
 
 class SelectorGateway:
@@ -154,30 +176,52 @@ class WriterGateway:
 
 
 class RepresentativeSelectorGateway:
+    def __init__(
+        self,
+        selected_clusters: Sequence[str],
+        *,
+        fail: bool = False,
+        malformed_cluster: str | None = None,
+    ) -> None:
+        self.selected_clusters = tuple(selected_clusters)
+        self.fail = fail
+        self.malformed_cluster = malformed_cluster
+        self.calls = 0
+
     def complete_json(
         self,
         messages: Sequence[Mapping[str, Any]],
         *,
         parameters: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any]:
+        self.calls += 1
+        if self.fail:
+            raise GatewayError("provider_failed", 1)
         projection = json.loads(messages[-1]["content"].split("\n", 1)[1])
         candidates = projection["event_candidates"]
 
-        def marker(candidate: Mapping[str, Any]) -> int:
-            title = candidate["articles"][0]["title"]
-            return {"[A]": 1, "[B]": 2, "[C]": 3}[title[:3]]
-
-        ordered = sorted(candidates, key=marker)
-        return {
-            "selected": [
-                {"event_candidate_id": candidate["event_candidate_id"], "order": order}
-                for order, candidate in enumerate(ordered, start=1)
-            ]
+        candidate_by_topic = {
+            _topic_from_title(candidate["articles"][0]["title"]): candidate
+            for candidate in candidates
         }
+        selected = [candidate_by_topic[topic] for topic in self.selected_clusters]
+        response_items = [
+            {"event_candidate_id": candidate["event_candidate_id"], "order": order}
+            for order, candidate in enumerate(selected, start=1)
+        ]
+        if self.malformed_cluster is not None:
+            malformed = candidate_by_topic[self.malformed_cluster]
+            response_items.append(
+                {"event_candidate_id": malformed["event_candidate_id"], "order": 0}
+            )
+        return {"selected": response_items}
 
 
 class RepresentativeWriterGateway:
-    def __init__(self) -> None:
+    def __init__(self, writing_by_topic: Mapping[str, Mapping[str, str]]) -> None:
+        self.writing_by_topic = {
+            topic: dict(writing) for topic, writing in writing_by_topic.items()
+        }
         self.input_ids: list[str] = []
 
     def complete_json(
@@ -190,56 +234,84 @@ class RepresentativeWriterGateway:
         event = projection["events"][0]
         event_id = event["event_id"]
         self.input_ids.append(event_id)
-        marker = event["articles"][0]["title"][:3]
-        writing_by_marker = {
-            "[A]": {
-                "title_zh": "全球政策协调出现新进展",
-                "summary_zh": "三家来源报道显示，多方在连续谈判后公布了新的协调安排，后续执行路径也同步明确。",
-                "why_it_matters_zh": "这会改变相关公共事务的协作方式，并影响接下来几项政策落地。",
-            },
-            "[B]": {
-                "title_zh": "主要经济体公布关键数据",
-                "summary_zh": "最新数据给出了本期经济活动的直接读数。",
-                "why_it_matters_zh": "该读数为判断短期经济变化提供了新的公开依据。",
-            },
-            "[C]": {
-                "title_zh": "科技产业链出现多方进展",
-                "summary_zh": "四篇报道从产品、企业、监管与供应链四个角度描述了同一项产业变化，信息彼此互补。",
-                "why_it_matters_zh": "多来源事实共同表明，相关产业的竞争与执行条件正在发生具体变化。",
-            },
-        }
-        return {"writings": [{"event_id": event_id, **writing_by_marker[marker]}]}
+        topic = _topic_from_title(event["articles"][0]["title"])
+        return {"writings": [{"event_id": event_id, **self.writing_by_topic[topic]}]}
 
 
-_REPRESENTATIVE_SOURCES = (
-    ("Reuters", "A1"),
-    ("AP", "A2"),
-    ("BBC", "A3"),
-    ("Financial Times", "B1"),
-    ("Nikkei", "C1"),
-    ("WSJ", "C2"),
-    ("Bloomberg", "C3"),
-    ("The Guardian", "C4"),
-)
+class RepresentativeClassifierGateway:
+    def __init__(
+        self,
+        categories_by_topic: Mapping[str, str],
+        *,
+        malformed_topics: Sequence[str] = (),
+    ) -> None:
+        self.categories_by_topic = dict(categories_by_topic)
+        self.malformed_topics = frozenset(malformed_topics)
+        self.calls = 0
+
+    def complete_json(
+        self,
+        messages: Sequence[Mapping[str, Any]],
+        *,
+        parameters: Mapping[str, Any] | None = None,
+    ) -> Mapping[str, Any]:
+        self.calls += 1
+        projection = json.loads(messages[-1]["content"].split("\n", 1)[1])
+        event = projection["events"][0]
+        event_id = event["event_id"]
+        topic = _topic_from_title(event["articles"][0]["title"])
+        category = (
+            "not-a-category"
+            if topic in self.malformed_topics
+            else self.categories_by_topic[topic]
+        )
+        return {"classifications": [{"event_id": event_id, "category": category}]}
 
 
-def representative_sources() -> tuple[SourceConfig, ...]:
+def _topic_from_title(title: str) -> str:
+    normalized = title.casefold()
+    if "alpha" in normalized:
+        return "A"
+    if "beta" in normalized:
+        return "B"
+    if any(fragment in normalized for fragment in ("chipmaker", "packaging", "云客户")):
+        return "C"
+    if "rail" in normalized:
+        return "D"
+    raise ValueError("fixture topic cannot be derived from title")
+
+
+def _load_representative_fixture() -> dict[str, Any]:
+    payload = json.loads(V17_FIXTURE_PATH.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise AssertionError("v1.7 fixture must be an object")
+    return payload
+
+
+def representative_sources(fixture: Mapping[str, Any] | None = None) -> tuple[SourceConfig, ...]:
+    payload = fixture or _load_representative_fixture()
     return tuple(
-        SourceConfig(name, f"https://{key.lower()}.example/feed.xml", "en")
-        for name, key in _REPRESENTATIVE_SOURCES
+        SourceConfig(source["name"], source["url"], source["language"])
+        for source in payload["sources"]
     )
 
 
-def representative_fetcher(source: SourceConfig) -> FakeFeed:
-    key = next(key for name, key in _REPRESENTATIVE_SOURCES if name == source.name)
+def representative_fetcher(
+    source: SourceConfig,
+    fixture: Mapping[str, Any] | None = None,
+) -> FakeFeed:
+    payload = fixture or _load_representative_fixture()
+    source_payload = next(
+        item for item in payload["sources"] if item["name"] == source.name
+    )
     return FakeFeed(
         [
             {
-                "title": f"[{key[0]}] representative article {key}",
-                "link": f"https://{key.lower()}.example/story",
-                "summary": f"Evidence summary for representative Event {key[0]} {key}.",
-                "published": "2026-08-26T08:00:00+00:00",
+                key: entry[key]
+                for key in ("title", "link", "summary", "published")
+                if key in entry
             }
+            for entry in source_payload["entries"]
         ]
     )
 
@@ -267,8 +339,11 @@ def feed(*, empty: bool = False) -> FakeFeed:
     )
 
 
-def manager(root: Path) -> V1ArtifactManager:
-    return V1ArtifactManager(ProjectPaths(repo_root=PROJECT_ROOT, data_root=root))
+def manager(root: Path, *, clock: Callable[[], datetime] | None = None) -> V1ArtifactManager:
+    paths = ProjectPaths(repo_root=PROJECT_ROOT, data_root=root)
+    if clock is None:
+        return V1ArtifactManager(paths)
+    return V1ArtifactManager(paths, clock=clock)
 
 
 def run(
@@ -301,6 +376,162 @@ def stage_names(result: Any) -> tuple[StageName, ...]:
     return tuple(stage_result.stage for stage_result in result.stage_results)
 
 
+def _project_stage_result(result: StageResult[Any]) -> dict[str, Any]:
+    projection: dict[str, Any] = {
+        "stage": result.stage.value,
+        "status": result.status.value,
+        "output_count": len(result.outputs),
+    }
+    if result.failures:
+        projection["failures"] = [failure.to_dict() for failure in result.failures]
+    if result.diagnostic_ref is not None:
+        projection["diagnostic_ref"] = result.diagnostic_ref
+    return projection
+
+
+def _project_artifacts(result: Any) -> dict[str, Any]:
+    # Snapshot only relative inventory and stable manifest outcome fields;
+    # timestamps, hashes, byte counts, and diagnostic filenames are noise.
+    if result.run_dir is None or not result.run_dir.is_dir():
+        raise AssertionError("successful or failed run must have a final artifact directory")
+    run_dir = result.run_dir
+    manifest = json.loads(run_dir.joinpath("manifest.json").read_text(encoding="utf-8"))
+    files: list[str] = []
+    for path in sorted(item for item in run_dir.rglob("*") if item.is_file()):
+        relative = path.relative_to(run_dir).as_posix()
+        if relative.startswith("diagnostics/"):
+            relative = "diagnostics/<diagnostic>.json"
+        files.append(relative)
+    diagnostic_refs = sorted(
+        json.loads(path.read_text(encoding="utf-8")).get("diagnostic_ref")
+        for path in run_dir.joinpath("diagnostics").glob("*.json")
+    ) if run_dir.joinpath("diagnostics").is_dir() else []
+    return {
+        "run_id": result.run_id,
+        "files": files,
+        "diagnostic_refs": diagnostic_refs,
+        "manifest": {
+            "state": manifest["state"],
+            "run_status": manifest["run_status"],
+            "warnings": manifest["warnings"],
+        },
+    }
+
+
+def _project_selected_event(event: Any) -> dict[str, Any]:
+    return {
+        "event_id": event.event_id,
+        "selection_order": event.selection_order,
+    }
+
+
+def _project_classified_event(event: Any) -> dict[str, Any]:
+    return {
+        "event_id": event.event_id,
+        "category": (
+            None if event.classification is None else event.classification.category.value
+        ),
+    }
+
+
+def _project_written_event(event: Any) -> dict[str, Any]:
+    return {
+        **_project_classified_event(event),
+        "writing": None if event.writing is None else event.writing.to_dict(),
+    }
+
+
+def _project_run(result: Any) -> dict[str, Any]:
+    stages = {stage.stage: stage for stage in result.stage_results}
+    cluster_result = stages.get(StageName.EVENT_CLUSTER)
+    selector_result = stages.get(StageName.EVENT_SELECTOR)
+    classifier_result = stages.get(StageName.EVENT_CLASSIFIER)
+    writer_result = stages.get(StageName.EVENT_WRITER)
+    return {
+        "generation_outcome": result.generation_outcome,
+        "stage_results": [_project_stage_result(stage) for stage in result.stage_results],
+        "clusters": (
+            []
+            if cluster_result is None
+            else [candidate.to_dict() for candidate in cluster_result.outputs]
+        ),
+        "selected": (
+            []
+            if selector_result is None
+            else [_project_selected_event(event) for event in selector_result.outputs]
+        ),
+        "classified": (
+            []
+            if classifier_result is None
+            else [_project_classified_event(event) for event in classifier_result.outputs]
+        ),
+        "written": (
+            []
+            if writer_result is None
+            else [_project_written_event(event) for event in writer_result.outputs]
+        ),
+        "brief": None if result.brief is None else result.brief.to_dict(),
+        "artifacts": _project_artifacts(result),
+    }
+
+
+def run_representative(
+    root: Path,
+    *,
+    run_id: str,
+    empty: bool = False,
+    partial: bool = False,
+    selector_failed: bool = False,
+    writer_failed: bool = False,
+) -> Any:
+    fixture = _load_representative_fixture()
+    report_date = date.fromisoformat(fixture["report_date"])
+    window_start = datetime.fromisoformat(fixture["window_start"])
+    window_end = datetime.fromisoformat(fixture["window_end"])
+    collected_at = datetime.fromisoformat(fixture["collected_at"])
+    configured_sources = representative_sources(fixture)
+    cluster_by_title = {
+        entry["title"]: entry["cluster"]
+        for source in fixture["sources"]
+        for entry in source["entries"]
+    }
+    selector = RepresentativeSelectorGateway(
+        fixture["selected_clusters"],
+        fail=selector_failed,
+        malformed_cluster="D" if partial else None,
+    )
+    classifier = RepresentativeClassifierGateway(
+        fixture["categories"],
+        malformed_topics=("B",) if partial else (),
+    )
+    writer: Any
+    if writer_failed:
+        writer = WriterGateway(set(range(1, len(fixture["selected_clusters"]) + 1)))
+    else:
+        writer = RepresentativeWriterGateway(fixture["writing"])
+
+    def fetcher(source: SourceConfig) -> FakeFeed:
+        return FakeFeed([]) if empty else representative_fetcher(source, fixture)
+
+    return run_generation_2(
+        report_date=report_date,
+        window_start=window_start,
+        window_end=window_end,
+        target_language=fixture["target_language"],
+        sources=configured_sources,
+        selector_gateway=selector,
+        classifier_gateway=classifier,
+        writer_gateway=writer,
+        embedder_factory=lambda: RepresentativeEmbedder(
+            fixture["embeddings"], cluster_by_title
+        ),
+        artifact_manager=manager(root, clock=lambda: ARTIFACT_CLOCK),
+        run_id=run_id,
+        collector_fetcher=fetcher,
+        clock=lambda: collected_at,
+    )
+
+
 def test_clean_run_preserves_selector_order_and_full_stage_order(root: Path) -> None:
     selector = SelectorGateway(reverse=True)
     result = run(root, run_id="clean", selector=selector)
@@ -318,7 +549,9 @@ def test_clean_run_preserves_selector_order_and_full_stage_order(root: Path) -> 
     assert result.brief.event_ids == tuple(event.event_id for event in selected)
     assert [event.selection_order for event in selected] == [1, 2]
     assert result.run_dir is not None and result.run_dir.is_dir()
-    checkpoints = sorted(path.name for path in result.run_dir.joinpath("stage-results").glob("*.json"))
+    checkpoints = sorted(
+        path.name for path in result.run_dir.joinpath("stage-results").glob("*.json")
+    )
     assert checkpoints == [
         "01-collector.json",
         "02-normalizer.json",
@@ -332,54 +565,84 @@ def test_clean_run_preserves_selector_order_and_full_stage_order(root: Path) -> 
 
 
 def test_representative_reader_layout_runs_full_pipeline(root: Path) -> None:
-    writer = RepresentativeWriterGateway()
-    result = run_generation_2(
-        report_date=REPORT_DATE,
-        window_start=WINDOW_START,
-        window_end=WINDOW_END,
-        target_language=TARGET_LANGUAGE,
-        sources=representative_sources(),
-        selector_gateway=RepresentativeSelectorGateway(),
-        classifier_gateway=ClassifierGateway(),
-        writer_gateway=writer,
-        embedder_factory=RepresentativeEmbedder,
-        artifact_manager=manager(root),
-        run_id="representative-reader-layout",
-        collector_fetcher=representative_fetcher,
-        clock=lambda: COLLECTED_AT,
-    )
+    expected = json.loads(V17_EXPECTED_PATH.read_text(encoding="utf-8"))
+    result = run_representative(root, run_id="v17-clean")
 
-    assert result.generation_outcome == "complete"
-    assert result.brief is not None
-    selected = result.stage_results[4].outputs
-    assert [event.selection_order for event in selected] == [1, 2, 3]
-    assert [len(event.article_ids) for event in selected] == [3, 1, 4]
-    assert writer.input_ids == [event.event_id for event in selected]
-    assert result.rendered_markdown is not None
-    markdown = result.rendered_markdown
-    assert markdown.startswith("# 早间简报｜2026-08-27\n\n## 今日要闻\n")
-    assert "报告窗口：" not in markdown
-    assert "生成状态：完整" not in markdown
-    assert markdown.count("### ") == 3
-    assert markdown.count("<details>") == 3
-    assert markdown.count("</details>") == 3
-    assert markdown.count("<summary>来源（3）</summary>") == 1
-    assert markdown.count("<summary>来源（1）</summary>") == 1
-    assert markdown.count("<summary>来源（4）</summary>") == 1
-    assert "<details open>" not in markdown
-    headings = [
-        "全球政策协调出现新进展",
-        "主要经济体公布关键数据",
-        "科技产业链出现多方进展",
+    assert _project_run(result) == expected["clean"]
+    assert result.run_dir is not None
+    collected_batches = json.loads(
+        result.run_dir.joinpath("stage-results/01-collector.json").read_text(
+            encoding="utf-8"
+        )
+    )["payload"]["outputs"]
+    assert all(
+        "cluster" not in entry
+        for batch in collected_batches
+        for entry in batch["entries"]
+    )
+    normalized_articles = json.loads(
+        result.run_dir.joinpath("objects/articles-normalized.json").read_text(
+            encoding="utf-8"
+        )
+    )["objects"]
+    assert all("cluster" not in item["payload"] for item in normalized_articles)
+    assert all(
+        not re.match(r"^\[[A-Z]\]\s", item["payload"]["title"])
+        for item in normalized_articles
+    )
+    rendered_markdown = result.run_dir.joinpath("morning-brief.md").read_text(
+        encoding="utf-8"
+    )
+    assert rendered_markdown == (
+        PROJECT_ROOT
+        .joinpath("tests/fixtures/v1_7/representative_morning.expected.md")
+        .read_text(encoding="utf-8")
+    )
+    assert "## 今日要闻" not in rendered_markdown
+    assert [
+        line for line in rendered_markdown.splitlines() if line.startswith("## ")
+    ] == ["## *科技与 AI*", "## *宏观与政策*"]
+    assert [
+        line for line in rendered_markdown.splitlines() if line.startswith("### ")
+    ] == [
+        '### <span style="color: var(--text-accent);"><strong>芯片产业链出现多方进展</strong></span>',
+        '### <span style="color: var(--text-accent);"><strong>阿尔法各方公布紧急协调安排</strong></span>',
+        '### <span style="color: var(--text-accent);"><strong>贝塔央行下调基准利率</strong></span>',
     ]
-    assert [markdown.index(heading) for heading in headings] == sorted(
-        markdown.index(heading) for heading in headings
-    )
-    for _, key in _REPRESENTATIVE_SOURCES:
-        assert markdown.count(f"[原文](<https://{key.lower()}.example/story>)") == 1
+    assert rendered_markdown.count("摘要：") == 3
+    assert rendered_markdown.count("<details>") == 3
+    assert rendered_markdown.count("<ul>") == 3
+    assert rendered_markdown.count("<li>") == 7
+    assert "\n- " not in rendered_markdown
+    repeat = run_representative(root.joinpath("repeat"), run_id="v17-clean")
+    assert _project_run(repeat) == expected["clean"]
+    assert repeat.rendered_markdown == result.rendered_markdown
 
-    artifact_markdown = result.run_dir.joinpath("morning-brief.md").read_text(encoding="utf-8")
-    assert artifact_markdown == markdown
+
+def test_v17_snapshot_matrix_covers_empty_partial_and_hard_stops(root: Path) -> None:
+    expected = json.loads(V17_EXPECTED_PATH.read_text(encoding="utf-8"))
+    scenarios = {
+        "empty": {"empty": True},
+        "partial": {"partial": True},
+        "selector_failed": {"selector_failed": True},
+        "writer_all_failed": {"writer_failed": True},
+    }
+    for name, options in scenarios.items():
+        result = run_representative(root, run_id=f"v17-{name}", **options)
+        assert _project_run(result) == expected[name]
+        if name == "partial":
+            assert result.rendered_markdown is not None
+            assert "> 本次简报部分生成，可能存在少量遗漏。" in (
+                result.rendered_markdown
+            )
+            assert [
+                line
+                for line in result.rendered_markdown.splitlines()
+                if line.startswith("## ")
+            ] == ["## *科技与 AI*", "## *宏观与政策*", "## *其他*"]
+            assert "不应进入简报的事件" not in result.rendered_markdown
+        if name in {"selector_failed", "writer_all_failed"}:
+            assert result.rendered_markdown is None
 
 
 def test_classifier_partial_overlays_without_dropping_writer_inputs(root: Path) -> None:
@@ -602,6 +865,7 @@ def main() -> None:
         root = Path(temp)
         test_clean_run_preserves_selector_order_and_full_stage_order(root)
         test_representative_reader_layout_runs_full_pipeline(root)
+        test_v17_snapshot_matrix_covers_empty_partial_and_hard_stops(root)
         test_classifier_partial_overlays_without_dropping_writer_inputs(root)
         test_classifier_all_failed_still_writes_every_selected_event(root)
         test_provider_diagnostic_is_durable_before_referenced_checkpoint(root)

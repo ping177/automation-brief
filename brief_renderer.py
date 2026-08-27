@@ -12,6 +12,7 @@ from canonical_domain import (
     Brief,
     CanonicalContractError,
     Event,
+    EventCategory,
     FailureCode,
     GenerationStatus,
     ItemFailure,
@@ -42,6 +43,17 @@ _EARLIER_COVERAGE_STAGES = frozenset(
         StageName.EVENT_CLUSTER,
     }
 )
+_CATEGORY_DISPLAY_LABELS = {
+    EventCategory.GEOPOLITICS: "国际与地缘",
+    EventCategory.MACRO_POLICY: "宏观与政策",
+    EventCategory.FINANCIAL_MARKETS: "金融市场",
+    EventCategory.ENERGY_COMMODITIES: "能源与大宗商品",
+    EventCategory.CHINA_POLICY: "中国政策",
+    EventCategory.COMPANY_INDUSTRY: "公司与产业",
+    EventCategory.TECHNOLOGY_AI: "科技与 AI",
+    EventCategory.PUBLIC_SAFETY: "公共安全",
+    EventCategory.OTHER: "其他",
+}
 
 
 @dataclass(frozen=True)
@@ -172,11 +184,14 @@ def project_sources(articles: Iterable[Article]) -> tuple[SourceProjection, ...]
     return tuple(projected)
 
 
+def _single_line_text(value: str) -> str:
+    return value.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+
+
 def _reader_text(value: str) -> str:
     """Keep writer-owned text on one safe reader-facing Markdown line."""
 
-    normalized = value.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
-    normalized = html_escape(normalized, quote=False)
+    normalized = html_escape(_single_line_text(value), quote=False)
     for character, escaped in (
         ("\\", "\\\\"),
         ("`", "\\`"),
@@ -188,6 +203,30 @@ def _reader_text(value: str) -> str:
     ):
         normalized = normalized.replace(character, escaped)
     return normalized
+
+
+def _html_text(value: str) -> str:
+    """Keep source text on one safe line inside the raw HTML source block."""
+
+    return html_escape(_single_line_text(value), quote=False)
+
+
+def _group_written_events_by_category(
+    written_events: tuple[Event, ...],
+) -> tuple[tuple[EventCategory, tuple[Event, ...]], ...]:
+    """Group for presentation while preserving selector-owned order semantics."""
+
+    grouped: dict[EventCategory, list[Event]] = {}
+    for event in written_events:
+        # ``other`` is only the display bucket for an unclassified written
+        # Event; the canonical Event remains unmodified and unclassified.
+        category = (
+            EventCategory.OTHER
+            if event.classification is None
+            else event.classification.category
+        )
+        grouped.setdefault(category, []).append(event)
+    return tuple((category, tuple(events)) for category, events in grouped.items())
 
 
 def _validate_selected_events(
@@ -292,41 +331,46 @@ def _render_markdown(
     ]
     if brief.generation_status is GenerationStatus.PARTIAL:
         lines.extend(["> 本次简报部分生成，可能存在少量遗漏。", ""])
-    lines.extend(["## 今日要闻", ""])
-
     if not written_events:
         lines.append("本报告窗口内暂无入选事件。")
         return "\n".join(lines).rstrip() + "\n"
 
-    for event in written_events:
-        writing = event.writing
-        if writing is None:
-            raise CanonicalContractError("written Event must contain EventWriting")
-        lines.extend(
-            [
-                f"### {_reader_text(writing.title_zh)}",
-                "",
-                _reader_text(writing.summary_zh),
-                "",
-                f"为什么重要：{_reader_text(writing.why_it_matters_zh)}",
-                "",
-            ]
-        )
-        sources = project_sources(article_lookup[article_id] for article_id in event.article_ids)
-        lines.extend(
-            [
-                "<details>",
-                f"<summary>来源（{len(sources)}）</summary>",
-                "",
-            ]
-        )
-        for source in sources:
-            source_name = _reader_text(source.source)
-            if source.url is None:
-                lines.append(f"- {source_name} · 原文链接不可用")
-            else:
-                lines.append(f"- {source_name} · [原文](<{source.url}>)")
-        lines.extend(["", "</details>", ""])
+    for category, category_events in _group_written_events_by_category(written_events):
+        lines.extend([f"## *{_CATEGORY_DISPLAY_LABELS[category]}*", ""])
+        for event in category_events:
+            writing = event.writing
+            if writing is None:
+                raise CanonicalContractError("written Event must contain EventWriting")
+            lines.extend(
+                [
+                    f'### <span style="color: var(--text-accent);"><strong>{_reader_text(writing.title_zh)}</strong></span>',
+                    "",
+                    f"摘要：{_reader_text(writing.summary_zh)}",
+                    "",
+                    f"为什么重要：{_reader_text(writing.why_it_matters_zh)}",
+                    "",
+                ]
+            )
+            sources = project_sources(
+                article_lookup[article_id] for article_id in event.article_ids
+            )
+            lines.extend(
+                [
+                    "<details>",
+                    f"<summary>来源（{len(sources)}）</summary>",
+                    "<ul>",
+                ]
+            )
+            for source in sources:
+                source_name = _html_text(source.source)
+                if source.url is None:
+                    lines.append(f"<li>{source_name} · 原文链接不可用</li>")
+                else:
+                    url = html_escape(source.url, quote=True)
+                    lines.append(
+                        f'<li>{source_name} · <a href="{url}">原文</a></li>'
+                    )
+            lines.extend(["</ul>", "</details>", ""])
 
     return "\n".join(lines).rstrip() + "\n"
 

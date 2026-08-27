@@ -169,7 +169,7 @@ Classifier 与 writer 的 physical response 无论是否 batch，都必须按 `e
 - valid item 不因同 response 中其它 item 失败而丢弃；
 - provider 不得修改 event membership、selection order、provenance 或其它 stage-owned fields；任何 mutation 是该 item validation failure。
 
-Classifier failure **不阻止 writer**。Data Contract 中 classification 与 writing 是由不同 owner 写入的独立 optional derived sections；renderer 不需要 category 才能证明 writing 或 provenance valid。writer 接受 selected Event 与 evidence，classification 仅在存在且 valid 时作为 read-only context。分类失败的 Event 保持 `classification=null`，不得改成 `other`；writer 成功后可成为 written-unclassified Event，并进入 category-neutral deterministic placement。该 run 的 Brief 为 `partial`。
+Classifier failure **不阻止 writer**。Data Contract 中 classification 与 writing 是由不同 owner 写入的独立 optional derived sections；renderer 不需要 category 才能证明 writing 或 provenance valid。writer 接受 selected Event 与 evidence，classification 仅在存在且 valid 时作为 read-only context。分类失败的 Event 保持 `classification=null`，不得改成 `other`；writer 成功后可成为 written-unclassified Event，并在 renderer presentation 中进入“其他” section。这只是 deterministic display fallback，不创建 classification，也不回写 canonical `other`。该 run 的 Brief 为 `partial`。
 
 Writer failure 保留该 Event 的最后一个 valid selected/classified value，但 failed Event 不进入 Brief。不得使用原文 title/summary 直接 reader-facing fallback，不得生成 placeholder，不调用 legacy writer，也不 backfill 未选择 Event。
 
@@ -262,7 +262,8 @@ Renderer deterministic 推导：
 Renderer minimum input：valid report slot、一个 trustworthy selector outcome、按 selection_order 排列的零个或多个 valid written Events、可完整 resolve 的 Articles/provenance，以及 upstream generation outcome summary。
 
 - renderer 接受 upstream partial，并生成 structurally complete 的 partial Brief；
-- classification 缺失时使用 deterministic category-neutral placement，不创建 category、不写 `other`；
+- canonical `Brief.event_ids` 严格保持全局 `selection_order`；Markdown 只在 presentation 层按 canonical category 分区，section 顺序由各 category 的最小 `selection_order` 决定，section 内保持 `selection_order`；
+- classification 缺失时在 Markdown 中使用“其他”作为 deterministic display fallback，不创建 category、不写 canonical `other`；
 - canonical Event 必须在进入 renderer 前通过 validation。若一个 Event 在 renderer 才暴露 invalid，说明 upstream boundary violation；renderer 不静默跳过该 Event；
 - composition / serialization / atomic artifact failure 使 renderer StageResult failed，且不存在 publishable Brief artifact；
 - renderer 不 ranking、semantic dedup、classification、translation、writing、legacy fallback 或 delivery。

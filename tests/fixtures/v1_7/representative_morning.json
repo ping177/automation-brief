@@ -1,0 +1,171 @@
+{
+  "fixture_id": "v1-7-representative-morning",
+  "report_date": "2026-08-27",
+  "window_start": "2026-08-26T00:00:00+00:00",
+  "window_end": "2026-08-27T00:00:00+00:00",
+  "collected_at": "2026-08-27T01:00:00+00:00",
+  "target_language": "zh-CN",
+  "selected_clusters": ["C", "A", "B"],
+  "categories": {
+    "A": "macro_policy",
+    "B": "macro_policy",
+    "C": "technology_ai",
+    "D": "other"
+  },
+  "embeddings": {
+    "A": [1.0, 0.0, 0.0, 0.0],
+    "B": [0.0, 1.0, 0.0, 0.0],
+    "C": [0.0, 0.0, 1.0, 0.0],
+    "D": [0.0, 0.0, 0.0, 1.0]
+  },
+  "writing": {
+    "A": {
+      "title_zh": "阿尔法各方公布紧急协调安排",
+      "summary_zh": "多家来源显示，各方在连续谈判后公布了新的协调安排，执行路径也同步明确。",
+      "why_it_matters_zh": "这会改变相关公共事务的协作方式，并影响接下来的政策落地。"
+    },
+    "B": {
+      "title_zh": "贝塔央行下调基准利率",
+      "summary_zh": "央行在通胀回落后下调基准利率，同时表示后续决定仍取决于数据变化。",
+      "why_it_matters_zh": "这为观察借贷成本、汇率和经济活动的短期变化提供了新的公开依据。"
+    },
+    "C": {
+      "title_zh": "芯片产业链出现多方进展",
+      "summary_zh": "多家来源从产品发布、客户需求和封装产能三个角度描述了同一项产业变化，信息彼此补充。",
+      "why_it_matters_zh": "这些事实共同表明，相关产业的竞争与交付条件正在发生具体变化。"
+    },
+    "D": {
+      "title_zh": "不应进入简报的事件",
+      "summary_zh": "这段文字不应出现在 reader-facing Brief 中。",
+      "why_it_matters_zh": "该事件只用于验证 selector 的明确排除。"
+    }
+  },
+  "sources": [
+    {
+      "name": "Reuters",
+      "url": "https://reuters.example/v17/feed.xml",
+      "language": "en",
+      "entries": [
+        {
+          "cluster": "A",
+          "title": "Alpha leaders announce emergency accord",
+          "link": "https://fixture.example/v17/alpha-accord",
+          "summary": "Leaders announced a new coordination arrangement after several rounds of talks.",
+          "published": "2026-08-26T02:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "name": "AP",
+      "url": "https://ap.example/v17/feed.xml",
+      "language": "zh-CN",
+      "entries": [
+        {
+          "cluster": "A",
+          "title": "Alpha各方公布紧急协调安排",
+          "link": "https://fixture.example/v17/alpha-followup",
+          "summary": "各方表示新的协调安排将进入执行阶段，后续监督机制也已公布。",
+          "published": "2026-08-26T04:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "name": "BBC",
+      "url": "https://bbc.example/v17/feed.xml",
+      "language": "en",
+      "entries": [
+        {
+          "cluster": "A",
+          "title": "Alpha accord implementation path is published",
+          "link": "https://fixture.example/v17/alpha-accord",
+          "summary": "Officials described the implementation path for the newly announced accord.",
+          "published": "2026-08-26T05:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "name": "Financial Times",
+      "url": "https://ft.example/v17/feed.xml",
+      "language": "en",
+      "entries": [
+        {
+          "cluster": "B",
+          "title": "Beta central bank cuts benchmark rate",
+          "link": "https://fixture.example/v17/beta-rate",
+          "summary": "The central bank cut its benchmark rate as inflation eased and kept future moves conditional on incoming data.",
+          "published": "2026-08-26T08:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "name": "Bloomberg",
+      "url": "https://bloomberg.example/v17/feed.xml",
+      "language": "en",
+      "entries": [
+        {
+          "cluster": "B",
+          "title": "Beta lenders prepare for lower borrowing costs",
+          "link": "https://fixture.example/v17/beta-lenders",
+          "summary": "Lenders reviewed borrowing rates after the policy move while analysts focused on cautious guidance.",
+          "published": "2026-08-26T10:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "name": "Nikkei",
+      "url": "https://nikkei.example/v17/feed.xml",
+      "language": "en",
+      "entries": [
+        {
+          "cluster": "C",
+          "title": "Chipmaker unveils an accelerator for data centers",
+          "link": "https://fixture.example/v17/chip-accelerator",
+          "summary": "The chipmaker introduced a new accelerator after cloud customers expanded orders.",
+          "published": "2026-08-26T12:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "name": "WSJ",
+      "url": "https://wsj.example/v17/feed.xml",
+      "language": "en",
+      "entries": [
+        {
+          "cluster": "C",
+          "title": "Advanced packaging capacity remains tight",
+          "link": "https://fixture.example/v17/chip-packaging",
+          "summary": "Advanced packaging capacity remained constrained and could delay some accelerator deliveries.",
+          "published": "2026-08-26T14:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "name": "财新",
+      "url": "https://caixin.example/v17/feed.xml",
+      "language": "zh-CN",
+      "entries": [
+        {
+          "cluster": "C",
+          "title": "云客户扩大订单，封装产能仍然紧张",
+          "link": "https://fixture.example/v17/chip-demand",
+          "summary": "云服务客户扩大订单，但先进封装产能仍然紧张，部分交付时间可能延后。",
+          "published": "2026-08-26T16:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "name": "City Desk",
+      "url": "https://city.example/v17/feed.xml",
+      "language": "zh-CN",
+      "entries": [
+        {
+          "cluster": "D",
+          "title": "Regional rail service resumes after a brief delay",
+          "link": "https://fixture.example/v17/rail-delay",
+          "summary": "A local rail service resumed after a short evening delay with no reported injuries.",
+          "published": "2026-08-26T18:00:00+00:00"
+        }
+      ]
+    }
+  ]
+}

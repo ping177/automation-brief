@@ -206,6 +206,8 @@ selection、classification、clustering 或 evidence creation。`watch_point` �
 
 负责 deterministic Morning Brief composition，包括 section organization、Markdown、event ordering、source rendering、reader-facing layout 和数量 ceiling。
 
+Markdown presentation 按 canonical category 分区：section 顺序等于各 category 最小 `selection_order` 的顺序，section 内保持 `selection_order`。这个 presentation regroup 不改变 canonical `Brief.event_ids` 的全局 selection order；written-unclassified Event 仅在展示层进入“其他” section，不回写 canonical `other`。
+
 Renderer 不重新 ranking、classification、semantic dedup 或新闻理解。
 
 ### `delivery.py`

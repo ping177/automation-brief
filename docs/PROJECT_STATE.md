@@ -8,11 +8,13 @@
 
 ## Current version
 
-v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
+v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
 
 ## Current status
 
-v1.6 已正式 `COMPLETED / CLOSED`：implementation acceptance: PASS；offline full-pipeline E2E: PASS；human reader-facing layout acceptance: PASS。新增 side-by-side deterministic `brief_renderer.py`、Generation 2 专用 `v1_artifacts.py`、纯 composition `orchestrator.py` 与 direct-script smoke。Orchestrator 接受 explicit report slot/run identity，依 frozen stage order执行 report-window admission、checkpoint-before-downstream、classifier overlay、Writer continuation、Brief status推导与artifact finalization；`events-writer-input` 正式持久化，artifact persistence fail closed。实现不接入 `main.py` production routing，不调用真实 DeepSeek，不实现 delivery、semantic fallback、raw Article backfill或category logic。
+v1.7 deterministic offline/snapshot implementation 已完成，clean / empty / partial / hard-stop / malformed-provider protocol 的完整 Generation 2 pipeline 与 artifacts 已由 canonical fixture regression 覆盖。Human Reader-Facing Acceptance 已 PASS：category regroup、`## *Category*` 分区、`###` + bold + `var(--text-accent)` 标题、`摘要：` / `为什么重要：` 标签及 Obsidian `<details>` 来源折叠均符合最终 reader-facing layout。Offline regression、compile、shell、Project-State Push Gate 与 diff checks 已 PASS；v1.7 正式 `COMPLETED / CLOSED`。未接入 `main.py` production routing，未调用真实 DeepSeek/RSS/provider，Generation 2 仍 side-by-side，v1.8 尚未开始。
+
+v1.6 已正式 `COMPLETED / CLOSED`：implementation acceptance: PASS；offline full-pipeline E2E: PASS。新增 side-by-side deterministic `brief_renderer.py`、Generation 2 专用 `v1_artifacts.py`、纯 composition `orchestrator.py` 与 direct-script smoke。Orchestrator 接受 explicit report slot/run identity，依 frozen stage order执行 report-window admission、checkpoint-before-downstream、classifier overlay、Writer continuation、Brief status推导与artifact finalization；`events-writer-input` 正式持久化，artifact persistence fail closed。实现不接入 `main.py` production routing，不调用真实 DeepSeek，不实现 delivery、semantic fallback 或 raw Article backfill。
 
 v1.5 Slice 1 Event Classifier、Slice 2 Event Writer 与 Slice 3 Continuation Regression 已完成：side-by-side canonical classifier/writer、strict response validation、完整 Article provenance projection、最小 zh-CN writing gate、per-event failure isolation、classifier → writer continuation 与 `written-unclassified` lifecycle regression 均已落地；不改变 Generation 1 production routing。最终真实 DeepSeek validation 使用同一 6-Event representative synthetic fixture：classifier/writer stage 均 `succeeded`、event count `6`、classifier technical failures `0`、writer technical failures `0`。分类均合理且无 `other` 滥用；Event-level synthesis、Chinese readability 和 evidence grounding 均 PASS，首轮 `why_it_matters_zh` 读者建议问题已通过最小 prompt correction 解决，revalidation 未发现 release blocker。v1.5 标记为 `COMPLETED / CLOSED`。
 
@@ -20,11 +22,13 @@ v1.4 real-provider quality validation 为 3/3 runs succeeded；4/4 must-include 
 
 v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不是 Generation 1 完全达到长期产品目标；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。该 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 v1.0 Event-driven architecture rebuild。
 
-当前 production 仍运行 Generation 1 pipeline；v1.2、v1.3、v1.4、v1.5 与 v1.6 当前均仅以 side-by-side 组件或 regression 落地，real-model/quality/offline runner 只用于显式 acceptance，在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
+当前 production 仍运行 Generation 1 pipeline；v1.2 至 v1.7 当前均仅以 side-by-side 组件或 regression 落地，real-model/quality/offline runner 只用于显式 acceptance，在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前，不删除或退役现有 production / legacy surface。无参数 `digest` 继续保留为 rollback。
 
-READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 与 v1.1–v1.6 implementation milestones 已 COMPLETED / CLOSED；v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。v1.4、v1.5 与 v1.6 仍保持 side-by-side，未接入 production routing；Generation 1 继续作为正式 baseline，直到 v1.9 production cutover。
+READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 与 v1.1–v1.7 implementation milestones 已 COMPLETED / CLOSED，v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。v1.4 至 v1.7 保持 side-by-side，未接入 production routing；Generation 1 继续作为正式 baseline，直到 v1.9 production cutover，下一步为 v1.8 shadow / parallel validation。
 
 ## Latest completed
+
+2026-08-28 完成并关闭 v1.7 Offline / Snapshot Validation：代表性 clean morning fixture 通过完整 Generation 2 pipeline，并以 empty、partial、hard-stop、malformed/provider protocol fixtures 覆盖 failure semantics、continuation、checkpoint-before-downstream、Brief/Markdown 与 provenance/artifacts。最终 reader-facing layout 已确认 PASS：无“今日要闻”，category 使用 H2 italic，Event title 使用 H3 + `var(--text-accent)` + bold，摘要使用 `摘要：`、保留 `为什么重要：`，来源使用 `<details>/<summary>/<ul>/<li>/<a>` 纯 HTML children；category regroup/order、global `Brief.event_ids`、dedup/provenance 与 written-unclassified fallback 保持不变。focused smoke、全部 28 个 offline scripts、compile/compileall、shell syntax、Project-State Push Gate 16/16、fixture parsing 与 `git diff --check` 均 PASS。未调用真实 RSS/DeepSeek/provider，未修改 Generation 1 production routing；下一步为 v1.8 Shadow / Parallel Validation。
 
 2026-08-27 完成并关闭 v1.6：Slice 1–3 与 reader-facing acceptance polish 均已完成。`orchestrator.py` 以 explicit report slot、runtime-only `GenerationRunResult`、frozen stage APIs和Artifact Manager组成独立 Generation 2 runtime；新增 normalizer-owned inclusive report-window admission；Gen1 fetch retry仅保留 exception cause，Gen2 collector沿cause chain恢复 `timeout` / `transport_failed` typing。离线回归覆盖full order、checkpoint-before-downstream、classifier partial/all-failed overlay、`events-writer-input`、written-unclassified、writer partial/all-failed、selector/collector/renderer hard-stop、legal empty、partial empty、diagnostic durability与artifact fail-closed；代表性 3/1/4-source reader-layout fixture 已经完整 offline pipeline 生成并通过人工验收。implementation acceptance、offline full-pipeline E2E 与 human reader-facing layout acceptance 均 PASS；未联网、未调用真实 DeepSeek、未修改 frozen contracts、delivery或production routing。原计划 Slice 4 已由 Slice 3 orchestrator smoke 实质覆盖，不单独实现。
 
@@ -108,18 +112,18 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v1.4 — Event Selector（COMPLETED / CLOSED；implementation + real-provider quality validation complete）
 - v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 - v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
-- v1.7 — Offline / Snapshot Validation（PLANNED）
+- v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 - v1.8 — Shadow / Parallel Validation（PLANNED）
 - v1.9 — Production Cutover（PLANNED）
 - v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 
 ## Last verified
 
-2026-08-27
+2026-08-28
 
 ## Next Action
 
-v1.7 — Offline / Snapshot Validation
+v1.8 — Shadow / Parallel Validation：在不改变 Generation 1 production routing、不给读者发送 v1.x 输出的前提下，设计并执行 real 24h news / provider shadow acceptance；开始前保持 v1.7 closeout 与现有 frozen contracts 不变。
 
 ## Blockers
 
@@ -154,7 +158,7 @@ v1.7 — Offline / Snapshot Validation
 - The v1.0 canonical architecture is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`; it does not prescribe immediate Python filenames, package hierarchy, feature flags, or business implementation. `Article` is input, `Event` is the core object, and `Brief` is output; Article dedup and event clustering remain separate.
 - The v1.0 canonical core data contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`; it freezes Article/EventCandidate/Event/Brief identity and ownership, deterministic Evidence projection, immutable Event stage derivation, and the minimal component-local result envelope without implementing runtime behavior.
 - The v1.0 canonical runtime / failure contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`; it freezes run identity, StageResult semantics, per-component isolation, LLM batch/retry boundaries, Brief status, artifact/delivery behavior and no automatic post-cutover legacy semantic fallback. The contract is docs-only and not implemented.
-- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 through v1.6 are complete and closed with offline verification, and v1.6 human reader-facing layout acceptance is PASS. v1.6 remains side-by-side and does not cut over production; v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
+- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 through v1.7 are complete and closed with offline verification, and v1.7 Human Reader-Facing Acceptance is PASS. Generation 2 remains side-by-side and does not cut over production; v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
 - v1.3 side-by-side implementation is present in `event_cluster.py` with fake-embedder smoke, labeled fixtures, and a separate real-model evaluator. The accepted fixed configuration is E5-small revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`, `article-title-summary-v1`, summary cap 300, threshold `0.91`, and `connected-components-v1`; production-critical acceptance is exact `8 / 8` with zero overmerge and split.
 - Canonical Event / EventCandidate semantics are reader-level story bundles inside one approximately 24-hour Morning Brief report window, not persistent atomic occurrence identity. Announcement, immediate reaction, clarification, closely related follow-up, and complementary perspectives may cluster when separate reader-facing items would be materially repetitive. v1.5 Event Writer must read complete Article provenance and preserve material facts and perspectives in `title_zh`, `summary_zh`, and `why_it_matters_zh`.
 - v1.3 clustering remains local embedding + semantic similarity + simple deterministic clustering. DeepSeek, local LLM pair verification, LLM adjudication, translation, and second-pass AI clustering are prohibited in this stage.
@@ -183,4 +187,4 @@ v1.7 — Offline / Snapshot Validation
 
 ## Handoff Prompt
 
-v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains unchanged; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete; v1.1 through v1.6 side-by-side implementation milestones are COMPLETE / CLOSED with offline verification, and v1.6 human reader-facing layout acceptance is PASS. Production routing remains untouched. Generation 1 remains the formal baseline through v1.9 production cutover; the next action is v1.7 Offline / Snapshot Validation. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0.
+v0.7.3 is CLOSED after the seven-day real-use review. Stop patching the Generation 1 core news architecture. The accepted Generation 1 production path remains unchanged; no-argument `digest` remains the rollback path. v1.0 Architecture Freeze, READ-ONLY Dependency Audit, Core Data Contract Freeze, and Runtime / Failure Contract Freeze are complete; v1.1 through v1.7 side-by-side implementation milestones are COMPLETE / CLOSED with offline verification, and v1.7 Human Reader-Facing Acceptance is PASS. Production routing remains untouched and Generation 1 remains the formal baseline through v1.9 production cutover. Next, plan v1.8 Shadow / Parallel Validation without sending reader-facing v1.x output or introducing automatic Generation 1 semantic fallback. Actual LaunchAgent / pmset / runtime现场状态 remains a later follow-up, not a current blocker. The historical v0.7.4 retirement route is superseded by v1.0.

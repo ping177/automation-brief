@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-28 — v1.7 Offline / Snapshot Validation — COMPLETED / CLOSED
+
+- 完成并关闭 v1.7：以 deterministic fake fetcher、fixture-backed embeddings、fake selector/classifier/writer gateways、fixed report slot 和 temporary artifact root 驱动完整 Generation 2 offline pipeline；代表性 clean morning、合法 empty、partial degradation、hard-stop failure 与 malformed/provider protocol paths 均有稳定 regression。
+- Snapshot / structural evidence 覆盖 event clustering membership、selector salvage/order、classifier vocabulary 与 invalid-category failure、writer event-level lifecycle、classifier → writer continuation、renderer Brief/Markdown、source dedup/provenance、checkpoint/artifact inventory、diagnostic durability、empty/partial/hard-stop outcome 与 no-backfill/no-legacy-fallback 边界。`cluster` metadata 只存在于 test harness，未进入 RawFeedEntry 或 canonical Article；clustering 仍调用 production `event_cluster`。
+- Human Reader-Facing Acceptance: PASS。最终 Markdown 移除“今日要闻”，category 为 `## *Category*`，Event title 为 `###` + bold + `var(--text-accent)`，正文为 `摘要：` / `为什么重要：`，来源为 Obsidian-compatible `<details>/<summary>/<ul>/<li>/<a>`；category regroup/order、canonical global `Brief.event_ids`、dedup/provenance 保持不变。
+- focused renderer/orchestrator smoke、全部 28 个 `tests/offline_*.py`、Python `py_compile` / `compileall`、shell syntax、Project-State Push Gate 16/16、fixture JSON/Markdown checks 与 `git diff --check` 均通过。未联网、未调用真实 RSS/DeepSeek/provider、未修改 Generation 1 production routing、frozen contracts 或 delivery。Generation 1 继续 production，Generation 2 继续 side-by-side；下一步为 v1.8 Shadow / Parallel Validation。
+
 ## 2026-08-27 — v1.6 Renderer + Artifacts + Orchestrator Integration — COMPLETED / CLOSED
 
 - 新增 side-by-side `orchestrator.py` 与 `tests/offline_orchestrator_smoke.py`。Public seam `run_generation_2(...)` 接受 explicit report slot、sources、injectable gateways/embedder/fetcher、Artifact Manager和可选run identity，返回runtime-only `GenerationRunResult`；不接入Generation 1 production routing或delivery。

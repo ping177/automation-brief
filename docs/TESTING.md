@@ -45,9 +45,9 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 ## v1.x Implementation Version Roadmap Freeze docs-only checklist
 
-- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering`、`v1.4 — Event Selector`、`v1.5 — Event Classifier + Writer` 与 `v1.6 — Renderer + Artifacts + Orchestrator Integration` 均为 `COMPLETED / CLOSED`；v1.5 的三段实现、offline regression 与最终 real-provider acceptance 已完成，v1.6 的 implementation acceptance、offline full-pipeline E2E 与 human reader-facing layout acceptance 均 PASS。
+- `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering`、`v1.4 — Event Selector`、`v1.5 — Event Classifier + Writer`、`v1.6 — Renderer + Artifacts + Orchestrator Integration` 与 `v1.7 — Offline / Snapshot Validation` 均为 `COMPLETED / CLOSED`；v1.5 的三段实现、offline regression 与最终 real-provider acceptance 已完成，v1.6 implementation acceptance、v1.7 offline full-pipeline E2E 与最终 Human Reader-Facing Acceptance 均 PASS。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
-- v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
+- v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6/v1.7 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
 - roadmap freeze 当时不修改三份 v1.0 canonical contract semantics、不创建 v1.1 Python module、不运行业务 pipeline 或真实外部 API；后续 v1.1 implementation verification 见下节。
 
@@ -267,9 +267,43 @@ revalidation 使用 `deepseek` / `deepseek-v4-flash`：classifier stage 与 writ
 结果合理且无 `other` 滥用，Event-level synthesis、中文可读性与 evidence grounding 均
 通过。首次 `why_it_matters_zh` 的读者导向建议问题已通过最小 prompt correction 解决，
 revalidation 未发现 release blocker。v1.5 标记为 `COMPLETED / CLOSED`；v1.6
-`Renderer + Artifacts + Orchestrator Integration` 已完成 implementation acceptance、offline
-full-pipeline E2E 与 human reader-facing layout acceptance，并标记为 `COMPLETED / CLOSED`；
-下一步为 `v1.7 — Offline / Snapshot Validation`。本轮不开始 v1.7 implementation。
+`Renderer + Artifacts + Orchestrator Integration` 与 v1.7 `Offline / Snapshot Validation`
+均已完成 implementation acceptance、offline full-pipeline E2E 与 Human Reader-Facing
+Acceptance，并标记为 `COMPLETED / CLOSED`；下一步为 `v1.8 — Shadow / Parallel Validation`。
+
+## v1.7 Offline / Snapshot Validation — COMPLETED / CLOSED
+
+v1.7 的 gate 是 deterministic offline / snapshot regression，不是 benchmark、评分系统或真实 provider 自动测试。完整 Generation 2 pipeline 由 fixed report slot、fixture-backed embeddings、fake selector/classifier/writer gateways、fake feed fetcher 和 temporary artifact root 驱动；`cluster` metadata 仅供 test harness 建立 embedding lookup，不能进入 RawFeedEntry 或 canonical Article，clustering 仍调用 production `event_cluster`。
+
+最小 fixture matrix 覆盖 representative clean morning、合法 empty、partial degradation、hard-stop failure 与 malformed/provider protocol。Snapshot / structural assertions 锁定 clustering membership、selector salvage/order、classifier category vocabulary 与 invalid-category failure、writer lifecycle、classifier → writer continuation、Brief/Markdown projection、source dedup/provenance、checkpoint/artifact inventory、diagnostic durability、empty/partial/hard-stop outcome 以及 no-backfill/no-legacy-fallback 边界；真实 LLM 自然语言和 judgment-call 不做 brittle exact snapshot。
+
+最终 reader-facing contract 已人工 PASS：Markdown 无 `## 今日要闻`，category 使用 `## *Category*`，Event title 使用 `###` + bold + `var(--text-accent)`，正文使用 `摘要：` / `为什么重要：`，来源使用 Obsidian-compatible `<details>/<summary>/<ul>/<li>/<a>`。category regroup/order、canonical global `Brief.event_ids`、written-unclassified display fallback 与 surviving provenance 保持不变。
+
+最终 v1.7 verification：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_brief_renderer_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_orchestrator_smoke.py
+for f in tests/offline_*.py; do
+  PYTHONDONTWRITEBYTECODE=1 .venv/bin/python "$f" || exit 1
+done
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v17-closeout-pyc .venv/bin/python -m py_compile \
+  canonical_domain.py collector.py normalizer.py article_dedup.py event_cluster.py \
+  event_selector.py event_classifier.py event_writer.py brief_renderer.py v1_artifacts.py \
+  orchestrator.py llm_gateway.py tests/offline_brief_renderer_smoke.py \
+  tests/offline_orchestrator_smoke.py
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v17-closeout-pyc .venv/bin/python -m compileall -q -f \
+  canonical_domain.py collector.py normalizer.py article_dedup.py event_cluster.py \
+  event_selector.py event_classifier.py event_writer.py brief_renderer.py v1_artifacts.py \
+  orchestrator.py llm_gateway.py tests
+sh -n .githooks/pre-push
+sh -n scripts/check-project-state-push.sh
+sh -n scripts/install-git-hooks.sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest tests.test_project_state_push_gate
+git diff --check
+```
+
+本验证共运行 28 个 `tests/offline_*.py`；不联网、不调用 RSS/DeepSeek/其它真实 provider、不读取 secrets、不写入 canonical runtime data。v1.7 保持 side-by-side，Generation 1 继续作为 production baseline；下一步为 v1.8 Shadow / Parallel Validation。
 
 ## v1.2 regression checklist
 

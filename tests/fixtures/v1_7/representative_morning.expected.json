@@ -1,0 +1,686 @@
+{
+  "clean": {
+    "artifacts": {
+      "diagnostic_refs": [
+        "normalizer:report-window-admission"
+      ],
+      "files": [
+        "brief.json",
+        "diagnostics/<diagnostic>.json",
+        "manifest.json",
+        "morning-brief.md",
+        "objects/articles-admitted.json",
+        "objects/articles-normalized.json",
+        "objects/articles.json",
+        "objects/event-candidates.json",
+        "objects/events-classified.json",
+        "objects/events-selected.json",
+        "objects/events-writer-input.json",
+        "objects/events-written.json",
+        "stage-results/01-collector.json",
+        "stage-results/02-normalizer.json",
+        "stage-results/03-article-dedup.json",
+        "stage-results/04-event-cluster.json",
+        "stage-results/05-event-selector.json",
+        "stage-results/06-event-classifier.json",
+        "stage-results/07-event-writer.json",
+        "stage-results/08-brief-renderer.json"
+      ],
+      "manifest": {
+        "run_status": "complete",
+        "state": "finalized",
+        "warnings": []
+      },
+      "run_id": "v17-clean"
+    },
+    "brief": {
+      "brief_id": "brief_d95bbd3c663d939c61e34ac3",
+      "event_ids": [
+        "evt_5b35ffcfb76e9f8ad3b786f9",
+        "evt_0848b03c3ae38c4377c4e0e3",
+        "evt_6626f25323489ba0d78de0a4"
+      ],
+      "generation_status": "complete",
+      "report_date": "2026-08-27",
+      "target_language": "zh-CN",
+      "window_end": "2026-08-27T00:00:00+00:00",
+      "window_start": "2026-08-26T00:00:00+00:00"
+    },
+    "classified": [
+      {
+        "category": "technology_ai",
+        "event_id": "evt_5b35ffcfb76e9f8ad3b786f9"
+      },
+      {
+        "category": "macro_policy",
+        "event_id": "evt_0848b03c3ae38c4377c4e0e3"
+      },
+      {
+        "category": "macro_policy",
+        "event_id": "evt_6626f25323489ba0d78de0a4"
+      }
+    ],
+    "clusters": [
+      {
+        "article_ids": [
+          "art_28a95957e61d784770294cf8",
+          "art_43d53f0df6407a694aad4a4c"
+        ],
+        "event_candidate_id": "evt_0848b03c3ae38c4377c4e0e3"
+      },
+      {
+        "article_ids": [
+          "art_5942d31ba2bf1473586e8aea"
+        ],
+        "event_candidate_id": "evt_2cd0c1eca7be2f0c3279ef86"
+      },
+      {
+        "article_ids": [
+          "art_051017d5c3888c14e416630b",
+          "art_c8dc48494c8c162037d6550a",
+          "art_d0d0c4249408aa1153ed866d"
+        ],
+        "event_candidate_id": "evt_5b35ffcfb76e9f8ad3b786f9"
+      },
+      {
+        "article_ids": [
+          "art_4c96a0129dfe35beada8a229",
+          "art_5986ae3556fd661f8eedd47b"
+        ],
+        "event_candidate_id": "evt_6626f25323489ba0d78de0a4"
+      }
+    ],
+    "generation_outcome": "complete",
+    "selected": [
+      {
+        "event_id": "evt_5b35ffcfb76e9f8ad3b786f9",
+        "selection_order": 1
+      },
+      {
+        "event_id": "evt_0848b03c3ae38c4377c4e0e3",
+        "selection_order": 2
+      },
+      {
+        "event_id": "evt_6626f25323489ba0d78de0a4",
+        "selection_order": 3
+      }
+    ],
+    "stage_results": [
+      {
+        "output_count": 9,
+        "stage": "collector",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 9,
+        "stage": "normalizer",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 8,
+        "stage": "article_dedup",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 4,
+        "stage": "event_cluster",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 3,
+        "stage": "event_selector",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 3,
+        "stage": "event_classifier",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 3,
+        "stage": "event_writer",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 1,
+        "stage": "brief_renderer",
+        "status": "succeeded"
+      }
+    ],
+    "written": [
+      {
+        "category": "technology_ai",
+        "event_id": "evt_5b35ffcfb76e9f8ad3b786f9",
+        "writing": {
+          "summary_zh": "多家来源从产品发布、客户需求和封装产能三个角度描述了同一项产业变化，信息彼此补充。",
+          "title_zh": "芯片产业链出现多方进展",
+          "why_it_matters_zh": "这些事实共同表明，相关产业的竞争与交付条件正在发生具体变化。"
+        }
+      },
+      {
+        "category": "macro_policy",
+        "event_id": "evt_0848b03c3ae38c4377c4e0e3",
+        "writing": {
+          "summary_zh": "多家来源显示，各方在连续谈判后公布了新的协调安排，执行路径也同步明确。",
+          "title_zh": "阿尔法各方公布紧急协调安排",
+          "why_it_matters_zh": "这会改变相关公共事务的协作方式，并影响接下来的政策落地。"
+        }
+      },
+      {
+        "category": "macro_policy",
+        "event_id": "evt_6626f25323489ba0d78de0a4",
+        "writing": {
+          "summary_zh": "央行在通胀回落后下调基准利率，同时表示后续决定仍取决于数据变化。",
+          "title_zh": "贝塔央行下调基准利率",
+          "why_it_matters_zh": "这为观察借贷成本、汇率和经济活动的短期变化提供了新的公开依据。"
+        }
+      }
+    ]
+  },
+  "empty": {
+    "artifacts": {
+      "diagnostic_refs": [
+        "normalizer:report-window-admission"
+      ],
+      "files": [
+        "brief.json",
+        "diagnostics/<diagnostic>.json",
+        "manifest.json",
+        "morning-brief.md",
+        "stage-results/01-collector.json",
+        "stage-results/02-normalizer.json",
+        "stage-results/03-article-dedup.json",
+        "stage-results/04-event-cluster.json",
+        "stage-results/05-event-selector.json",
+        "stage-results/06-event-classifier.json",
+        "stage-results/07-event-writer.json",
+        "stage-results/08-brief-renderer.json"
+      ],
+      "manifest": {
+        "run_status": "complete",
+        "state": "finalized",
+        "warnings": []
+      },
+      "run_id": "v17-empty"
+    },
+    "brief": {
+      "brief_id": "brief_d95bbd3c663d939c61e34ac3",
+      "event_ids": [],
+      "generation_status": "complete",
+      "report_date": "2026-08-27",
+      "target_language": "zh-CN",
+      "window_end": "2026-08-27T00:00:00+00:00",
+      "window_start": "2026-08-26T00:00:00+00:00"
+    },
+    "classified": [],
+    "clusters": [],
+    "generation_outcome": "complete",
+    "selected": [],
+    "stage_results": [
+      {
+        "output_count": 9,
+        "stage": "collector",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 0,
+        "stage": "normalizer",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 0,
+        "stage": "article_dedup",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 0,
+        "stage": "event_cluster",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 0,
+        "stage": "event_selector",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 0,
+        "stage": "event_classifier",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 0,
+        "stage": "event_writer",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 1,
+        "stage": "brief_renderer",
+        "status": "succeeded"
+      }
+    ],
+    "written": []
+  },
+  "partial": {
+    "artifacts": {
+      "diagnostic_refs": [
+        "normalizer:report-window-admission"
+      ],
+      "files": [
+        "brief.json",
+        "diagnostics/<diagnostic>.json",
+        "manifest.json",
+        "morning-brief.md",
+        "objects/articles-admitted.json",
+        "objects/articles-normalized.json",
+        "objects/articles.json",
+        "objects/event-candidates.json",
+        "objects/events-classified.json",
+        "objects/events-selected.json",
+        "objects/events-writer-input.json",
+        "objects/events-written.json",
+        "stage-results/01-collector.json",
+        "stage-results/02-normalizer.json",
+        "stage-results/03-article-dedup.json",
+        "stage-results/04-event-cluster.json",
+        "stage-results/05-event-selector.json",
+        "stage-results/06-event-classifier.json",
+        "stage-results/07-event-writer.json",
+        "stage-results/08-brief-renderer.json"
+      ],
+      "manifest": {
+        "run_status": "partial",
+        "state": "finalized",
+        "warnings": []
+      },
+      "run_id": "v17-partial"
+    },
+    "brief": {
+      "brief_id": "brief_d95bbd3c663d939c61e34ac3",
+      "event_ids": [
+        "evt_5b35ffcfb76e9f8ad3b786f9",
+        "evt_0848b03c3ae38c4377c4e0e3",
+        "evt_6626f25323489ba0d78de0a4"
+      ],
+      "generation_status": "partial",
+      "report_date": "2026-08-27",
+      "target_language": "zh-CN",
+      "window_end": "2026-08-27T00:00:00+00:00",
+      "window_start": "2026-08-26T00:00:00+00:00"
+    },
+    "classified": [
+      {
+        "category": "technology_ai",
+        "event_id": "evt_5b35ffcfb76e9f8ad3b786f9"
+      },
+      {
+        "category": "macro_policy",
+        "event_id": "evt_0848b03c3ae38c4377c4e0e3"
+      }
+    ],
+    "clusters": [
+      {
+        "article_ids": [
+          "art_28a95957e61d784770294cf8",
+          "art_43d53f0df6407a694aad4a4c"
+        ],
+        "event_candidate_id": "evt_0848b03c3ae38c4377c4e0e3"
+      },
+      {
+        "article_ids": [
+          "art_5942d31ba2bf1473586e8aea"
+        ],
+        "event_candidate_id": "evt_2cd0c1eca7be2f0c3279ef86"
+      },
+      {
+        "article_ids": [
+          "art_051017d5c3888c14e416630b",
+          "art_c8dc48494c8c162037d6550a",
+          "art_d0d0c4249408aa1153ed866d"
+        ],
+        "event_candidate_id": "evt_5b35ffcfb76e9f8ad3b786f9"
+      },
+      {
+        "article_ids": [
+          "art_4c96a0129dfe35beada8a229",
+          "art_5986ae3556fd661f8eedd47b"
+        ],
+        "event_candidate_id": "evt_6626f25323489ba0d78de0a4"
+      }
+    ],
+    "generation_outcome": "partial",
+    "selected": [
+      {
+        "event_id": "evt_5b35ffcfb76e9f8ad3b786f9",
+        "selection_order": 1
+      },
+      {
+        "event_id": "evt_0848b03c3ae38c4377c4e0e3",
+        "selection_order": 2
+      },
+      {
+        "event_id": "evt_6626f25323489ba0d78de0a4",
+        "selection_order": 3
+      }
+    ],
+    "stage_results": [
+      {
+        "output_count": 9,
+        "stage": "collector",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 9,
+        "stage": "normalizer",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 8,
+        "stage": "article_dedup",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 4,
+        "stage": "event_cluster",
+        "status": "succeeded"
+      },
+      {
+        "failures": [
+          {
+            "code": "item_validation_failed",
+            "item_id": "evt_2cd0c1eca7be2f0c3279ef86"
+          }
+        ],
+        "output_count": 3,
+        "stage": "event_selector",
+        "status": "partial"
+      },
+      {
+        "failures": [
+          {
+            "code": "item_validation_failed",
+            "item_id": "evt_6626f25323489ba0d78de0a4"
+          }
+        ],
+        "output_count": 2,
+        "stage": "event_classifier",
+        "status": "partial"
+      },
+      {
+        "output_count": 3,
+        "stage": "event_writer",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 1,
+        "stage": "brief_renderer",
+        "status": "succeeded"
+      }
+    ],
+    "written": [
+      {
+        "category": "technology_ai",
+        "event_id": "evt_5b35ffcfb76e9f8ad3b786f9",
+        "writing": {
+          "summary_zh": "多家来源从产品发布、客户需求和封装产能三个角度描述了同一项产业变化，信息彼此补充。",
+          "title_zh": "芯片产业链出现多方进展",
+          "why_it_matters_zh": "这些事实共同表明，相关产业的竞争与交付条件正在发生具体变化。"
+        }
+      },
+      {
+        "category": "macro_policy",
+        "event_id": "evt_0848b03c3ae38c4377c4e0e3",
+        "writing": {
+          "summary_zh": "多家来源显示，各方在连续谈判后公布了新的协调安排，执行路径也同步明确。",
+          "title_zh": "阿尔法各方公布紧急协调安排",
+          "why_it_matters_zh": "这会改变相关公共事务的协作方式，并影响接下来的政策落地。"
+        }
+      },
+      {
+        "category": null,
+        "event_id": "evt_6626f25323489ba0d78de0a4",
+        "writing": {
+          "summary_zh": "央行在通胀回落后下调基准利率，同时表示后续决定仍取决于数据变化。",
+          "title_zh": "贝塔央行下调基准利率",
+          "why_it_matters_zh": "这为观察借贷成本、汇率和经济活动的短期变化提供了新的公开依据。"
+        }
+      }
+    ]
+  },
+  "selector_failed": {
+    "artifacts": {
+      "diagnostic_refs": [
+        "normalizer:report-window-admission"
+      ],
+      "files": [
+        "diagnostics/<diagnostic>.json",
+        "manifest.json",
+        "objects/articles-admitted.json",
+        "objects/articles-normalized.json",
+        "objects/articles.json",
+        "objects/event-candidates.json",
+        "stage-results/01-collector.json",
+        "stage-results/02-normalizer.json",
+        "stage-results/03-article-dedup.json",
+        "stage-results/04-event-cluster.json",
+        "stage-results/05-event-selector.json"
+      ],
+      "manifest": {
+        "run_status": "failed",
+        "state": "finalized",
+        "warnings": []
+      },
+      "run_id": "v17-selector_failed"
+    },
+    "brief": null,
+    "classified": [],
+    "clusters": [
+      {
+        "article_ids": [
+          "art_28a95957e61d784770294cf8",
+          "art_43d53f0df6407a694aad4a4c"
+        ],
+        "event_candidate_id": "evt_0848b03c3ae38c4377c4e0e3"
+      },
+      {
+        "article_ids": [
+          "art_5942d31ba2bf1473586e8aea"
+        ],
+        "event_candidate_id": "evt_2cd0c1eca7be2f0c3279ef86"
+      },
+      {
+        "article_ids": [
+          "art_051017d5c3888c14e416630b",
+          "art_c8dc48494c8c162037d6550a",
+          "art_d0d0c4249408aa1153ed866d"
+        ],
+        "event_candidate_id": "evt_5b35ffcfb76e9f8ad3b786f9"
+      },
+      {
+        "article_ids": [
+          "art_4c96a0129dfe35beada8a229",
+          "art_5986ae3556fd661f8eedd47b"
+        ],
+        "event_candidate_id": "evt_6626f25323489ba0d78de0a4"
+      }
+    ],
+    "generation_outcome": "failed",
+    "selected": [],
+    "stage_results": [
+      {
+        "output_count": 9,
+        "stage": "collector",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 9,
+        "stage": "normalizer",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 8,
+        "stage": "article_dedup",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 4,
+        "stage": "event_cluster",
+        "status": "succeeded"
+      },
+      {
+        "failures": [
+          {
+            "code": "provider_failed",
+            "item_id": null
+          }
+        ],
+        "output_count": 0,
+        "stage": "event_selector",
+        "status": "failed"
+      }
+    ],
+    "written": []
+  },
+  "writer_all_failed": {
+    "artifacts": {
+      "diagnostic_refs": [
+        "normalizer:report-window-admission"
+      ],
+      "files": [
+        "diagnostics/<diagnostic>.json",
+        "manifest.json",
+        "objects/articles-admitted.json",
+        "objects/articles-normalized.json",
+        "objects/articles.json",
+        "objects/event-candidates.json",
+        "objects/events-classified.json",
+        "objects/events-selected.json",
+        "objects/events-writer-input.json",
+        "stage-results/01-collector.json",
+        "stage-results/02-normalizer.json",
+        "stage-results/03-article-dedup.json",
+        "stage-results/04-event-cluster.json",
+        "stage-results/05-event-selector.json",
+        "stage-results/06-event-classifier.json",
+        "stage-results/07-event-writer.json"
+      ],
+      "manifest": {
+        "run_status": "failed",
+        "state": "finalized",
+        "warnings": []
+      },
+      "run_id": "v17-writer_all_failed"
+    },
+    "brief": null,
+    "classified": [
+      {
+        "category": "technology_ai",
+        "event_id": "evt_5b35ffcfb76e9f8ad3b786f9"
+      },
+      {
+        "category": "macro_policy",
+        "event_id": "evt_0848b03c3ae38c4377c4e0e3"
+      },
+      {
+        "category": "macro_policy",
+        "event_id": "evt_6626f25323489ba0d78de0a4"
+      }
+    ],
+    "clusters": [
+      {
+        "article_ids": [
+          "art_28a95957e61d784770294cf8",
+          "art_43d53f0df6407a694aad4a4c"
+        ],
+        "event_candidate_id": "evt_0848b03c3ae38c4377c4e0e3"
+      },
+      {
+        "article_ids": [
+          "art_5942d31ba2bf1473586e8aea"
+        ],
+        "event_candidate_id": "evt_2cd0c1eca7be2f0c3279ef86"
+      },
+      {
+        "article_ids": [
+          "art_051017d5c3888c14e416630b",
+          "art_c8dc48494c8c162037d6550a",
+          "art_d0d0c4249408aa1153ed866d"
+        ],
+        "event_candidate_id": "evt_5b35ffcfb76e9f8ad3b786f9"
+      },
+      {
+        "article_ids": [
+          "art_4c96a0129dfe35beada8a229",
+          "art_5986ae3556fd661f8eedd47b"
+        ],
+        "event_candidate_id": "evt_6626f25323489ba0d78de0a4"
+      }
+    ],
+    "generation_outcome": "failed",
+    "selected": [
+      {
+        "event_id": "evt_5b35ffcfb76e9f8ad3b786f9",
+        "selection_order": 1
+      },
+      {
+        "event_id": "evt_0848b03c3ae38c4377c4e0e3",
+        "selection_order": 2
+      },
+      {
+        "event_id": "evt_6626f25323489ba0d78de0a4",
+        "selection_order": 3
+      }
+    ],
+    "stage_results": [
+      {
+        "output_count": 9,
+        "stage": "collector",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 9,
+        "stage": "normalizer",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 8,
+        "stage": "article_dedup",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 4,
+        "stage": "event_cluster",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 3,
+        "stage": "event_selector",
+        "status": "succeeded"
+      },
+      {
+        "output_count": 3,
+        "stage": "event_classifier",
+        "status": "succeeded"
+      },
+      {
+        "failures": [
+          {
+            "code": "provider_failed",
+            "item_id": "evt_0848b03c3ae38c4377c4e0e3"
+          },
+          {
+            "code": "provider_failed",
+            "item_id": "evt_5b35ffcfb76e9f8ad3b786f9"
+          },
+          {
+            "code": "provider_failed",
+            "item_id": "evt_6626f25323489ba0d78de0a4"
+          }
+        ],
+        "output_count": 0,
+        "stage": "event_writer",
+        "status": "failed"
+      }
+    ],
+    "written": []
+  }
+}

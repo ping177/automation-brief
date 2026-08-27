@@ -344,7 +344,7 @@
   可读性与 evidence grounding PASS。首次 `why_it_matters_zh` 读者建议问题由最小 prompt
   correction 解决，revalidation 无 release blocker。
 
-### v1.6 — Renderer + Artifacts + Orchestrator Integration
+### v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 
 - brief_renderer
 - v1.x artifacts/checkpoints
@@ -353,13 +353,24 @@
 - complete side-by-side v1.x pipeline
 - 仍不做 production cutover。
 
-### v1.7 — Offline / Snapshot Validation
+### v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 
 - deterministic regression
 - duplicate / event clustering cases
 - invalid provider outputs
 - partial failure、empty success
 - snapshot / offline E2E validation
+- 代表性 clean、empty、partial、hard-stop 与 malformed/provider protocol fixture matrix 已通过完整 Generation 2 pipeline；Brief、Markdown、checkpoint/artifact inventory、failure outcome 与 provenance projection 均稳定。
+- Human Reader-Facing Acceptance: PASS。最终 Markdown 移除“今日要闻”，category 使用 `## *Category*`，Event title 使用 `###` + bold + `var(--text-accent)`，正文保留 `摘要：` / `为什么重要：`，来源使用 Obsidian-compatible `<details>/<summary>/<ul>/<li>/<a>` 结构。
+- v1.7 保持 side-by-side，不接入 Generation 1 production routing，不调用真实 RSS/DeepSeek/provider，不新增评分、benchmark 或通用 evaluation framework；全部 28 个 offline scripts、compile/compileall、shell、Push Gate 与 diff checks 通过。
+
+#### v1.7 reader-facing presentation amendment
+
+- 决策：Generation 2 Morning Brief 的 Markdown 按 canonical category 分区展示，取代线性列表中不 regroup 的旧 reader-facing 选择。Section 顺序由各 category 最早的 `selection_order` 决定，section 内保持 `selection_order`；canonical `Brief.event_ids` 仍保持全局 selector order。
+- 决策：written-unclassified Event 在 Markdown 中进入“其他” section，仅作 presentation fallback；Event 仍为 `classification=null`，不将 classifier failure 映射为 canonical `other`。
+- 决策：Obsidian 可折叠来源块保留 `<details>/<summary>`，内容使用真正的 HTML `<ul>/<li>/<a>` children，展示全部 surviving provenance，不设 source ceiling。
+- 最终 reader-facing layout：Markdown 直接以 H1 日期开始，不再输出“今日要闻”；category 为 `## *Category*`，Event title 为 `###` + bold + `var(--text-accent)`，正文保留 `摘要：` / `为什么重要：`。
+- 边界：这是 renderer/presentation amendment，不改变 domain schema、Selector/Classifier/Writer ownership、category importance/weight/quota、StageResult/failure semantics 或 production routing。
 
 ### v1.8 — Shadow / Parallel Validation
 
@@ -396,5 +407,5 @@ Market 不属于 v1.x core；Holdings 不进入 v1.x。v1.8 之前 Generation 1 
 1. 正式版本 token 只使用纯数字：`v1.0`、`v1.1`、`v1.2` … `v1.10`；不使用 alpha、beta、Phase A/B 或其它阶段型 version token。
 2. v1.0 已冻结的 Architecture、Core Data Contract、Runtime / Failure Contract 默认不在 implementation 中重新打开。
 3. 如果真实实现发现 frozen contract 存在不可实现矛盾，不得在业务代码中静默改变；必须先报告证据，做最小、显式、可审计的 contract amendment，不扩大架构范围。
-4. v1.5 已完成并关闭；v1.6 是下一步唯一正式开发任务。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
+4. v1.7 已完成并关闭；v1.8 是下一步唯一正式开发任务。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
 5. 本路线不提前选择 embedding model、模型迁移、prompt、token budget 或其它 implementation tuning。

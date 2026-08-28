@@ -4,7 +4,7 @@ automation-brief 是一个低成本的个人早间简报（Morning Brief）：�
 
 v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 `digest` 与显式 `market_brief` 链路仍不调用真实 AI provider。
 
-当前已完成并关闭 `v0.7.2 — Production Cutover`、`v0.7.3 — Morning Brief Long-term Usage Validation`、`v1.1 — Canonical Domain & Runtime Foundation` 至 `v1.8 — Shadow / Parallel Validation`；v1.8 已通过 manual rolling-24h real run 与用户 reader-facing 人工验收。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 production 仍运行 Generation 1 pipeline。v1.9 implementation 已开始，Slice 1 Production Publication Adapter 已完成：它只从 finalized Gen2 artifact 原子提升 canonical Morning Brief report，尚未接入 schedule、delivery 或 LaunchAgent routing；Gen1 routing、schedule、Bark/Obsidian delivery 与 frozen contracts 保持不变。accepted embedding 仍为 `intfloat/multilingual-e5-small` immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`，reader-level story-bundle threshold 为 `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。下一步为人工审核后继续 v1.9 Slice 2，不删除 legacy。
+当前已完成并关闭 `v0.7.2 — Production Cutover`、`v0.7.3 — Morning Brief Long-term Usage Validation`、`v1.1 — Canonical Domain & Runtime Foundation` 至 `v1.8 — Shadow / Parallel Validation`；v1.8 已通过 manual rolling-24h real run 与用户 reader-facing 人工验收。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 installed production 仍运行 Generation 1 pipeline。v1.9 implementation 已开始，Slice 1 Production Publication Adapter 与 Slice 2 Explicit Production Routing 已完成：显式 `generation_2` route 先运行 adapter，只有成功才复用既有 Morning Brief delivery seam，失败时 fail closed 且不调用 Gen1；installed LaunchAgent / production schedule 尚未切换，Slice 3 delivery seam compliance 尚未开始。`overnight_brief` 继续保留为未来 explicit human-approved Gen1 rollback route；Bark/Obsidian delivery 与 frozen contracts 保持不变。accepted embedding 仍为 `intfloat/multilingual-e5-small` immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`，reader-level story-bundle threshold 为 `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。下一步为人工审核后继续 v1.9 Slice 3，不删除 legacy。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## Generation 1 当前产品合同（legacy production）
@@ -53,7 +53,7 @@ v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1 COMPLETED；production routing 未激活）
+v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–2 COMPLETED；installed production routing 未激活）
 v1.10 — Legacy Retirement & v1.x Closeout
 ```
 
@@ -139,7 +139,7 @@ python scripts/run_generation_2_shadow.py \
 
 v1.3 acceptance 已按修正后的 24h Morning Brief story-bundle semantics 通过，并冻结 `intfloat/multilingual-e5-small` 的 immutable revision、`article-title-summary-v1` projection 和 threshold `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。
 
-正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1 至 v1.8 均已完成并关闭；v1.9 implementation 已开始且 Slice 1 Production Publication Adapter 已完成，production routing 仍未激活；v1.8 的 real run、完整 Gen2 pipeline 与 reader-facing 人工验收均 PASS，无 release blocker。下一步为人工审核后继续 v1.9 Slice 2；v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1 至 v1.8 均已完成并关闭；v1.9 implementation 已开始且 Slice 1 Production Publication Adapter、Slice 2 Explicit Production Routing 已完成，installed production routing 仍未激活；v1.8 的 real run、完整 Gen2 pipeline 与 reader-facing 人工验收均 PASS，无 release blocker。下一步为人工审核后继续 v1.9 Slice 3 Delivery Seam Compliance；v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。旧产品 retirement 必须等 v1.8 完成 shadow / parallel validation、v1.9 完成 production cutover 后，进入 v1.10 才开始。
 
@@ -408,7 +408,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python main.py --report-type overnight_brief
 
 输出文件为 `~/Projects/_project-data/automation-brief/reports/morning-brief-YYYY-MM-DD.md`。
 
-`python3 main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief` 或 `overnight_brief`。`scripts/run_daily_digest.sh` 无参数时同样保持普通 `digest` rollback 行为；显式传入 `overnight_brief` 时，才会让生成、Obsidian 同步和 Bark 推送统一读取 Morning Brief。仓库 plist example 已传入 `overnight_brief`，实际 production 是否切换由用户安装/reload LaunchAgent 决定。
+`python3 main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief` 或 `overnight_brief`。`scripts/run_daily_digest.sh` 无参数时保持普通 `digest` 行为；显式传入 `overnight_brief` 时保留既有 Gen1 Morning Brief rollback route；显式传入 `generation_2` 时先运行 Generation 2 production adapter，成功后再以既有 `overnight_brief` report-type contract 调用 Obsidian/mobile publisher 与 Bark，adapter 失败则不进入 delivery。仓库 plist example 已改为未来的 `generation_2` route，但实际 production 是否切换仍由用户人工安装/reload LaunchAgent 决定；本轮不操作 installed plist。
 
 ## RSS 源健康检查
 
@@ -715,17 +715,23 @@ chmod +x scripts/run_daily_digest.sh
 scripts/run_daily_digest.sh
 ```
 
-无参数命令是 Daily Digest rollback 路径。要手动验证完整 Morning Brief production routing，可显式运行：
+无参数命令是 Daily Digest 路径。既有 Gen1 Morning Brief rollback route 可显式运行：
 
 ```bash
 scripts/run_daily_digest.sh overnight_brief
 ```
 
-两种入口的 canonical 生成结果分别写入：
+Slice 2 的未来 Generation 2 route 也必须显式传入；本轮不执行真实 production activation：
+
+```bash
+scripts/run_daily_digest.sh generation_2
+```
+
+各 route 的 canonical 生成结果写入：
 
 ```text
-digest          → ~/Projects/_project-data/automation-brief/reports/daily-news-YYYY-MM-DD.md
-overnight_brief → ~/Projects/_project-data/automation-brief/reports/morning-brief-YYYY-MM-DD.md
+digest                         → ~/Projects/_project-data/automation-brief/reports/daily-news-YYYY-MM-DD.md
+overnight_brief / generation_2 → ~/Projects/_project-data/automation-brief/reports/morning-brief-YYYY-MM-DD.md
 ```
 
 程序日志仍写入：
@@ -849,7 +855,7 @@ cp scripts/com.ping.automation-brief.daily.plist.example ~/Library/LaunchAgents/
   <key>ProgramArguments</key>
   <array>
     <string>/Users/wp/Projects/自动化简报/scripts/run_daily_digest.sh</string>
-    <string>overnight_brief</string>
+    <string>generation_2</string>
   </array>
 
   <key>WorkingDirectory</key>

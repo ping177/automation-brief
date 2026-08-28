@@ -342,6 +342,24 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/python \
 
 v1.8 closeout 还保留以下产品边界：Event Clustering 不追求理论上的 100% 同事件识别；只有长期真实使用中反复出现明显 duplicate、overmerge 或不可接受 split 时才重新打开 clustering，不为低概率边缘 case 持续调 threshold、projection 或叠加规则。Gen1 production routing、schedule、Bark/Obsidian delivery 与三份 frozen Architecture/Data/Runtime contracts 不在本 milestone 内修改。
 
+## v1.9 Slice 2 Explicit Production Routing — COMPLETED
+
+本轮只验证 checked-in `generation_2` route，不执行真实 production activation，不修改或 reload installed LaunchAgent：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_production_routing_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_generation_2_production_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_generation_2_runtime_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_orchestrator_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_v1_artifacts_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest tests.test_project_state_push_gate
+sh -n scripts/run_daily_digest.sh
+plutil -lint scripts/com.ping.automation-brief.daily.plist.example
+git diff --check
+```
+
+routing smoke 必须证明：显式 `generation_2` 先调用 `run_generation_2_production.py`，仅在其成功后调用既有 `overnight_brief` publisher/Bark contract；adapter failure 立即返回非零且不调用 publisher、Bark、`main.py` 或 Gen1 fallback。`overnight_brief` legacy route、process-env-first / `.env.local` API-key inheritance 与 plist example 的 `generation_2` token 均保持可验证。测试只使用临时 repo/data root、fake Python 和 fixture，绝不读取或打印真实 secrets，也不联网。
+
 ## v1.2 regression checklist
 
 ```bash

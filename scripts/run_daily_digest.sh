@@ -11,12 +11,12 @@ CURATOR_KEY_ENV="AUTOMATION_BRIEF_CURATOR_API_KEY"
 REPORT_TYPE=${1:-digest}
 
 if [ "$#" -gt 1 ]; then
-  echo "Usage: $0 [digest|overnight_brief]" >&2
+  echo "Usage: $0 [digest|overnight_brief|generation_2]" >&2
   exit 2
 fi
 
 case "$REPORT_TYPE" in
-  digest|overnight_brief)
+  digest|overnight_brief|generation_2)
     ;;
   *)
     echo "Unsupported report type: $REPORT_TYPE" >&2
@@ -105,7 +105,7 @@ trap log_task_end 0
 cd "$PROJECT_DIR"
 log_stage "task start"
 
-if [ "$REPORT_TYPE" = "overnight_brief" ]; then
+if [ "$REPORT_TYPE" = "overnight_brief" ] || [ "$REPORT_TYPE" = "generation_2" ]; then
   if [ -n "${AUTOMATION_BRIEF_CURATOR_API_KEY:-}" ]; then
     log_stage "curator credential available"
   else
@@ -114,28 +114,49 @@ if [ "$REPORT_TYPE" = "overnight_brief" ]; then
       export AUTOMATION_BRIEF_CURATOR_API_KEY="$curator_api_key"
       log_stage "curator credential available"
     else
-      log_stage "curator credential unavailable; fallback remains available"
+      if [ "$REPORT_TYPE" = "overnight_brief" ]; then
+        log_stage "curator credential unavailable; fallback remains available"
+      else
+        log_stage "curator credential unavailable"
+      fi
     fi
     curator_api_key=""
   fi
 fi
 
-main_start_epoch=$(date "+%s")
-log_stage "main.py start"
-if "$PYTHON_BIN" "$PROJECT_DIR/main.py" --report-type "$REPORT_TYPE"; then
-  main_exit_code=0
+if [ "$REPORT_TYPE" = "generation_2" ]; then
+  generation_start_epoch=$(date "+%s")
+  log_stage "run_generation_2_production.py start"
+  if "$PYTHON_BIN" "$PROJECT_DIR/scripts/run_generation_2_production.py"; then
+    generation_exit_code=0
+  else
+    generation_exit_code=$?
+  fi
+  generation_end_epoch=$(date "+%s")
+  log_stage "run_generation_2_production.py end exit_code=$generation_exit_code elapsed_seconds=$((generation_end_epoch - generation_start_epoch))"
+  if [ "$generation_exit_code" -ne 0 ]; then
+    exit "$generation_exit_code"
+  fi
+  DELIVERY_REPORT_TYPE=overnight_brief
 else
-  main_exit_code=$?
-fi
-main_end_epoch=$(date "+%s")
-log_stage "main.py end exit_code=$main_exit_code elapsed_seconds=$((main_end_epoch - main_start_epoch))"
-if [ "$main_exit_code" -ne 0 ]; then
-  exit "$main_exit_code"
+  DELIVERY_REPORT_TYPE=$REPORT_TYPE
+  main_start_epoch=$(date "+%s")
+  log_stage "main.py start"
+  if "$PYTHON_BIN" "$PROJECT_DIR/main.py" --report-type "$REPORT_TYPE"; then
+    main_exit_code=0
+  else
+    main_exit_code=$?
+  fi
+  main_end_epoch=$(date "+%s")
+  log_stage "main.py end exit_code=$main_exit_code elapsed_seconds=$((main_end_epoch - main_start_epoch))"
+  if [ "$main_exit_code" -ne 0 ]; then
+    exit "$main_exit_code"
+  fi
 fi
 
 publish_start_epoch=$(date "+%s")
 log_stage "publish_mobile_digest.py start"
-if "$PYTHON_BIN" "$PROJECT_DIR/scripts/publish_mobile_digest.py" --report-type "$REPORT_TYPE"; then
+if "$PYTHON_BIN" "$PROJECT_DIR/scripts/publish_mobile_digest.py" --report-type "$DELIVERY_REPORT_TYPE"; then
   publish_exit_code=0
 else
   publish_exit_code=$?
@@ -146,7 +167,7 @@ log_stage "publish_mobile_digest.py end exit_code=$publish_exit_code elapsed_sec
 
 bark_start_epoch=$(date "+%s")
 log_stage "send_bark_notification.py start"
-if "$PYTHON_BIN" "$PROJECT_DIR/scripts/send_bark_notification.py" --report-type "$REPORT_TYPE"; then
+if "$PYTHON_BIN" "$PROJECT_DIR/scripts/send_bark_notification.py" --report-type "$DELIVERY_REPORT_TYPE"; then
   bark_exit_code=0
 else
   bark_exit_code=$?

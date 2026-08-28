@@ -31,6 +31,7 @@ def _run_daily_shell(
     existing_key: str | None = None,
     env_file_content: str | None = None,
     expected_key: str | None = None,
+    generation_2_exit_code: int = 0,
     cwd: Path | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     repo_root = fixture_dir / "shell-repo"
@@ -56,6 +57,11 @@ else
   credential_state=unavailable
 fi
 printf '%s | credential=%s\n' "$*" "$credential_state" >> "$AUTOMATION_BRIEF_TEST_CALLS"
+case "${1:-}" in
+  *run_generation_2_production.py)
+    exit "${AUTOMATION_BRIEF_TEST_GENERATION_2_EXIT_CODE:-0}"
+    ;;
+esac
 """,
     )
 
@@ -64,6 +70,7 @@ printf '%s | credential=%s\n' "$*" "$credential_state" >> "$AUTOMATION_BRIEF_TES
         {
             "AUTOMATION_BRIEF_CAFFEINATED": "1",
             "AUTOMATION_BRIEF_TEST_CALLS": str(calls_path),
+            "AUTOMATION_BRIEF_TEST_GENERATION_2_EXIT_CODE": str(generation_2_exit_code),
         }
     )
     if existing_key is None:
@@ -148,6 +155,44 @@ def test_shell_missing_project_env_keeps_fallback_available(fixture_dir: Path) -
     assert len(python_calls) == 3
     assert all("--report-type overnight_brief" in call for call in python_calls)
     assert all("credential=unavailable" in call for call in python_calls)
+
+
+def test_shell_generation_2_success_routes_adapter_then_morning_delivery(fixture_dir: Path) -> None:
+    result, python_calls = _run_daily_shell(
+        fixture_dir,
+        report_type="generation_2",
+        env_file_content='AUTOMATION_BRIEF_CURATOR_API_KEY="fixture-generation-2-secret"\n',
+        expected_key="fixture-generation-2-secret",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "curator credential available" in result.stdout
+    assert "fixture-generation-2-secret" not in result.stdout + result.stderr
+    assert len(python_calls) == 3
+    assert "run_generation_2_production.py" in python_calls[0]
+    assert "credential=expected" in python_calls[0]
+    assert "publish_mobile_digest.py --report-type overnight_brief" in python_calls[1]
+    assert "send_bark_notification.py --report-type overnight_brief" in python_calls[2]
+    assert all("main.py" not in call for call in python_calls)
+
+
+def test_shell_generation_2_failure_stops_before_delivery_without_gen1_fallback(
+    fixture_dir: Path,
+) -> None:
+    result, python_calls = _run_daily_shell(
+        fixture_dir,
+        report_type="generation_2",
+        env_file_content="AUTOMATION_BRIEF_CURATOR_API_KEY=fixture-generation-2-secret\n",
+        expected_key="fixture-generation-2-secret",
+        generation_2_exit_code=17,
+    )
+
+    assert result.returncode == 17
+    assert len(python_calls) == 1
+    assert "run_generation_2_production.py" in python_calls[0]
+    assert "main.py" not in "\n".join(python_calls)
+    assert "publish_mobile_digest.py" not in "\n".join(python_calls)
+    assert "send_bark_notification.py" not in "\n".join(python_calls)
 
 
 def test_shell_project_env_without_curator_key_keeps_fallback_available(fixture_dir: Path) -> None:
@@ -269,13 +314,13 @@ def test_downstream_unknown_report_type_fails_closed(fixture_dir: Path) -> None:
     send_mock.assert_not_called()
 
 
-def test_plist_selects_overnight_brief() -> None:
+def test_plist_selects_generation_2_without_activation() -> None:
     plist_bytes = PLIST_EXAMPLE.read_bytes()
     plist = plistlib.loads(plist_bytes)
     assert plist["Label"] == "com.ping.automation-brief.daily"
     assert plist["ProgramArguments"] == [
         "/Users/wp/Projects/自动化简报/scripts/run_daily_digest.sh",
-        "overnight_brief",
+        "generation_2",
     ]
     assert plist["StartCalendarInterval"] == {"Hour": 8, "Minute": 0}
     assert b"AUTOMATION_BRIEF_CURATOR_API_KEY" not in plist_bytes
@@ -288,11 +333,17 @@ def main() -> None:
         test_shell_overnight_loads_project_env_and_routes_downstream(fixture_dir / "shell-env-file")
         test_shell_existing_env_key_takes_precedence_over_project_env(fixture_dir / "shell-env-precedence")
         test_shell_missing_project_env_keeps_fallback_available(fixture_dir / "shell-env-missing")
+        test_shell_generation_2_success_routes_adapter_then_morning_delivery(
+            fixture_dir / "shell-generation-2-success"
+        )
+        test_shell_generation_2_failure_stops_before_delivery_without_gen1_fallback(
+            fixture_dir / "shell-generation-2-failure"
+        )
         test_shell_project_env_without_curator_key_keeps_fallback_available(fixture_dir / "shell-env-no-key")
         test_shell_unknown_report_type_fails_closed(fixture_dir / "shell-unknown")
         test_mobile_and_bark_route_by_report_type(fixture_dir / "downstream")
         test_downstream_unknown_report_type_fails_closed(fixture_dir / "unknown")
-        test_plist_selects_overnight_brief()
+        test_plist_selects_generation_2_without_activation()
     print("offline production routing smoke passed")
 
 

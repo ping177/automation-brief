@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-28 — v1.9 Slice 2 Explicit Production Routing — COMPLETED
+
+- `scripts/run_daily_digest.sh` 新增显式 `generation_2` route：调用既有 `scripts/run_generation_2_production.py`，只有 adapter 成功后才以既有 `overnight_brief` report-type contract 进入 mobile/Obsidian publisher 与 Bark sender；adapter failure 立即短路 delivery、返回非零，不调用 `main.py` 或 Gen1 fallback。
+- 既有 process-env-first / `.env.local` API-key 注入逻辑最小扩展到 `generation_2`，不新增 secret management、不记录 key；`overnight_brief` 的 Gen1 fallback/rollback behavior 保持不变。
+- checked-in `scripts/com.ping.automation-brief.daily.plist.example` 改为 `generation_2`，仅代表未来人工批准后的 canonical example；installed LaunchAgent 未修改、未 reload、未执行真实 activation。Slice 3 的 report-date、timeout 与 delivery aggregate semantics 保持未处理。
+- routing smoke 新增 generation success/failure、delivery short-circuit、env inheritance、legacy route preservation、no-Gen1 invocation 与 plist syntax 覆盖；未调用真实 RSS/DeepSeek/Bark/Obsidian，未修改 frozen Gen2 semantic core 或 v1.10 legacy surface。
+
 ## 2026-08-28 — v1.9 Slice 1 Production Publication Adapter — COMPLETED
 
 - 新增薄 `scripts/run_generation_2_production.py`：复用现有 `build_generation_2_runtime()` 与 canonical Asia/Shanghai report slot，执行已有 Gen2 runtime 后只从 finalized run artifact 的 `manifest.json` / `morning-brief.md` 读取发布内容。

@@ -372,7 +372,7 @@
 - 最终 reader-facing layout：Markdown 直接以 H1 日期开始，不再输出“今日要闻”；category 为 `## *Category*`，Event title 为 `###` + bold + `var(--text-accent)`，正文保留 `摘要：` / `为什么重要：`。
 - 边界：这是 renderer/presentation amendment，不改变 domain schema、Selector/Classifier/Writer ownership、category importance/weight/quota、StageResult/failure semantics 或 production routing。
 
-### v1.8 — Shadow / Parallel Validation
+### v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
 
 - Generation 1 production 正常运行
 - v1.x side-by-side real shadow execution；Gen2 runtime 是未来 production 可直接复用的正式 capability，不能依赖 Gen1 runtime 或 Gen1 report artifacts
@@ -380,14 +380,17 @@
 - Generation 1 继续作为 production reference；Gen1 comparison / human review 不属于本轮 runtime acceptance
 - v1.8 第一小步的 canonical Gen2 report slot 以 `report_date` 当日 Asia/Shanghai 08:00 为 inclusive `window_end`，前推 24 小时为 inclusive `window_start`，进入 canonical domain 前转换为 aware UTC；该规则不改 Gen1 rolling window，也不把 Gen1 candidate min/max 当 publication window。
 - manual validation 另提供与 `--date` 互斥的 `--as-of-now` rolling-24h mode：`window_end` 为当前 Asia/Shanghai aware datetime，`window_start` 精确向前 24 小时，进入 canonical runtime 前转换为 aware UTC；该 mode 不改变未来 production 的固定 08:00 report slot，也不加入 schedule。
-- v1.8 acceptance 的最小真实门槛为至少一次有效 rolling-24h Gen2 run，并通过用户 reader-facing 人工验收；若发现明显问题，再按具体问题做针对性补测。
+- v1.8 acceptance 的最小真实门槛为至少一次有效 rolling-24h Gen2 run，并通过用户 reader-facing 人工验收；该门槛已满足，用户确认最终 reader-facing Brief 可接受。
 - Gen2 real runtime 从 active `feeds.json`、冻结 E5 model/revision 的 local-only cache、共享 LLM gateway 与 canonical Artifact Manager 组装既有 `run_generation_2()`；manual runner 只负责显式 real-provider opt-in 和输出 outcome/artifact location，不接 delivery、schedule 或 `reports/`。
 - Gen2 ingest 在 formal normalization/window admission 前独立 qualification 每个 fetched source snapshot；存在有效 entries 但全部无可解析 publication timestamp，且当前无其他经治理 bounded-recency evidence 的 snapshot 整体排除。不用 `collected_at`/URL 推断，不改 canonical Article nullable `published_at` contract，不影响 Gen1。
 - v1.8 真实 hard negatives 将 v1.3 clustering implementation configuration 正式 corrective replacement 为 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1`。历史 v1.3 `connected-components-v1` acceptance 不重写；当前实现保留 model/revision、`article-title-summary-v1`、`0.91` base floor 与 connected components。
 - edge acceptance 决策：`similarity >= 0.925` 接受；`0.91 <= similarity < 0.925` 仅在 title 经 Unicode NFKC、casefold、保留 Python `str.isalnum()` 字符后共享至少 4 字符连续 span 时接受；低于 `0.91` 拒绝。不使用人物/地点/category special case、中文关键词表、NER、第二 embedding model 或 LLM。
 - 纯 threshold correction 被否决：3 个 hard negatives 最高为 `0.921938`，但同一 real run 的国防部记者会和 CrowdStrike positives 为 `0.920543 / 0.920444`；任何能拆分前者的单一 threshold 都会拆分已知后者。
+- closeout acceptance：production-shaped Gen2 runtime、manual rolling-24h real run、local embedding、真实 DeepSeek 与完整 Gen2 pipeline 均已真实跑通；source freshness qualification 已将 unbounded-recency source pollution 收敛为 `published_at=null admitted = 0`；Selector 一次 `unknown_reference` 与 Writer 一次 invalid JSON 均按既有 local failure semantics 正确隔离，后续 real run 未复现 Writer 问题。Gen1 production routing、schedule、Bark/Obsidian delivery 与三份 frozen Architecture/Data/Runtime contracts 均未修改。
+- 产品原则：Event Clustering 不追求理论上的 100% 同事件识别。只有长期真实使用中反复出现明显 duplicate、明显 overmerge 或明显不可接受 split 时，才重新打开 clustering；不为低概率边缘 case 持续调 threshold、projection 或叠加规则。
+- No frozen-contract amendment required：v1.8 的 source freshness qualification、clustering corrective replacement 与 manual rolling-24h validation 均在既有 Architecture/Data/Runtime Contract 边界内完成。
 
-### v1.9 — Production Cutover
+### v1.9 — Production Cutover（PLANNED）
 
 - v1.x 接管正式 Morning Brief
 - production routing、Bark / Obsidian / runtime integration
@@ -407,12 +410,12 @@
 - final regression / governance closeout
 - v1.x milestone closed
 
-Market 不属于 v1.x core；Holdings 不进入 v1.x。v1.8 之前 Generation 1 继续作为正式 baseline，直到 v1.9 cutover；保留 Gen1 到 cutover 不代表长期双架构。
+Market 不属于 v1.x core；Holdings 不进入 v1.x。Generation 1 继续作为正式 baseline，直到 v1.9 cutover；保留 Gen1 到 cutover 不代表长期双架构。
 
 ### Roadmap governance rules
 
 1. 正式版本 token 只使用纯数字：`v1.0`、`v1.1`、`v1.2` … `v1.10`；不使用 alpha、beta、Phase A/B 或其它阶段型 version token。
 2. v1.0 已冻结的 Architecture、Core Data Contract、Runtime / Failure Contract 默认不在 implementation 中重新打开。
 3. 如果真实实现发现 frozen contract 存在不可实现矛盾，不得在业务代码中静默改变；必须先报告证据，做最小、显式、可审计的 contract amendment，不扩大架构范围。
-4. v1.7 已完成并关闭；v1.8 是下一步唯一正式开发任务。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
+4. v1.7 与 v1.8 已完成并关闭；下一步是 v1.9 Production Cutover 的 READ-ONLY audit / planning，不表示 v1.9 implementation 已开始。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
 5. 本路线不提前选择 embedding model、模型迁移、prompt、token budget 或其它 implementation tuning。

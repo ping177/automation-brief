@@ -2,6 +2,14 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-28 — v1.8 Shadow / Parallel Validation closeout — COMPLETED / CLOSED
+
+- 用户已完成并批准 v1.8 closeout：production-shaped Generation 2 runtime、manual rolling-24h real run、local embedding、真实 DeepSeek 与完整 Gen2 pipeline 均真实跑通，并通过 reader-facing 人工验收。
+- source freshness qualification 已真实验证 `published_at=null admitted = 0`；5 个新华 legacy snapshots 与 GitHub Trending Python Daily 被排除，未修改 nullable Article contract、Gen1 source configuration 或 production routing。
+- `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 保留历史 v1.3 evidence，并通过原 v1.3 与 corrective fixtures 的 deterministic `8/8 exact` acceptance。后续 edge split 归类为 embedding semantic boundary，不再为低概率边缘 case 继续叠加 clustering 规则。
+- Selector 一次 `unknown_reference` 与 Writer 一次 invalid JSON 均按既有 local failure semantics 正确隔离；后续 real run 未复现 Writer 问题，最终 reader-facing Brief 获人工接受。
+- Gen1 production routing、schedule、Bark/Obsidian delivery 与三份 frozen Architecture/Data/Runtime contracts 均未修改；未创建 v1.9 实现。下一步为 `v1.9 — Production Cutover` 的 READ-ONLY audit / planning。
+
 ## 2026-08-28 — v1.8 manual rolling-24h validation mode
 
 - `scripts/run_generation_2_shadow.py` 新增与 `--date` 互斥的 `--as-of-now`。该模式以当前 `Asia/Shanghai` aware datetime 为 `window_end`，精确向前 24 小时为 `window_start`，再由 canonical runtime 归一为 aware UTC；不改变固定 08:00 Morning Brief report slot，也不加入任何 schedule。

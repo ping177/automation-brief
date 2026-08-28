@@ -8,11 +8,11 @@
 
 ## Current version
 
-v1.8 — Shadow / Parallel Validation（IN PROGRESS；v1.x implementation roadmap FROZEN）
+v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED；v1.x implementation roadmap FROZEN）
 
 ## Current status
 
-v1.8 已进入真实 manual validation。正式 Gen2 runtime 不依赖 Generation 1；首次真实 run 的 1521 条 timestamp-null pollution 已以 source-snapshot freshness qualification 收敛。3 个已确认 clustering overmerge 已以 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 完成正式 corrective replacement：保留 pinned model/revision、projection、`0.91` base floor 与 connected components，只对 `0.91–0.925` ambiguity band 增加 normalized-title 4-character identity support。原 v1.3 与新 corrective fixture 的 production memberships 均为 `8/8 exact`。Gen2 manual runner 现在支持与 `--date` 互斥的 rolling-24h `--as-of-now`，不改变未来 production 的固定 08:00 report slot。Gen1 production routing、schedule 与 delivery 保持不变；Gen2 不写 `reports/`、不接 Bark/Obsidian/publisher。
+v1.8 已完成并关闭。正式 Gen2 runtime 不依赖 Generation 1；manual rolling-24h real run 已成功执行并通过用户 reader-facing 人工验收。首次真实 run 的 1521 条 timestamp-null pollution 已以 source-snapshot freshness qualification 收敛。3 个已确认 clustering overmerge 已以 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 完成正式 corrective replacement：保留 pinned model/revision、projection、`0.91` base floor 与 connected components，只对 `0.91–0.925` ambiguity band 增加 normalized-title 4-character identity support；原 v1.3 与 corrective fixture 的 production memberships 均为 `8/8 exact`。Selector 的一次 `unknown_reference` 与 Writer 的一次 invalid JSON 均按既有 local failure semantics 正确隔离，未阻断最终 Brief。Gen2 manual runner 的 rolling-24h `--as-of-now` 与固定 08:00 canonical report slot 均保持既定规则。Gen1 production routing、schedule 与 delivery 保持不变；Gen2 不写 `reports/`、不接 Bark/Obsidian/publisher。
 
 v1.6 已正式 `COMPLETED / CLOSED`：implementation acceptance: PASS；offline full-pipeline E2E: PASS。新增 side-by-side deterministic `brief_renderer.py`、Generation 2 专用 `v1_artifacts.py`、纯 composition `orchestrator.py` 与 direct-script smoke。Orchestrator 接受 explicit report slot/run identity，依 frozen stage order执行 report-window admission、checkpoint-before-downstream、classifier overlay、Writer continuation、Brief status推导与artifact finalization；`events-writer-input` 正式持久化，artifact persistence fail closed。实现不接入 `main.py` production routing，不调用真实 DeepSeek，不实现 delivery、semantic fallback 或 raw Article backfill。
 
@@ -28,7 +28,7 @@ READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature inf
 
 ## Latest completed
 
-2026-08-28 完成 v1.8 第一步 runtime、input population 修复与 clustering corrective replacement，并新增 manual rolling-24h validation mode。source freshness qualification 使 5 个 legacy 新华网 snapshots 与 GitHub Trending Python Daily 的 1521 条 null pollution 无法进入 Article/window/clustering pool。clustering 保留 model/revision/projection/base floor/connected components，以 `semantic-title-anchor-v1` 拒绝 3 个真实 ambiguity-band hard negatives，同时保留国防部记者会与 CrowdStrike positives；原 v1.3 和新 corrective real-model acceptance 均 `8/8 exact`且 deterministic。rolling slot 以当前 Asia/Shanghai aware 时间结束并向前 24 小时，`--date` 与 `--as-of-now` 互斥；不修改 frozen contracts、Gen1 或 delivery。v1.8 尚未 close，下一步是至少一次有效真实 rolling-24h Gen2 run 与用户 reader-facing 人工验收，明显问题再针对性补测。
+2026-08-28 完成并关闭 v1.8 Shadow / Parallel Validation。production-shaped Gen2 runtime、manual rolling-24h real run 与用户 reader-facing 人工验收均通过；source freshness qualification 将 5 个 legacy 新华网 snapshots 与 GitHub Trending Python Daily 的 1521 条 null pollution 排除在 Article/window/clustering pool 之外。`identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 拆分 3 个真实 hard negatives，同时保留两组 positive counterexamples；原 v1.3 与 corrective acceptance 均 `8/8 exact` 且 deterministic。Selector `unknown_reference` 与 Writer invalid JSON 均按既有 local failure semantics 正确处理，未破坏最终 reader-facing Brief。未修改 frozen contracts、Gen1 production routing、schedule 或 delivery；下一步转入 v1.9 Production Cutover 的 READ-ONLY audit / planning。
 
 2026-08-28 完成并关闭 v1.7 Offline / Snapshot Validation：代表性 clean morning fixture 通过完整 Generation 2 pipeline，并以 empty、partial、hard-stop、malformed/provider protocol fixtures 覆盖 failure semantics、continuation、checkpoint-before-downstream、Brief/Markdown 与 provenance/artifacts。最终 reader-facing layout 已确认 PASS：无“今日要闻”，category 使用 H2 italic，Event title 使用 H3 + `var(--text-accent)` + bold，摘要使用 `摘要：`、保留 `为什么重要：`，来源使用 `<details>/<summary>/<ul>/<li>/<a>` 纯 HTML children；category regroup/order、global `Brief.event_ids`、dedup/provenance 与 written-unclassified fallback 保持不变。focused smoke、全部 28 个 offline scripts、compile/compileall、shell syntax、Project-State Push Gate 16/16、fixture parsing 与 `git diff --check` 均 PASS。未调用真实 RSS/DeepSeek/provider，未修改 Generation 1 production routing；下一步为 v1.8 Shadow / Parallel Validation。
 
@@ -75,7 +75,7 @@ v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-202608
 Status: local macOS production accepted
 Public URL: none
 Provider: DeepSeek `deepseek-v4-flash`; real production success accepted
-Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。当前仓库运行时默认路径已迁移到 `.env.local`，本次只更新仓库 consumer，未修改用户实际 LaunchAgent / pmset 配置。2026-08-16 的 36 氪删除是仓库级 production hygiene，未做真实 RSS/DeepSeek acceptance。v0.7.3 七天真实使用验证现已 CLOSED；production 仍运行 Generation 1，v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 production cutover；v1.10 才进行 legacy retirement。v1.1 仅新增 side-by-side domain foundation 与离线验证，未改变实际部署或自动化链路；actual LaunchAgent / pmset / runtime 现场状态仍不是本任务 blocker。
+Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。当前仓库运行时默认路径已迁移到 `.env.local`，本次只更新仓库 consumer，未修改用户实际 LaunchAgent / pmset 配置。2026-08-16 的 36 氪删除是仓库级 production hygiene，未做真实 RSS/DeepSeek acceptance。v0.7.3 七天真实使用验证与 v1.8 Shadow / Parallel Validation 现已 CLOSED；production 仍运行 Generation 1，继续作为正式 baseline 直到 v1.9 production cutover；v1.10 才进行 legacy retirement。v1.1 仅新增 side-by-side domain foundation 与离线验证，未改变实际部署或自动化链路；actual LaunchAgent / pmset / runtime 现场状态仍不是本任务 blocker。
 
 ## Version Index
 
@@ -115,7 +115,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 - v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 - v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
-- v1.8 — Shadow / Parallel Validation（IN PROGRESS）
+- v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
 - v1.9 — Production Cutover（PLANNED）
 - v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 
@@ -125,7 +125,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-继续 v1.8 real Shadow / Parallel Validation：由用户在本人 Terminal 执行至少一次有效 rolling-24h manual Gen2 run，并完成 reader-facing 人工验收；若发现明显问题再针对性补测。不接 delivery，不启动 v1.9 或 comparison/review layer。
+规划 / 审计 `v1.9 — Production Cutover`（READ-ONLY；不启动 v1.9 implementation）。保持 Gen1 production 与 Gen2 delivery-disabled 边界，先完成 cutover 前的只读依赖、路由、回滚与 acceptance 规划。
 
 ## Blockers
 
@@ -160,10 +160,11 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - The v1.0 canonical architecture is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`; it does not prescribe immediate Python filenames, package hierarchy, feature flags, or business implementation. `Article` is input, `Event` is the core object, and `Brief` is output; Article dedup and event clustering remain separate.
 - The v1.0 canonical core data contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`; it freezes Article/EventCandidate/Event/Brief identity and ownership, deterministic Evidence projection, immutable Event stage derivation, and the minimal component-local result envelope without implementing runtime behavior.
 - The v1.0 canonical runtime / failure contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`; it freezes run identity, StageResult semantics, per-component isolation, LLM batch/retry boundaries, Brief status, artifact/delivery behavior and no automatic post-cutover legacy semantic fallback. The contract is docs-only and not implemented.
-- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 through v1.7 are complete and closed with offline verification, and v1.7 Human Reader-Facing Acceptance is PASS. Generation 2 remains side-by-side and does not cut over production; v1.8 runs side-by-side without reader-facing output, v1.9 forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
+- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 through v1.8 are complete and closed with their required verification, and v1.7 Human Reader-Facing Acceptance is PASS. Generation 2 remains delivery-disabled and does not cut over production; v1.9 is the next planned Production Cutover audit/planning milestone, forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
 - v1.3 side-by-side implementation is present in `event_cluster.py` with fake-embedder smoke, labeled fixtures, and a separate real-model evaluator. The accepted fixed configuration is E5-small revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`, `article-title-summary-v1`, summary cap 300, threshold `0.91`, and `connected-components-v1`; production-critical acceptance is exact `8 / 8` with zero overmerge and split.
 - Canonical Event / EventCandidate semantics are reader-level story bundles inside one approximately 24-hour Morning Brief report window, not persistent atomic occurrence identity. Announcement, immediate reaction, clarification, closely related follow-up, and complementary perspectives may cluster when separate reader-facing items would be materially repetitive. v1.5 Event Writer must read complete Article provenance and preserve material facts and perspectives in `title_zh`, `summary_zh`, and `why_it_matters_zh`.
 - v1.3 clustering remains local embedding + semantic similarity + simple deterministic clustering. DeepSeek, local LLM pair verification, LLM adjudication, translation, and second-pass AI clustering are prohibited in this stage.
+- Event Clustering does not target theoretical 100% same-event identification. Reopen clustering only when repeated long-term real use shows clear duplicate, overmerge, or unacceptable split patterns; do not keep tuning thresholds, projections, or layered rules for isolated low-probability edge cases.
 - v0.7.3 closeout is a product-review decision to stop patching the Generation 1 core news architecture, not a claim that Generation 1 fully met the long-term product target. The evidence is retained as historical input to v1.0 and is not being re-designed in this closeout. v1.3 remains side-by-side and does not alter Generation 1 production routing.
 - `tests/offline_overnight_brief_smoke.py` covers cross-section dedupe, 0–3 watch variables, conditional holdings, missing market data, no holdings, feed failures and explicit dispatch; all offline smoke tests passed on 2026-08-13.
 - P1 foundation docs are now split by responsibility: README as entry, PROJECT_STATE as dashboard state, BACKLOG as future work, TESTING as verification checklist, DECISIONS as long-term decisions, and MISSED_CASES as quality tracking.
@@ -189,4 +190,4 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Handoff Prompt
 
-v1.8 is IN PROGRESS. The production-shaped Generation 2 runtime remains manual-only and delivery-disabled. Source freshness qualification now excludes wholly timestamp-null snapshots before formal normalization/window/clustering, and `semantic-title-anchor-v1` corrects the three confirmed clustering hard negatives while preserving both real positive counterexamples and the historical v1.3 acceptance. Manual validation supports an explicit rolling-24h `--as-of-now` slot in addition to the fixed 08:00 canonical slot; the two CLI modes are mutually exclusive. Generation 1 production routing, schedules, Bark/Obsidian delivery, and frozen contracts remain unchanged. Complete at least one valid rolling-24h run and user reader-facing review; target any follow-up testing to concrete issues, without adding delivery, starting v1.9, or starting the comparison/review layer.
+v1.8 is COMPLETED / CLOSED. The production-shaped Generation 2 runtime remains manual-only and delivery-disabled. Source freshness qualification excludes wholly timestamp-null snapshots before formal normalization/window/clustering, and `semantic-title-anchor-v1` corrects the three confirmed clustering hard negatives while preserving both real positive counterexamples and the historical v1.3 acceptance. The user completed a valid rolling-24h real run and reader-facing review; selector/writer local partials were accepted under existing failure semantics. Generation 1 production routing, schedules, Bark/Obsidian delivery, and frozen contracts remain unchanged. Next step is a READ-ONLY audit / planning pass for `v1.9 — Production Cutover`; do not start v1.9 implementation or the comparison/review layer yet.

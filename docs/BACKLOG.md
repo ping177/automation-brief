@@ -14,7 +14,7 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.8 Shadow / Parallel Validation）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.9 Production Cutover READ-ONLY audit / planning）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
@@ -22,7 +22,7 @@ v1.4 — Event Selector（COMPLETED / CLOSED）
 v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
-v1.8 — Shadow / Parallel Validation（IN PROGRESS）
+v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
 v1.9 — Production Cutover（PLANNED）
 v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 ```
@@ -115,13 +115,15 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - Human Reader-Facing Acceptance: PASS。最终布局为 H1 日期、H2 italic category、H3 bold + `var(--text-accent)` Event title、`摘要：` / `为什么重要：`、Obsidian-compatible HTML `<details>` source folding；无 `## 今日要闻`，category regroup/order 与 canonical global `Brief.event_ids` 保持不变。
 - focused renderer/orchestrator smoke、全部 28 个 `tests/offline_*.py`、Python compile/compileall、shell syntax、Project-State Push Gate 16/16、fixture parsing 与 `git diff --check` 均通过；未调用真实 RSS/DeepSeek/provider，未修改 Generation 1 production routing。
 
-### v1.8 Shadow / Parallel Validation — IN PROGRESS
+### v1.8 Shadow / Parallel Validation — COMPLETED / CLOSED
 
 - 第一小步实现 production-reusable `generation_2_runtime.py`：正式组装 active sources、canonical report slot、冻结 E5 local-only embedder、共享 DeepSeek JSON gateway adapter 与 canonical Generation 2 artifacts；不依赖 Gen1，不接 delivery 或 `reports/`。
 - 新增薄 manual invocation `scripts/run_generation_2_shadow.py`；必须显式 `--real-provider deepseek`，默认 delivery disabled，真实 RSS/provider 运行仅由用户在 Terminal 执行。
 - 首次真实 run 的 input population failure 已以 Gen2 source-snapshot freshness qualification 收敛：所有有效 entries 都无可解析 publication timestamp 的 source 不进入 Article/window/clustering pool，但不修改 nullable Article contract、Gen1 source config 或 production routing。
 - 首次真实 run 的 clustering production hard negatives 已通过 versioned `semantic-title-anchor-v1` edge policy 做正式 corrective replacement；纯 threshold 方案因会拆分已确认真实 positives 而被否决。原 v1.3 `8/8` evidence 保持，新 5-case corrective acceptance 也为 `8/8 exact`。
-- manual validation 现在支持与 `--date` 互斥的 `--as-of-now` rolling-24h mode；下一步 acceptance 是用户在 Terminal 执行至少一次有效真实 rolling-24h Gen2 run，并完成 reader-facing 人工验收。若发现明显问题，再按具体问题做针对性补测。
+- manual validation 支持与 `--date` 互斥的 `--as-of-now` rolling-24h mode；用户已完成有效真实 rolling-24h Gen2 run，并通过 reader-facing 人工验收。Selector / Writer 的已知 provider variation 均按既有 local failure semantics 正确隔离，未阻断最终 Brief。
+- v1.8 closeout 已确认 production-shaped Gen2 runtime、local embedding、真实 DeepSeek 与完整 pipeline 真实跑通；Gen1 production routing、schedule、Bark/Obsidian delivery 与 frozen contracts 均保持不变。下一步为 `v1.9 — Production Cutover` 的 READ-ONLY audit / planning，不表示 v1.9 implementation 已开始。
+- Event Clustering 不追求理论上的 100% 同事件识别；只有长期真实使用中反复出现明显 duplicate、overmerge 或不可接受 split 时才重新打开 clustering，不为低概率边缘 case 持续调 threshold、projection 或叠加规则。
 
 ### v1.x Implementation Version Roadmap — FROZEN
 
@@ -136,8 +138,8 @@ v1.4  Event Selector（COMPLETED / CLOSED）
 v1.5  Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6  Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7  Offline / Snapshot Validation（COMPLETED / CLOSED）
-v1.8  Shadow / Parallel Validation（IN PROGRESS）
-v1.9  Production Cutover
+v1.8  Shadow / Parallel Validation（COMPLETED / CLOSED）
+v1.9  Production Cutover（PLANNED；下一步 READ-ONLY audit / planning）
 v1.10 Legacy Retirement & v1.x Closeout
 ```
 

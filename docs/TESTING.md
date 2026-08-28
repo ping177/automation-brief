@@ -305,7 +305,7 @@ git diff --check
 
 本验证共运行 28 个 `tests/offline_*.py`；不联网、不调用 RSS/DeepSeek/其它真实 provider、不读取 secrets、不写入 canonical runtime data。v1.7 保持 side-by-side，Generation 1 继续作为 production baseline；下一步为 v1.8 Shadow / Parallel Validation。
 
-## v1.8 Generation 2 manual runtime verification
+## v1.8 Generation 2 manual runtime verification — COMPLETED / CLOSED
 
 本轮自动验证只使用 fake fetcher/embedder/gateway 与 temporary data root；不得调用真实 RSS、DeepSeek、Bark、Obsidian 或 production delivery：
 
@@ -323,7 +323,7 @@ git diff --check
 
 runtime smoke 必须证明固定 08:00 canonical report slot 与 manual rolling-24h slot 均 deterministic/invalid fail closed；rolling slot 以当前 Asia/Shanghai aware 时间为 `window_end`、精确向前 24 小时为 `window_start`，并与 `--date` 互斥，不改变未来 production 的固定 08:00 规则。RSS first-attempt success、timeout/HTTP 429/5xx retry、HTTP 404 和 deterministic bozo/parse failure 不 retry，且 failure taxonomy 与 allowlisted attempt/HTTP status/bounded timing diagnostics 正确。formal builder happy path 必须实际初始化 frozen model/revision 的 pinned local cache并复用 embedder；missing cache、wrong-but-nonempty cache 或 pinned snapshot 不可加载都必须在 external collection 前 fail closed，且始终使用 `local_files_only=True`。fake dependencies 可完整生成 artifact，不 import/call Gen1 semantic fallback 或 Bark/publisher/Obsidian delivery，不写 `reports/`，artifact 只落 `<temp-data-root>/runs/event-driven-morning-brief/<run_id>/`。真实 provider run 仅由用户在 Terminal 显式执行 `scripts/run_generation_2_shadow.py --real-provider deepseek --date YYYY-MM-DD` 或互斥的 `scripts/run_generation_2_shadow.py --real-provider deepseek --as-of-now`；API key 只读当前 process env。
 
-v1.8 acceptance 的最小真实门槛是至少一次有效 rolling-24h Gen2 run，并由用户完成 reader-facing 人工验收；若发现明显问题，再按具体问题补测。
+v1.8 acceptance 的最小真实门槛是至少一次有效 rolling-24h Gen2 run，并由用户完成 reader-facing 人工验收；该门槛已满足，用户确认最终 reader-facing Brief 可接受。v1.8 不做自动胜负判断、benchmark、dashboard 或 comparison platform。
 
 source freshness acceptance 必须覆盖：全 timestamp snapshot 正常通过；300 条全 timestamp-null snapshot 整个排除并留下 bounded diagnostic；被排除条目不进入 clustering；同一 run 的 timestamped sibling source 不受影响。该测试不将 `collected_at` 或 URL 当作 publication evidence，不调用 Gen1 semantic path 或 production delivery。
 
@@ -339,6 +339,8 @@ HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/python \
   --fixture tests/fixtures/event_clustering_v1_8_corrective.json \
   --thresholds 0.91 --accepted-threshold 0.91
 ```
+
+v1.8 closeout 还保留以下产品边界：Event Clustering 不追求理论上的 100% 同事件识别；只有长期真实使用中反复出现明显 duplicate、overmerge 或不可接受 split 时才重新打开 clustering，不为低概率边缘 case 持续调 threshold、projection 或叠加规则。Gen1 production routing、schedule、Bark/Obsidian delivery 与三份 frozen Architecture/Data/Runtime contracts 不在本 milestone 内修改。
 
 ## v1.2 regression checklist
 

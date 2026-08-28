@@ -4,7 +4,7 @@ automation-brief 是一个低成本的个人早间简报（Morning Brief）：�
 
 v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 `digest` 与显式 `market_brief` 链路仍不调用真实 AI provider。
 
-当前已完成并关闭 `v0.7.2 — Production Cutover`、`v0.7.3 — Morning Brief Long-term Usage Validation`、`v1.1 — Canonical Domain & Runtime Foundation` 至 `v1.7 — Offline / Snapshot Validation`；`v1.8 — Shadow / Parallel Validation` 已进入实施。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 production 仍运行 Generation 1 pipeline。v1.8 第一小步新增正式、可供未来 production 复用的 Generation 2 runtime composition 与 manual-only runner，但不接 delivery 或 schedule。accepted embedding 仍为 `intfloat/multilingual-e5-small` immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`，reader-level story-bundle threshold 为 `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。在 v1.8 shadow / v1.9 cutover 前不删除 legacy。
+当前已完成并关闭 `v0.7.2 — Production Cutover`、`v0.7.3 — Morning Brief Long-term Usage Validation`、`v1.1 — Canonical Domain & Runtime Foundation` 至 `v1.8 — Shadow / Parallel Validation`；v1.8 已通过 manual rolling-24h real run 与用户 reader-facing 人工验收。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构；当前 production 仍运行 Generation 1 pipeline。v1.8 建立了正式、可供未来 production 复用的 Generation 2 runtime composition 与 manual-only runner，不接 delivery 或 schedule；Gen1 routing、schedule、Bark/Obsidian delivery 与 frozen contracts 保持不变。accepted embedding 仍为 `intfloat/multilingual-e5-small` immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`，reader-level story-bundle threshold 为 `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。下一步是 v1.9 Production Cutover 的 READ-ONLY audit / planning，不删除 legacy。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## Generation 1 当前产品合同（legacy production）
@@ -52,8 +52,8 @@ v1.4 — Event Selector（COMPLETED / CLOSED）
 v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
-v1.8 — Shadow / Parallel Validation（IN PROGRESS）
-v1.9 — Production Cutover
+v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
+v1.9 — Production Cutover（PLANNED）
 v1.10 — Legacy Retirement & v1.x Closeout
 ```
 
@@ -73,7 +73,7 @@ v0.6.1 Phase 1 固定上述合同，Phase 2 已实现 feed metadata normalizatio
 
 下一代产品继续叫 Morning Brief，核心架构原则是：**Article 是输入，Event 是核心业务对象，Brief 是输出。** v1.0 冻结 Sources → collection → normalization → Article-level dedup → event-level clustering → relative selection → post-selection classification → event writing → deterministic rendering → delivery 的主链；`orchestrator` 与 `llm_gateway` 只提供基础设施边界。
 
-v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 已完成 Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze，v1.x implementation roadmap 已冻结，迁移路线为 preserve mature infrastructure + rewrite news core。v1.1 已完成独立 canonical domain foundation，v1.2 已完成 side-by-side deterministic ingest，v1.3 event clustering、v1.4 event selector、v1.5 event classifier/writer、v1.6 renderer/artifacts/orchestrator integration 与 v1.7 offline/snapshot validation 均已完成并关闭；v1.6 implementation acceptance、v1.7 offline full-pipeline E2E 与最终 human reader-facing layout acceptance 均 PASS。这些 milestone 均未改 production routing、未删除 legacy。v1.8 shadow 前后 Generation 1 继续作为正式 baseline，直到 v1.9 cutover，v1.10 才进行 legacy retirement。架构职责见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical object contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)，runtime / failure contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
+v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 已完成 Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze，v1.x implementation roadmap 已冻结，迁移路线为 preserve mature infrastructure + rewrite news core。v1.1 至 v1.8 均已完成并关闭；v1.8 的 manual rolling-24h real run、完整 Gen2 pipeline 与用户 reader-facing 人工验收均 PASS。这些 milestone 均未改 production routing、未删除 legacy。Generation 1 继续作为正式 baseline，直到 v1.9 cutover，v1.10 才进行 legacy retirement。架构职责见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical object contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)，runtime / failure contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
 
 ## v1.1 — Canonical Domain & Runtime Foundation（implementation complete / closed）
 
@@ -109,7 +109,7 @@ v1.7 以少量 canonical fixtures 锁定完整 Generation 2 pipeline mechanics�
 
 最终 Human Reader-Facing Acceptance: PASS。Markdown 直接以 H1 日期开始，category 使用 `## *Category*`，Event title 使用 `###` + bold + `var(--text-accent)`，正文保留 `摘要：` / `为什么重要：`，来源使用 Obsidian-compatible `<details>/<summary>/<ul>/<li>/<a>` 折叠；无 `## 今日要闻`，category regroup/order、canonical global `Brief.event_ids` 和 surviving provenance 保持不变。v1.7 未改 Generation 1 production routing，Generation 2 仍 side-by-side；下一步为 v1.8 Shadow / Parallel Validation。
 
-## v1.8 — Generation 2 manual runtime（IN PROGRESS）
+## v1.8 — Generation 2 manual runtime（COMPLETED / CLOSED）
 
 `generation_2_runtime.py` 是正式 Generation 2 runtime composition：从 active `feeds.json`、Gen2-owned bounded RSS fetch boundary、冻结 E5 model/revision 的 local-only cache、共享 JSON LLM gateway、canonical artifact manager 和 deterministic Morning Brief report slot 组装 `run_generation_2()`。RSS boundary 只对 timeout、transient transport、HTTP 429/5xx 做 bounded retry，并通过既有 diagnostic seam 保存 allowlisted attempt/status/timing metadata；普通 4xx 与 deterministic parse/input failure 不重试。它不依赖 Generation 1，也不含 Bark、Obsidian、publisher 或 `reports/` 写入。
 
@@ -133,13 +133,13 @@ python scripts/run_generation_2_shadow.py \
   --as-of-now
 ```
 
-输出只报告 run outcome 与 canonical artifact directory；主 artifact 只写入 `<data-root>/runs/event-driven-morning-brief/<run_id>/`。该命令不投递、不写 canonical `reports/`，也未加入任何 schedule。
+输出只报告 run outcome 与 canonical artifact directory；主 artifact 只写入 `<data-root>/runs/event-driven-morning-brief/<run_id>/`。该命令不投递、不写 canonical `reports/`，也未加入任何 schedule。v1.8 closeout 已由用户确认：一次有效 rolling-24h real run 与 reader-facing Brief 人工验收通过；Selector/Writer 的已知局部 provider variation 均按既有 failure semantics 正确隔离。Event Clustering 不追求理论上的 100% 同事件识别，只有长期真实使用中反复出现明显 duplicate、overmerge 或不可接受 split 时才重新打开 clustering。
 
 ## v1.x Implementation Version Roadmap（FROZEN）
 
 v1.3 acceptance 已按修正后的 24h Morning Brief story-bundle semantics 通过，并冻结 `intfloat/multilingual-e5-small` 的 immutable revision、`article-title-summary-v1` projection 和 threshold `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。
 
-正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1 至 v1.7 均已完成并关闭；v1.6 implementation acceptance、v1.7 offline full-pipeline E2E 与最终 human reader-facing layout acceptance 均 PASS，无 release blocker。当前 milestone 为 v1.8 — Shadow / Parallel Validation。v1.8 不发送 reader-facing v1.x output，v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1 至 v1.8 均已完成并关闭；v1.8 的 real run、完整 Gen2 pipeline 与 reader-facing 人工验收均 PASS，无 release blocker。当前下一步为 v1.9 — Production Cutover 的 READ-ONLY audit / planning；v1.8 保持 delivery-disabled，v1.9 禁止 automatic Generation 1 semantic fallback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。旧产品 retirement 必须等 v1.8 完成 shadow / parallel validation、v1.9 完成 production cutover 后，进入 v1.10 才开始。
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import math
 from pathlib import Path
 import sys
 
@@ -19,11 +20,15 @@ from canonical_domain import Article, FailureCode, StageName, StageStatus  # noq
 from event_cluster import (  # noqa: E402
     ALGORITHM_VERSION,
     DEFAULT_THRESHOLD,
+    EDGE_POLICY_VERSION,
+    HIGH_CONFIDENCE_THRESHOLD,
+    MIN_TITLE_IDENTITY_SPAN,
     MODEL_ID,
     MODEL_REVISION,
     PROJECTION_VERSION,
     SUMMARY_CHAR_LIMIT,
     SentenceTransformerEmbedder,
+    normalize_title_for_edge_policy,
     project_article,
     cluster_articles,
 )
@@ -31,6 +36,9 @@ from event_cluster import (  # noqa: E402
 
 COLLECTED_AT = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
 FIXTURE_PATH = PROJECT_ROOT / "tests" / "fixtures" / "event_clustering_v1_3.json"
+CORRECTIVE_FIXTURE_PATH = (
+    PROJECT_ROOT / "tests" / "fixtures" / "event_clustering_v1_8_corrective.json"
+)
 
 
 def article(key: str, title: str, summary: str | None = None, language: str = "en") -> Article:
@@ -170,13 +178,44 @@ def test_projection_is_versioned_and_caps_summary() -> None:
     assert project_article(article("empty-summary", "Title only", "   ")) == "query: Title only"
 
 
-def test_v13_accepted_runtime_defaults_are_frozen() -> None:
+def test_corrective_runtime_preserves_v13_model_projection_and_floor() -> None:
     assert MODEL_ID == "intfloat/multilingual-e5-small"
     assert MODEL_REVISION == "614241f622f53c4eeff9890bdc4f31cfecc418b3"
     assert PROJECTION_VERSION == "article-title-summary-v1"
     assert SUMMARY_CHAR_LIMIT == 300
     assert DEFAULT_THRESHOLD == 0.91
-    assert ALGORITHM_VERSION == "connected-components-v1"
+    assert EDGE_POLICY_VERSION == "semantic-title-anchor-v1"
+    assert HIGH_CONFIDENCE_THRESHOLD == 0.925
+    assert MIN_TITLE_IDENTITY_SPAN == 4
+    assert ALGORITHM_VERSION == "identity-guarded-connected-components-v2"
+
+
+def test_title_edge_normalization_uses_nfkc_casefold_and_unicode_alphanumeric() -> None:
+    assert normalize_title_for_edge_policy("Ａ-Ｂ cＤ，中 国 １２") == "abcd中国12"
+    assert normalize_title_for_edge_policy("Cafe\u0301 / STRASSE") == "caféstrasse"
+
+
+def test_ambiguity_band_requires_four_character_normalized_title_span() -> None:
+    blocked_first = article("blocked-first", "墨西哥南部发生6级地震")
+    blocked_second = article("blocked-second", "亚丁湾发生6.0级地震")
+    accepted_first = article("accepted-anchor-first", "中国国防部：靖国神社表态")
+    accepted_second = article("accepted-anchor-second", "中国 国防部-记者会表态")
+    vectors = {
+        project_article(blocked_first): (1.0, 0.0),
+        project_article(blocked_second): (0.92, 0.391918),
+        project_article(accepted_first): (0.0, 1.0),
+        project_article(accepted_second): (0.391918, 0.92),
+    }
+
+    result = cluster_articles(
+        (blocked_first, blocked_second, accepted_first, accepted_second),
+        embedder_factory=lambda: MappingEmbedder(vectors),
+    )
+
+    memberships = {frozenset(candidate.article_ids) for candidate in result.outputs}
+    assert frozenset((blocked_first.article_id,)) in memberships
+    assert frozenset((blocked_second.article_id,)) in memberships
+    assert frozenset((accepted_first.article_id, accepted_second.article_id)) in memberships
 
 
 def test_accepted_threshold_membership_regression() -> None:
@@ -225,6 +264,71 @@ def test_fixture_acceptance_metadata_is_explicit() -> None:
         if case_id in production_cases:
             assert case["acceptance_class"] == "production-relevant"
             assert case["window_relevance"] == "production-realistic"
+
+
+def test_corrective_fixture_contains_only_five_reviewed_production_cases() -> None:
+    payload = json.loads(CORRECTIVE_FIXTURE_PATH.read_text(encoding="utf-8"))
+    cases = payload["cases"]
+
+    assert payload["fixture_version"] == "v1.8-event-clustering-corrective-v1"
+    assert {case["case_id"] for case in cases} == {
+        "distinct_official_discipline_cases",
+        "distinct_earthquake_locations",
+        "distinct_us_military_deployments",
+        "same_defense_ministry_briefing",
+        "same_crowdstrike_earnings_event",
+    }
+    assert len(cases) == 5
+    assert all(case["provenance"] == "production-run-artifact" for case in cases)
+    assert all(case["acceptance_class"] == "production-relevant" for case in cases)
+    assert all(case["window_relevance"] == "production-realistic" for case in cases)
+    assert all(len(case["articles"]) == 2 for case in cases)
+
+
+def test_corrective_fixture_memberships_and_repeat_are_deterministic_offline() -> None:
+    cases = json.loads(CORRECTIVE_FIXTURE_PATH.read_text(encoding="utf-8"))["cases"]
+
+    for case in cases:
+        items = [
+            article(
+                f"{case['case_id']}-{raw['key']}",
+                raw["title"],
+                raw["summary"],
+                raw["language"],
+            )
+            for raw in case["articles"]
+        ]
+        similarity = float(case["observed_similarity"])
+        vectors = {
+            project_article(items[0]): (1.0, 0.0),
+            project_article(items[1]): (
+                similarity,
+                math.sqrt(1.0 - similarity * similarity),
+            ),
+        }
+        first = cluster_articles(
+            items,
+            embedder_factory=lambda: MappingEmbedder(vectors),
+        )
+        repeated = cluster_articles(
+            reversed(items),
+            embedder_factory=lambda: MappingEmbedder(vectors),
+        )
+        key_by_article_id = {
+            item.article_id: raw["key"]
+            for item, raw in zip(items, case["articles"])
+        }
+        actual = {
+            frozenset(key_by_article_id[article_id] for article_id in candidate.article_ids)
+            for candidate in first.outputs
+        }
+        expected = {frozenset(group) for group in case["expected_clusters"]}
+
+        assert first.status == StageStatus.SUCCEEDED
+        assert actual == expected
+        assert [candidate.to_dict() for candidate in first.outputs] == [
+            candidate.to_dict() for candidate in repeated.outputs
+        ]
 
 
 def test_l2_normalization_and_same_keyword_negative() -> None:
@@ -434,7 +538,13 @@ def test_diagnostics_are_bounded_noncanonical_and_referenceable() -> None:
     assert result.status == StageStatus.SUCCEEDED
     assert result.diagnostic_ref == "diag://event-cluster/fixture"
     assert captured["model_id"] == "intfloat/multilingual-e5-small"
+    assert captured["model_revision"] == MODEL_REVISION
     assert captured["projection_version"] == PROJECTION_VERSION
+    assert captured["clustering_algorithm_version"] == ALGORITHM_VERSION
+    assert captured["edge_policy_version"] == EDGE_POLICY_VERSION
+    assert captured["base_similarity_floor"] == 0.8
+    assert captured["high_confidence_threshold"] == HIGH_CONFIDENCE_THRESHOLD
+    assert captured["title_identity_min_span"] == MIN_TITLE_IDENTITY_SPAN
     assert captured["summary_cap"] == 300
     assert captured["input_count"] == 3
     assert captured["embedded_count"] == 3
@@ -475,9 +585,13 @@ def main() -> None:
     test_one_article_forms_a_singleton_candidate()
     test_same_event_articles_cluster_and_order_is_independent()
     test_projection_is_versioned_and_caps_summary()
-    test_v13_accepted_runtime_defaults_are_frozen()
+    test_corrective_runtime_preserves_v13_model_projection_and_floor()
+    test_title_edge_normalization_uses_nfkc_casefold_and_unicode_alphanumeric()
+    test_ambiguity_band_requires_four_character_normalized_title_span()
     test_accepted_threshold_membership_regression()
     test_fixture_acceptance_metadata_is_explicit()
+    test_corrective_fixture_contains_only_five_reviewed_production_cases()
+    test_corrective_fixture_memberships_and_repeat_are_deterministic_offline()
     test_l2_normalization_and_same_keyword_negative()
     test_invalid_article_is_item_local_when_valid_candidates_remain()
     test_all_invalid_articles_fail_without_initializing_model()

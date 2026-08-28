@@ -375,10 +375,16 @@
 ### v1.8 — Shadow / Parallel Validation
 
 - Generation 1 production 正常运行
-- v1.x side-by-side real shadow execution
+- v1.x side-by-side real shadow execution；Gen2 runtime 是未来 production 可直接复用的正式 capability，不能依赖 Gen1 runtime 或 Gen1 report artifacts
 - 不发送 reader-facing v1.x output
 - compare Generation 1 与 v1.x quality / stability
 - 进入或准备 shadow 时验证 LaunchAgent / pmset / actual runtime follow-up。
+- v1.8 第一小步的 canonical Gen2 report slot 以 `report_date` 当日 Asia/Shanghai 08:00 为 inclusive `window_end`，前推 24 小时为 inclusive `window_start`，进入 canonical domain 前转换为 aware UTC；该规则不改 Gen1 rolling window，也不把 Gen1 candidate min/max 当 publication window。
+- Gen2 real runtime 从 active `feeds.json`、冻结 E5 model/revision 的 local-only cache、共享 LLM gateway 与 canonical Artifact Manager 组装既有 `run_generation_2()`；manual runner 只负责显式 real-provider opt-in 和输出 outcome/artifact location，不接 delivery、schedule 或 `reports/`。
+- Gen2 ingest 在 formal normalization/window admission 前独立 qualification 每个 fetched source snapshot；存在有效 entries 但全部无可解析 publication timestamp，且当前无其他经治理 bounded-recency evidence 的 snapshot 整体排除。不用 `collected_at`/URL 推断，不改 canonical Article nullable `published_at` contract，不影响 Gen1。
+- v1.8 真实 hard negatives 将 v1.3 clustering implementation configuration 正式 corrective replacement 为 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1`。历史 v1.3 `connected-components-v1` acceptance 不重写；当前实现保留 model/revision、`article-title-summary-v1`、`0.91` base floor 与 connected components。
+- edge acceptance 决策：`similarity >= 0.925` 接受；`0.91 <= similarity < 0.925` 仅在 title 经 Unicode NFKC、casefold、保留 Python `str.isalnum()` 字符后共享至少 4 字符连续 span 时接受；低于 `0.91` 拒绝。不使用人物/地点/category special case、中文关键词表、NER、第二 embedding model 或 LLM。
+- 纯 threshold correction 被否决：3 个 hard negatives 最高为 `0.921938`，但同一 real run 的国防部记者会和 CrowdStrike positives 为 `0.920543 / 0.920444`；任何能拆分前者的单一 threshold 都会拆分已知后者。
 
 ### v1.9 — Production Cutover
 

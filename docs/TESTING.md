@@ -305,6 +305,39 @@ git diff --check
 
 本验证共运行 28 个 `tests/offline_*.py`；不联网、不调用 RSS/DeepSeek/其它真实 provider、不读取 secrets、不写入 canonical runtime data。v1.7 保持 side-by-side，Generation 1 继续作为 production baseline；下一步为 v1.8 Shadow / Parallel Validation。
 
+## v1.8 Generation 2 manual runtime verification
+
+本轮自动验证只使用 fake fetcher/embedder/gateway 与 temporary data root；不得调用真实 RSS、DeepSeek、Bark、Obsidian 或 production delivery：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_generation_2_runtime_smoke.py
+for f in tests/offline_*.py; do
+  PYTHONDONTWRITEBYTECODE=1 .venv/bin/python "$f" || exit 1
+done
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-v18-pyc .venv/bin/python -m py_compile \
+  collector.py generation_2_runtime.py scripts/run_generation_2_shadow.py \
+  scripts/evaluate_event_selector.py scripts/evaluate_event_classifier_writer_quality.py \
+  tests/offline_generation_2_runtime_smoke.py
+git diff --check
+```
+
+runtime smoke 必须证明 canonical report slot deterministic/invalid fail closed；RSS first-attempt success、timeout/HTTP 429/5xx retry、HTTP 404 和 deterministic bozo/parse failure 不 retry，且 failure taxonomy 与 allowlisted attempt/HTTP status/bounded timing diagnostics 正确。formal builder happy path 必须实际初始化 frozen model/revision 的 pinned local cache并复用 embedder；missing cache、wrong-but-nonempty cache 或 pinned snapshot 不可加载都必须在 external collection 前 fail closed，且始终使用 `local_files_only=True`。fake dependencies 可完整生成 artifact，不 import/call Gen1 semantic fallback 或 Bark/publisher/Obsidian delivery，不写 `reports/`，artifact 只落 `<temp-data-root>/runs/event-driven-morning-brief/<run_id>/`。真实 provider run 仅由用户在 Terminal 显式执行 `scripts/run_generation_2_shadow.py --real-provider deepseek [--date YYYY-MM-DD]`；API key 只读当前 process env。
+
+source freshness acceptance 必须覆盖：全 timestamp snapshot 正常通过；300 条全 timestamp-null snapshot 整个排除并留下 bounded diagnostic；被排除条目不进入 clustering；同一 run 的 timestamped sibling source 不受影响。该测试不将 `collected_at` 或 URL 当作 publication evidence，不调用 Gen1 semantic path 或 production delivery。
+
+clustering corrective acceptance 必须以同一 pinned local model/cache 分别运行历史 `event_clustering_v1_3.json` 与独立 `event_clustering_v1_8_corrective.json`。原 production expected memberships 必须保持 `8/8 exact`；新 fixture 的 3 个 hard negatives 必须全部拆分、2 个 positive counterexamples 必须保持聚合，共 `8/8 exact`；两者 repeat deterministic。offline smoke 另锁定 NFKC、casefold、Unicode `str.isalnum()` 与 4-character contiguous span 边界。
+
+```bash
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/python \
+  scripts/evaluate_event_clustering.py --local-files-only \
+  --fixture tests/fixtures/event_clustering_v1_3.json \
+  --thresholds 0.91 --accepted-threshold 0.91
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/python \
+  scripts/evaluate_event_clustering.py --local-files-only \
+  --fixture tests/fixtures/event_clustering_v1_8_corrective.json \
+  --thresholds 0.91 --accepted-threshold 0.91
+```
+
 ## v1.2 regression checklist
 
 ```bash

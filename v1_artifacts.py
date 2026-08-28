@@ -61,6 +61,7 @@ _DIAGNOSTIC_FIELDS = frozenset(
     {
         "code",
         "failure_code",
+        "http_status",
         "reason",
         "status",
         "parse_reason",
@@ -79,6 +80,15 @@ _DIAGNOSTIC_FIELDS = frozenset(
         "response_bytes",
         "request_body_bytes",
         "response_body_bytes",
+        "model_id",
+        "model_revision",
+        "projection_version",
+        "clustering_algorithm_version",
+        "edge_policy_version",
+        "threshold",
+        "base_similarity_floor",
+        "high_confidence_threshold",
+        "title_identity_min_span",
     }
 )
 
@@ -724,7 +734,11 @@ def _sanitize_diagnostic_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
     for key, item in value.items():
         if not isinstance(key, str) or key not in _DIAGNOSTIC_FIELDS:
             raise ArtifactValidationError("diagnostic field is not allowlisted")
-        if key.endswith("_bytes") or key in {"attempt", "excluded_count"}:
+        if key.endswith("_bytes") or key in {
+            "attempt",
+            "excluded_count",
+            "http_status",
+        }:
             if isinstance(item, bool) or not isinstance(item, int) or item < 0 or item > 10**9:
                 raise ArtifactValidationError("diagnostic count must be a bounded non-negative integer")
             safe[key] = item
@@ -733,6 +747,20 @@ def _sanitize_diagnostic_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
                 raise ArtifactValidationError("diagnostic duration must be finite")
             if item < 0 or item > 10**9:
                 raise ArtifactValidationError("diagnostic duration is out of bounds")
+            safe[key] = item
+        elif key in {
+            "threshold",
+            "base_similarity_floor",
+            "high_confidence_threshold",
+        }:
+            if isinstance(item, bool) or not isinstance(item, (int, float)):
+                raise ArtifactValidationError("diagnostic threshold must be numeric")
+            if not math.isfinite(float(item)) or not -1 <= item <= 1:
+                raise ArtifactValidationError("diagnostic threshold is out of bounds")
+            safe[key] = float(item)
+        elif key == "title_identity_min_span":
+            if isinstance(item, bool) or not isinstance(item, int) or not 1 <= item <= 256:
+                raise ArtifactValidationError("diagnostic span must be a bounded positive integer")
             safe[key] = item
         elif not isinstance(item, str):
             raise ArtifactValidationError("diagnostic text metadata must be text")

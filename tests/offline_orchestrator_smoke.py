@@ -25,6 +25,15 @@ from canonical_domain import (  # noqa: E402
     StageStatus,
 )
 from collector import SourceConfig  # noqa: E402
+from event_cluster import (  # noqa: E402
+    ALGORITHM_VERSION,
+    EDGE_POLICY_VERSION,
+    HIGH_CONFIDENCE_THRESHOLD,
+    MIN_TITLE_IDENTITY_SPAN,
+    MODEL_ID,
+    MODEL_REVISION,
+    PROJECTION_VERSION,
+)
 from llm_gateway import GatewayError  # noqa: E402
 from orchestrator import run_generation_2  # noqa: E402
 from project_paths import ProjectPaths  # noqa: E402
@@ -52,6 +61,15 @@ class FakeFeed:
 class FakeEmbedder:
     def embed(self, text: str) -> tuple[float, float]:
         return (1.0, 0.0) if "Alpha" in text else (0.0, 1.0)
+
+
+class RecordingEmbedder(FakeEmbedder):
+    def __init__(self) -> None:
+        self.projections: list[str] = []
+
+    def embed(self, text: str) -> tuple[float, float]:
+        self.projections.append(text)
+        return super().embed(text)
 
 
 class RepresentativeEmbedder:
@@ -854,6 +872,95 @@ def test_window_exclusion_is_diagnostic_not_failure(root: Path) -> None:
     assert diagnostic["record"]["excluded_count"] == 1
 
 
+def test_clustering_configuration_is_durably_diagnostic_only(root: Path) -> None:
+    result = run(root, run_id="cluster-diagnostic")
+    diagnostics = [
+        json.loads(path.read_text(encoding="utf-8"))["record"]
+        for path in result.run_dir.joinpath("diagnostics").glob("*.json")
+    ]
+    diagnostic = next(
+        item for item in diagnostics if item.get("edge_policy_version") == EDGE_POLICY_VERSION
+    )
+
+    assert diagnostic == {
+        "base_similarity_floor": 0.91,
+        "clustering_algorithm_version": ALGORITHM_VERSION,
+        "edge_policy_version": EDGE_POLICY_VERSION,
+        "high_confidence_threshold": HIGH_CONFIDENCE_THRESHOLD,
+        "model_id": MODEL_ID,
+        "model_revision": MODEL_REVISION,
+        "projection_version": PROJECTION_VERSION,
+        "threshold": 0.91,
+        "title_identity_min_span": MIN_TITLE_IDENTITY_SPAN,
+    }
+
+
+def test_unbounded_source_snapshot_never_reaches_clustering(root: Path) -> None:
+    unbounded = SourceConfig(
+        "Unbounded fixture",
+        "https://fixture.example/unbounded.xml",
+        "en",
+    )
+    current = SourceConfig(
+        "Current fixture",
+        "https://fixture.example/current.xml",
+        "en",
+    )
+    embedder = RecordingEmbedder()
+
+    def fetcher(source: SourceConfig) -> FakeFeed:
+        if source == unbounded:
+            return FakeFeed(
+                [
+                    {
+                        "title": f"Historical {index}",
+                        "link": f"https://fixture.example/history/{index}",
+                    }
+                    for index in range(3)
+                ]
+            )
+        return feed()
+
+    result = run_generation_2(
+        report_date=REPORT_DATE,
+        window_start=WINDOW_START,
+        window_end=WINDOW_END,
+        target_language=TARGET_LANGUAGE,
+        sources=(unbounded, current),
+        selector_gateway=SelectorGateway(),
+        classifier_gateway=ClassifierGateway(),
+        writer_gateway=WriterGateway(),
+        embedder_factory=lambda: embedder,
+        artifact_manager=manager(root),
+        run_id="unbounded-source",
+        collector_fetcher=fetcher,
+        clock=lambda: COLLECTED_AT,
+    )
+
+    normalized = result.stage_results[1]
+    clustered = result.stage_results[3]
+    assert [article.title for article in normalized.outputs] == [
+        "Alpha event",
+        "Beta event",
+    ]
+    assert len(clustered.outputs) == 2
+    assert embedder.projections == [
+        "query: Alpha event",
+        "query: Beta event",
+    ]
+    diagnostics = [
+        json.loads(path.read_text(encoding="utf-8"))["record"]
+        for path in result.run_dir.joinpath("diagnostics").glob("*.json")
+    ]
+    source_diagnostic = next(
+        item
+        for item in diagnostics
+        if item.get("reason") == "source_snapshot_unbounded_recency"
+    )
+    assert source_diagnostic["status"] == "excluded"
+    assert source_diagnostic["excluded_count"] == 3
+
+
 def test_generation_one_routing_remains_unwired() -> None:
     main_source = PROJECT_ROOT.joinpath("main.py").read_text(encoding="utf-8")
     assert "run_generation_2" not in main_source
@@ -875,6 +982,8 @@ def main() -> None:
         test_collector_failure_and_checkpoint_failure_stop_downstream(root)
         test_renderer_failure_finalizes_failed_run_without_brief(root)
         test_window_exclusion_is_diagnostic_not_failure(root)
+        test_clustering_configuration_is_durably_diagnostic_only(root)
+        test_unbounded_source_snapshot_never_reaches_clustering(root)
     test_generation_one_routing_remains_unwired()
     print("offline orchestrator smoke passed")
 

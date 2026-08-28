@@ -2,10 +2,12 @@
   "clean": {
     "artifacts": {
       "diagnostic_refs": [
+        "diag_6af5b85c6bb990158752ba67",
         "normalizer:report-window-admission"
       ],
       "files": [
         "brief.json",
+        "diagnostics/<diagnostic>.json",
         "diagnostics/<diagnostic>.json",
         "manifest.json",
         "morning-brief.md",
@@ -122,6 +124,7 @@
         "status": "succeeded"
       },
       {
+        "diagnostic_ref": "diag_6af5b85c6bb990158752ba67",
         "output_count": 4,
         "stage": "event_cluster",
         "status": "succeeded"
@@ -180,10 +183,12 @@
   "empty": {
     "artifacts": {
       "diagnostic_refs": [
+        "diag_6af5b85c6bb990158752ba67",
         "normalizer:report-window-admission"
       ],
       "files": [
         "brief.json",
+        "diagnostics/<diagnostic>.json",
         "diagnostics/<diagnostic>.json",
         "manifest.json",
         "morning-brief.md",
@@ -233,6 +238,7 @@
         "status": "succeeded"
       },
       {
+        "diagnostic_ref": "diag_6af5b85c6bb990158752ba67",
         "output_count": 0,
         "stage": "event_cluster",
         "status": "succeeded"
@@ -263,10 +269,12 @@
   "partial": {
     "artifacts": {
       "diagnostic_refs": [
+        "diag_6af5b85c6bb990158752ba67",
         "normalizer:report-window-admission"
       ],
       "files": [
         "brief.json",
+        "diagnostics/<diagnostic>.json",
         "diagnostics/<diagnostic>.json",
         "manifest.json",
         "morning-brief.md",
@@ -379,6 +387,7 @@
         "status": "succeeded"
       },
       {
+        "diagnostic_ref": "diag_6af5b85c6bb990158752ba67",
         "output_count": 4,
         "stage": "event_cluster",
         "status": "succeeded"
@@ -449,9 +458,11 @@
   "selector_failed": {
     "artifacts": {
       "diagnostic_refs": [
+        "diag_6af5b85c6bb990158752ba67",
         "normalizer:report-window-admission"
       ],
       "files": [
+        "diagnostics/<diagnostic>.json",
         "diagnostics/<diagnostic>.json",
         "manifest.json",
         "objects/articles-admitted.json",
@@ -522,6 +533,7 @@
         "status": "succeeded"
       },
       {
+        "diagnostic_ref": "diag_6af5b85c6bb990158752ba67",
         "output_count": 4,
         "stage": "event_cluster",
         "status": "succeeded"
@@ -543,9 +555,11 @@
   "writer_all_failed": {
     "artifacts": {
       "diagnostic_refs": [
+        "diag_6af5b85c6bb990158752ba67",
         "normalizer:report-window-admission"
       ],
       "files": [
+        "diagnostics/<diagnostic>.json",
         "diagnostics/<diagnostic>.json",
         "manifest.json",
         "objects/articles-admitted.json",
@@ -647,6 +661,7 @@
         "status": "succeeded"
       },
       {
+        "diagnostic_ref": "diag_6af5b85c6bb990158752ba67",
         "output_count": 4,
         "stage": "event_cluster",
         "status": "succeeded"

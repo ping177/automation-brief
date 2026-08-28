@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Explicit real-model v1.3 threshold evaluation.
+"""Explicit real-model v1.3 and corrective edge-policy evaluation.
 
 This command is intentionally separate from the offline smoke suite.  It
 requires a pinned local model revision and never fetches RSS or calls a
@@ -26,6 +26,9 @@ from canonical_domain import Article  # noqa: E402
 from event_cluster import (  # noqa: E402
     ALGORITHM_VERSION,
     DEFAULT_THRESHOLD,
+    EDGE_POLICY_VERSION,
+    HIGH_CONFIDENCE_THRESHOLD,
+    MIN_TITLE_IDENTITY_SPAN,
     MODEL_ID,
     MODEL_REVISION,
     PROJECTION_VERSION,
@@ -557,6 +560,9 @@ def main() -> None:
                     "projection_version": PROJECTION_VERSION,
                     "summary_cap": SUMMARY_CHAR_LIMIT,
                     "algorithm_version": ALGORITHM_VERSION,
+                    "edge_policy_version": EDGE_POLICY_VERSION,
+                    "high_confidence_threshold": HIGH_CONFIDENCE_THRESHOLD,
+                    "title_identity_min_span": MIN_TITLE_IDENTITY_SPAN,
                     "device": embedder.device,
                     "dtype": embedder.dtype,
                     "accepted_threshold": args.accepted_threshold,

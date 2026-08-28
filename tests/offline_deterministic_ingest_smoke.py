@@ -19,8 +19,13 @@ from collector import (  # noqa: E402
     flatten_source_batches,
     load_sources,
     normalize_sources,
+    source_identifier,
 )
-from normalizer import admit_articles_to_report_window, normalize_source_batches  # noqa: E402
+from normalizer import (  # noqa: E402
+    admit_articles_to_report_window,
+    normalize_source_batches,
+    qualify_source_snapshots,
+)
 from article_dedup import deduplicate_articles  # noqa: E402
 
 
@@ -270,6 +275,75 @@ def test_normalizer_emits_only_canonical_articles() -> None:
         "title",
         "summary",
     }
+
+
+def test_source_snapshot_with_parseable_timestamps_is_qualified() -> None:
+    batch = source_batch(
+        source("Timestamped"),
+        [
+            {
+                "title": "Current story",
+                "link": "https://example.com/current",
+                "published": "2026-08-26T08:00:00+00:00",
+            }
+        ],
+    )
+    diagnostics: list[dict[str, object]] = []
+
+    assert qualify_source_snapshots(
+        (batch,), diagnostic_sink=lambda record: diagnostics.append(dict(record))
+    ) == (batch,)
+    assert diagnostics == []
+
+
+def test_all_null_timestamp_snapshot_is_excluded_with_bounded_diagnostic() -> None:
+    configured = source("Unbounded")
+    batch = source_batch(
+        configured,
+        [
+            {
+                "title": f"Historical story {index}",
+                "link": f"https://example.com/history/{index}",
+            }
+            for index in range(300)
+        ],
+    )
+    diagnostics: list[dict[str, object]] = []
+
+    assert qualify_source_snapshots(
+        (batch,), diagnostic_sink=lambda record: diagnostics.append(dict(record))
+    ) == ()
+    assert diagnostics == [
+        {
+            "source_ref": source_identifier(configured),
+            "status": "excluded",
+            "reason": "source_snapshot_unbounded_recency",
+            "excluded_count": 300,
+        }
+    ]
+
+
+def test_unbounded_snapshot_does_not_block_timestamped_sibling_source() -> None:
+    unbounded = source_batch(
+        source("Unbounded sibling"),
+        [{"title": "Historical", "link": "https://example.com/historical"}],
+    )
+    current = source_batch(
+        source("Current sibling"),
+        [
+            {
+                "title": "Current",
+                "link": "https://example.com/current",
+                "published": "2026-08-26T08:00:00+00:00",
+            }
+        ],
+    )
+
+    qualified = qualify_source_snapshots((unbounded, current))
+    normalized = normalize_source_batches(qualified)
+
+    assert qualified == (current,)
+    assert [article.title for article in normalized.outputs] == ["Current"]
 
 
 def test_normalizer_allows_missing_published_when_linked() -> None:
@@ -614,6 +688,9 @@ def main() -> None:
     test_malformed_source_feed_isolated_from_successful_source()
     test_successful_entries_are_extracted_without_raw_payload()
     test_normalizer_emits_only_canonical_articles()
+    test_source_snapshot_with_parseable_timestamps_is_qualified()
+    test_all_null_timestamp_snapshot_is_excluded_with_bounded_diagnostic()
+    test_unbounded_snapshot_does_not_block_timestamped_sibling_source()
     test_normalizer_allows_missing_published_when_linked()
     test_normalizer_requires_timestamp_for_linkless_entry()
     test_normalizer_rejects_naive_and_malformed_timestamps_without_guessing()

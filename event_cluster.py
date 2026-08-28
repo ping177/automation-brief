@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import re
 import time
+import unicodedata
 from typing import Any, Callable, Iterable, Mapping, Optional, Protocol, Sequence
 
 from canonical_domain import (
@@ -26,8 +27,11 @@ MODEL_ID = "intfloat/multilingual-e5-small"
 MODEL_REVISION = "614241f622f53c4eeff9890bdc4f31cfecc418b3"
 PROJECTION_VERSION = "article-title-summary-v1"
 SUMMARY_CHAR_LIMIT = 300
-ALGORITHM_VERSION = "connected-components-v1"
+ALGORITHM_VERSION = "identity-guarded-connected-components-v2"
+EDGE_POLICY_VERSION = "semantic-title-anchor-v1"
 DEFAULT_THRESHOLD = 0.91
+HIGH_CONFIDENCE_THRESHOLD = 0.925
+MIN_TITLE_IDENTITY_SPAN = 4
 NEAR_THRESHOLD_BAND = 0.03
 MAX_DIAGNOSTIC_EDGES = 256
 IMMUTABLE_REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -51,6 +55,51 @@ def project_article(article: Article) -> str:
     if article.summary is not None and article.summary.strip():
         projection += f"\n{article.summary[:SUMMARY_CHAR_LIMIT]}"
     return projection
+
+
+def normalize_title_for_edge_policy(title: str) -> str:
+    """Normalize a title to Unicode alphanumeric identity text."""
+
+    if not isinstance(title, str):
+        raise ValueError("title must be text")
+    normalized = unicodedata.normalize("NFKC", title).casefold()
+    return "".join(character for character in normalized if character.isalnum())
+
+
+def _normalized_titles_share_identity_span(first: str, second: str) -> bool:
+    if len(first) < MIN_TITLE_IDENTITY_SPAN or len(second) < MIN_TITLE_IDENTITY_SPAN:
+        return False
+    first_spans = {
+        first[index : index + MIN_TITLE_IDENTITY_SPAN]
+        for index in range(len(first) - MIN_TITLE_IDENTITY_SPAN + 1)
+    }
+    return any(
+        second[index : index + MIN_TITLE_IDENTITY_SPAN] in first_spans
+        for index in range(len(second) - MIN_TITLE_IDENTITY_SPAN + 1)
+    )
+
+
+def _accept_edge(
+    first_title: str,
+    second_title: str,
+    similarity: float,
+    threshold: float,
+) -> bool:
+    if similarity >= max(threshold, HIGH_CONFIDENCE_THRESHOLD):
+        return True
+    return similarity >= threshold and _normalized_titles_share_identity_span(
+        first_title,
+        second_title,
+    )
+
+
+def _edge_policy_metadata(threshold: float) -> dict[str, str | int | float]:
+    return {
+        "edge_policy_version": EDGE_POLICY_VERSION,
+        "base_similarity_floor": threshold,
+        "high_confidence_threshold": HIGH_CONFIDENCE_THRESHOLD,
+        "title_identity_min_span": MIN_TITLE_IDENTITY_SPAN,
+    }
 
 
 def _failure_sort_key(failure: ItemFailure) -> tuple[int, str, str]:
@@ -137,12 +186,20 @@ def _components(
 
     accepted_edges: list[tuple[str, str, float]] = []
     near_threshold_rejected: list[tuple[str, str, float]] = []
+    normalized_titles = tuple(
+        normalize_title_for_edge_policy(article.title) for article in articles
+    )
     for left in range(len(articles)):
         for right in range(left + 1, len(articles)):
             similarity = float(similarity_function(vectors[left], vectors[right]))
             if not math.isfinite(similarity):
                 raise ValueError("similarity must be finite")
-            if similarity >= threshold:
+            if _accept_edge(
+                normalized_titles[left],
+                normalized_titles[right],
+                similarity,
+                threshold,
+            ):
                 union(left, right)
                 accepted_edges.append(
                     (articles[left].article_id, articles[right].article_id, similarity)
@@ -272,6 +329,7 @@ def cluster_articles(
                     failed_count=0,
                 ),
                 "threshold": normalized_threshold,
+                **_edge_policy_metadata(normalized_threshold),
                 "timing_ms": {
                     "initialization": 0.0,
                     "embedding": 0.0,
@@ -311,6 +369,7 @@ def cluster_articles(
                     failed_count=len(failures),
                 ),
                 "threshold": normalized_threshold,
+                **_edge_policy_metadata(normalized_threshold),
                 "timing_ms": {
                     "initialization": 0.0,
                     "embedding": 0.0,
@@ -334,6 +393,7 @@ def cluster_articles(
                     failed_count=len(failures),
                 ),
                 "threshold": normalized_threshold,
+                **_edge_policy_metadata(normalized_threshold),
                 "timing_ms": {
                     "initialization": 0.0,
                     "embedding": 0.0,
@@ -360,6 +420,7 @@ def cluster_articles(
                     failed_count=len(all_failures),
                 ),
                 "threshold": normalized_threshold,
+                **_edge_policy_metadata(normalized_threshold),
             },
         )
         return _result((), all_failures, diagnostic_ref)
@@ -386,6 +447,7 @@ def cluster_articles(
                 failed_count=len(all_failures),
             ),
             "threshold": normalized_threshold,
+            **_edge_policy_metadata(normalized_threshold),
             "timing_ms": {
                 "initialization": round(initialization_ms, 3),
                 "embedding": 0.0,
@@ -423,6 +485,7 @@ def cluster_articles(
                 failed_count=len(failures),
             ),
             "threshold": normalized_threshold,
+            **_edge_policy_metadata(normalized_threshold),
             "timing_ms": {
                 "initialization": round(initialization_ms, 3),
                 "embedding": round(embedding_ms, 3),
@@ -456,6 +519,7 @@ def cluster_articles(
                 failed_count=len(all_failures),
             ),
             "threshold": normalized_threshold,
+            **_edge_policy_metadata(normalized_threshold),
             "timing_ms": {
                 "initialization": round(initialization_ms, 3),
                 "embedding": round(embedding_ms, 3),
@@ -477,6 +541,7 @@ def cluster_articles(
         "summary_cap": SUMMARY_CHAR_LIMIT,
         "clustering_algorithm_version": ALGORITHM_VERSION,
         "threshold": normalized_threshold,
+        **_edge_policy_metadata(normalized_threshold),
         "device": device,
         "dtype": dtype,
         "input_count": len(input_articles),
@@ -573,12 +638,16 @@ class SentenceTransformerEmbedder:
 __all__ = [
     "ALGORITHM_VERSION",
     "DEFAULT_THRESHOLD",
+    "EDGE_POLICY_VERSION",
     "EmbeddingBackend",
+    "HIGH_CONFIDENCE_THRESHOLD",
+    "MIN_TITLE_IDENTITY_SPAN",
     "MODEL_ID",
     "MODEL_REVISION",
     "PROJECTION_VERSION",
     "SentenceTransformerEmbedder",
     "SUMMARY_CHAR_LIMIT",
     "cluster_articles",
+    "normalize_title_for_edge_policy",
     "project_article",
 ]

@@ -30,21 +30,21 @@ from canonical_domain import (  # noqa: E402
     validate_report_window,
 )
 from event_selector import SelectorGateway, select_events  # noqa: E402
-from llm_gateway import (  # noqa: E402
-    GatewayResponse,
-    OpenAICompatibleGatewayConfig,
-    OpenAICompatibleJSONGateway,
+from generation_2_runtime import (  # noqa: E402
+    DEEPSEEK_API_KEY_ENV,
+    DEEPSEEK_ENDPOINT,
+    DEEPSEEK_MAX_ATTEMPTS,
+    DEEPSEEK_MAX_TOKENS,
+    DEEPSEEK_MODEL,
+    DEEPSEEK_PROVIDER_ID,
+    DEEPSEEK_TIMEOUT_SECONDS,
+    DeepSeekGeneration2Gateway,
+    build_deepseek_generation_2_gateway,
 )
+from llm_gateway import GatewayResponse  # noqa: E402
 
 
 FIXTURE_PATH = PROJECT_ROOT / "tests" / "fixtures" / "event_selector_quality_v1_4.json"
-DEEPSEEK_PROVIDER_ID = "deepseek"
-DEEPSEEK_MODEL = "deepseek-v4-flash"
-DEEPSEEK_ENDPOINT = "https://api.deepseek.com/chat/completions"
-DEEPSEEK_API_KEY_ENV = "AUTOMATION_BRIEF_CURATOR_API_KEY"
-DEEPSEEK_TIMEOUT_SECONDS = 90.0
-DEEPSEEK_MAX_ATTEMPTS = 2
-DEEPSEEK_MAX_TOKENS = 8192
 DEFAULT_RUNS = 3
 MAX_RUNS = 5
 EXPECTATIONS = frozenset({"must_include", "judgment_call", "should_omit"})
@@ -82,27 +82,7 @@ class _CaptureGateway:
         )
 
 
-class _DeepSeekSelectorGateway:
-    """Add only the provider parameters frozen for manual DeepSeek evaluation."""
-
-    def __init__(self, delegate: OpenAICompatibleJSONGateway) -> None:
-        self._delegate = delegate
-
-    def complete_json(
-        self,
-        messages: Sequence[Mapping[str, Any]],
-        *,
-        parameters: Mapping[str, Any] | None = None,
-    ) -> GatewayResponse:
-        if parameters is not None:
-            raise ValueError("selector provider parameters must be runner-owned")
-        return self._delegate.complete_json(
-            messages,
-            parameters={
-                "max_tokens": DEEPSEEK_MAX_TOKENS,
-                "thinking": {"type": "disabled"},
-            },
-        )
+_DeepSeekSelectorGateway = DeepSeekGeneration2Gateway
 
 
 def _require_exact_keys(
@@ -324,18 +304,7 @@ def summarize_observations(
 
 
 def _deepseek_gateway() -> _DeepSeekSelectorGateway:
-    return _DeepSeekSelectorGateway(
-        OpenAICompatibleJSONGateway(
-            OpenAICompatibleGatewayConfig(
-                provider_id=DEEPSEEK_PROVIDER_ID,
-                model=DEEPSEEK_MODEL,
-                endpoint=DEEPSEEK_ENDPOINT,
-                api_key_env=DEEPSEEK_API_KEY_ENV,
-                timeout=DEEPSEEK_TIMEOUT_SECONDS,
-                max_attempts=DEEPSEEK_MAX_ATTEMPTS,
-            )
-        )
-    )
+    return build_deepseek_generation_2_gateway()
 
 
 def evaluate_quality_runs(

@@ -1,0 +1,125 @@
+{
+  "fixture_version": "v1.8-event-clustering-corrective-v1",
+  "cases": [
+    {
+      "case_id": "distinct_official_discipline_cases",
+      "provenance": "production-run-artifact",
+      "provenance_note": "Observed in Generation 2 run gen2-20260828T042606.930874Z-ae0e426aec52.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "held_out",
+      "observed_similarity": 0.921938196708,
+      "articles": [
+        {
+          "key": "jiangxi-official",
+          "language": "zh-CN",
+          "title": "江西省委副书记、省长叶建春被查",
+          "summary": "中新网8月27日电 据中央纪委国家监委网站消息，江西省委副书记、省长叶建春涉嫌严重违纪违法，目前正接受中央纪委国家监委纪律审查和监察调查。"
+        },
+        {
+          "key": "hubei-official",
+          "language": "zh-CN",
+          "title": "湖北省人大教育科学文化卫生委员会原副主任委员王炜被“双开”",
+          "summary": "中新网8月27日电 据湖北省纪委监委消息：经湖北省委批准，湖北省纪委监委对省人大教育科学文化卫生委员会原副主任委员王炜严重违纪违法问题进行了立案审查调查。"
+        }
+      ],
+      "expected_clusters": [["jiangxi-official"], ["hubei-official"]]
+    },
+    {
+      "case_id": "distinct_earthquake_locations",
+      "provenance": "production-run-artifact",
+      "provenance_note": "Observed in Generation 2 run gen2-20260828T042606.930874Z-ae0e426aec52; retained as a clustering hard negative independently of later source-freshness exclusion.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "held_out",
+      "observed_similarity": 0.918544572681,
+      "articles": [
+        {
+          "key": "mexico-earthquake",
+          "language": "zh-CN",
+          "title": "墨西哥南部发生6级地震",
+          "summary": "墨西哥国家地震局11日说，该国南部格雷罗州当天上午发生6级地震。首都墨西哥城响起地震警报，震感明显，有市民撤离至街头。"
+        },
+        {
+          "key": "gulf-of-aden-earthquake",
+          "language": "zh-CN",
+          "title": "亚丁湾发生6.0级地震 震源深度10千米",
+          "summary": "中国地震台网正式测定：8月28日5时7分在亚丁湾(北纬13.27度，东经50.38度)发生6.0级地震，震源深度10千米。"
+        }
+      ],
+      "expected_clusters": [["mexico-earthquake"], ["gulf-of-aden-earthquake"]]
+    },
+    {
+      "case_id": "distinct_us_military_deployments",
+      "provenance": "production-run-artifact",
+      "provenance_note": "Observed in Generation 2 run gen2-20260828T042606.930874Z-ae0e426aec52.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "held_out",
+      "observed_similarity": 0.915281680207,
+      "articles": [
+        {
+          "key": "nigeria-withdrawal",
+          "language": "zh-CN",
+          "title": "美媒：五角大楼计划从尼日利亚撤出约200名美军士兵",
+          "summary": "中新网8月28日电 据美国《纽约时报》报道，五角大楼计划在9月下旬前从尼日利亚撤出约200名美军士兵。"
+        },
+        {
+          "key": "carrier-middle-east",
+          "language": "zh-CN",
+          "title": "美媒：“罗斯福”号航母及5000名舰上官兵将被派往中东",
+          "summary": "中新网8月28日电 据美国有线电视新闻网(CNN)报道，美国官员当地时间26日表示，美国“西奥多·罗斯福”号航空母舰及5000名舰上官兵将在未来几周被派往中东地区，接替“华盛顿”号航母，执行至少7个月的部署任务。"
+        }
+      ],
+      "expected_clusters": [["nigeria-withdrawal"], ["carrier-middle-east"]]
+    },
+    {
+      "case_id": "same_defense_ministry_briefing",
+      "provenance": "production-run-artifact",
+      "provenance_note": "Observed in Generation 2 run gen2-20260828T042606.930874Z-ae0e426aec52.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "held_out",
+      "observed_similarity": 0.920542997584,
+      "articles": [
+        {
+          "key": "yasukuni-briefing",
+          "language": "zh-CN",
+          "title": "中国国防部：靖国神社是名副其实的“战犯神社”",
+          "summary": "中新社北京8月27日电 (记者 李纯)中国国防部新闻发言人张晓刚在27日的例行记者会上指出，靖国神社是名副其实的“战犯神社”、军国主义招魂所。民进党当局媚日恋殖、认贼作父，令人不齿。"
+        },
+        {
+          "key": "militarism-briefing",
+          "language": "zh-CN",
+          "title": "中国国防部：国际社会应坚决遏止日本“新型军国主义”妄动",
+          "summary": "中新社北京8月27日电 (记者 李纯)中国国防部27日在北京举行例行记者会，新闻发言人张晓刚指出，国际社会应坚决遏止日本“新型军国主义”妄动。"
+        }
+      ],
+      "expected_clusters": [["yasukuni-briefing", "militarism-briefing"]]
+    },
+    {
+      "case_id": "same_crowdstrike_earnings_event",
+      "provenance": "production-run-artifact",
+      "provenance_note": "Observed in Generation 2 run gen2-20260828T042606.930874Z-ae0e426aec52.",
+      "acceptance_class": "production-relevant",
+      "window_relevance": "production-realistic",
+      "split": "held_out",
+      "observed_similarity": 0.920443767896,
+      "articles": [
+        {
+          "key": "crowdstrike-sector-reaction",
+          "language": "en",
+          "title": "CrowdStrike posts best day ever, Okta's stock pops nearly 29% as rising AI threat lifts earnings",
+          "summary": "AI adoption is pushing customers to spend more on cybersecurity tools from companies such as CrowdStrike and Okta"
+        },
+        {
+          "key": "crowdstrike-quarter",
+          "language": "en",
+          "title": "CrowdStrike jumps 11% on record second quarter as 'Mythos moment' drives AI cyber wave",
+          "summary": "CrowdStrike shares have surged 61% this year to new highs as the threat from frontier AI has fueled demand for advanced security tools."
+        }
+      ],
+      "expected_clusters": [["crowdstrike-sector-reaction", "crowdstrike-quarter"]]
+    }
+  ]
+}

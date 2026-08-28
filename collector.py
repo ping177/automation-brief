@@ -12,8 +12,12 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import time as time_module
 from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence
-from urllib.error import URLError
+import urllib.request
+from urllib.error import HTTPError, URLError
+
+import feedparser
 
 from canonical_domain import (
     FailureCode,
@@ -23,6 +27,14 @@ from canonical_domain import (
     StageStatus,
     normalize_canonical_datetime,
     normalize_language,
+)
+
+
+FEED_FETCH_ATTEMPTS = 2
+FEED_FETCH_RETRY_DELAY_SECONDS = 3
+FEED_FETCH_TIMEOUT_SECONDS = 15
+FEED_ACCEPT_HEADER = (
+    "application/atom+xml, application/rss+xml, application/xml, text/xml, */*"
 )
 
 
@@ -100,6 +112,35 @@ class FeedFetcher(Protocol):
         ...
 
 
+SourceDiagnosticSink = Callable[[Mapping[str, Any]], Any]
+
+
+@dataclass(frozen=True)
+class SourceFetchOutcome:
+    """Secret-safe runtime metadata returned by the formal RSS adapter."""
+
+    parsed_feed: Any
+    attempt_count: int
+    http_status: int | None
+    duration_ms: float
+
+
+class SourceFetchError(RuntimeError):
+    """Exhausted or deterministic source failure with bounded metadata."""
+
+    def __init__(
+        self,
+        *,
+        attempt_count: int,
+        http_status: int | None,
+        duration_ms: float,
+    ) -> None:
+        self.attempt_count = attempt_count
+        self.http_status = http_status
+        self.duration_ms = duration_ms
+        super().__init__("source fetch failed")
+
+
 def source_identifier(source: SourceConfig) -> str:
     """Return a stable, non-content source identifier for failure metadata."""
 
@@ -136,12 +177,99 @@ def load_sources(path: Path) -> tuple[SourceConfig, ...]:
         return normalize_sources(json.load(file))
 
 
-def fetch_source(source: SourceConfig) -> Any:
-    """Reuse the mature Gen1 HTTP/feedparser retry boundary without its semantics."""
+def _http_status(response: Any) -> int | None:
+    status = getattr(response, "status", None)
+    if status is None and callable(getattr(response, "getcode", None)):
+        status = response.getcode()
+    return status if type(status) is int and 100 <= status <= 599 else None
 
-    from main import parse_feed_with_retry
 
-    return parse_feed_with_retry({"name": source.name, "url": source.url})
+def _retryable_source_error(error: BaseException) -> bool:
+    if isinstance(error, HTTPError):
+        return error.code == 429 or 500 <= error.code <= 599
+    if isinstance(error, TimeoutError):
+        return True
+    if isinstance(error, URLError):
+        return True
+    return isinstance(error, OSError)
+
+
+def _source_fetch_error(
+    started_at: float,
+    *,
+    attempt_count: int,
+    http_status: int | None,
+) -> SourceFetchError:
+    return SourceFetchError(
+        attempt_count=attempt_count,
+        http_status=http_status,
+        duration_ms=round((time_module.perf_counter() - started_at) * 1000, 3),
+    )
+
+
+def fetch_source(source: SourceConfig) -> SourceFetchOutcome:
+    """Fetch and parse one source without importing the Generation 1 runtime."""
+
+    if not isinstance(source, SourceConfig):
+        raise ValueError("source must be SourceConfig")
+    started_at = time_module.perf_counter()
+    for attempt in range(1, FEED_FETCH_ATTEMPTS + 1):
+        try:
+            request = urllib.request.Request(
+                source.url,
+                headers={
+                    "User-Agent": feedparser.USER_AGENT,
+                    "Accept": FEED_ACCEPT_HEADER,
+                },
+            )
+            with urllib.request.urlopen(
+                request,
+                timeout=FEED_FETCH_TIMEOUT_SECONDS,
+            ) as response:
+                payload = response.read()
+                response_headers = {
+                    key.lower(): value for key, value in response.headers.items()
+                }
+                response_headers.setdefault("content-location", response.geturl())
+                http_status = _http_status(response)
+        except Exception as error:
+            error_status = error.code if isinstance(error, HTTPError) else None
+            if _retryable_source_error(error) and attempt < FEED_FETCH_ATTEMPTS:
+                time_module.sleep(FEED_FETCH_RETRY_DELAY_SECONDS)
+                continue
+            raise _source_fetch_error(
+                started_at,
+                attempt_count=attempt,
+                http_status=error_status,
+            ) from error
+        try:
+            parsed_feed = feedparser.parse(payload, response_headers=response_headers)
+        except Exception as error:
+            raise _source_fetch_error(
+                started_at,
+                attempt_count=attempt,
+                http_status=http_status,
+            ) from error
+        if parsed_feed.bozo and len(parsed_feed.entries) == 0:
+            parse_error = getattr(
+                parsed_feed,
+                "bozo_exception",
+                RuntimeError("feed parse failed"),
+            )
+            if not isinstance(parse_error, BaseException):
+                parse_error = RuntimeError("feed parse failed")
+            raise _source_fetch_error(
+                started_at,
+                attempt_count=attempt,
+                http_status=http_status,
+            ) from parse_error
+        return SourceFetchOutcome(
+            parsed_feed=parsed_feed,
+            attempt_count=attempt,
+            http_status=http_status,
+            duration_ms=round((time_module.perf_counter() - started_at) * 1000, 3),
+        )
+    raise AssertionError("bounded source attempts exhausted without a result")
 
 
 def _entry_value(entry: Any, key: str) -> Any:
@@ -196,6 +324,8 @@ def _failure_code(error: BaseException) -> FailureCode:
         seen.add(id(current))
         if isinstance(current, TimeoutError):
             return FailureCode.TIMEOUT
+        if isinstance(current, HTTPError):
+            return FailureCode.SOURCE_FETCH_FAILED
         reason = getattr(current, "reason", None)
         if isinstance(reason, TimeoutError):
             return FailureCode.TIMEOUT
@@ -203,6 +333,32 @@ def _failure_code(error: BaseException) -> FailureCode:
             return FailureCode.TRANSPORT_FAILED
         current = current.__cause__ or current.__context__
     return FailureCode.SOURCE_FETCH_FAILED
+
+
+def _emit_source_diagnostic(
+    sink: SourceDiagnosticSink | None,
+    *,
+    source_ref: str,
+    status: str,
+    metadata: SourceFetchOutcome | SourceFetchError,
+    failure_code: FailureCode | None = None,
+) -> None:
+    if sink is None:
+        return
+    record: dict[str, Any] = {
+        "source_ref": source_ref,
+        "status": status,
+        "attempt": metadata.attempt_count,
+        "duration_ms": metadata.duration_ms,
+    }
+    if metadata.http_status is not None:
+        record["http_status"] = metadata.http_status
+    if failure_code is not None:
+        record["failure_code"] = failure_code.value
+    try:
+        sink(record)
+    except Exception:
+        pass
 
 
 def _utc_now() -> datetime:
@@ -214,6 +370,7 @@ def collect_sources(
     *,
     fetcher: FeedFetcher | None = None,
     clock: Callable[[], datetime] = _utc_now,
+    diagnostic_sink: SourceDiagnosticSink | None = None,
 ) -> StageResult[SourceBatch]:
     """Fetch each configured source and retain successful source batches."""
 
@@ -223,10 +380,16 @@ def collect_sources(
 
     for source in tuple(sources):
         item_id = source_identifier(source) if isinstance(source, SourceConfig) else None
+        fetch_metadata: SourceFetchOutcome | None = None
         try:
             if not isinstance(source, SourceConfig):
                 raise ValueError("sources must contain SourceConfig objects")
-            parsed_feed = active_fetcher(source)
+            fetched = active_fetcher(source)
+            if isinstance(fetched, SourceFetchOutcome):
+                fetch_metadata = fetched
+                parsed_feed = fetched.parsed_feed
+            else:
+                parsed_feed = fetched
             entries = _feed_entries(parsed_feed)
             collected_at = normalize_canonical_datetime(clock(), "collected_at")
             raw_entries = tuple(
@@ -236,8 +399,27 @@ def collect_sources(
             successful_batches.append(
                 SourceBatch(source=source, collected_at=collected_at, entries=raw_entries)
             )
+            if fetch_metadata is not None and item_id is not None:
+                _emit_source_diagnostic(
+                    diagnostic_sink,
+                    source_ref=item_id,
+                    status="succeeded",
+                    metadata=fetch_metadata,
+                )
         except Exception as error:
-            failures.append(ItemFailure(item_id=item_id, code=_failure_code(error)))
+            failure_code = _failure_code(error)
+            failures.append(ItemFailure(item_id=item_id, code=failure_code))
+            diagnostic_metadata = (
+                error if isinstance(error, SourceFetchError) else fetch_metadata
+            )
+            if diagnostic_metadata is not None and item_id is not None:
+                _emit_source_diagnostic(
+                    diagnostic_sink,
+                    source_ref=item_id,
+                    status="failed",
+                    metadata=diagnostic_metadata,
+                    failure_code=failure_code,
+                )
 
     if failures and successful_batches:
         status = StageStatus.PARTIAL
@@ -265,6 +447,9 @@ __all__ = [
     "RawFeedEntry",
     "SourceBatch",
     "SourceConfig",
+    "SourceDiagnosticSink",
+    "SourceFetchError",
+    "SourceFetchOutcome",
     "collect_sources",
     "fetch_source",
     "flatten_source_batches",

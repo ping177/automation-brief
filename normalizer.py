@@ -20,7 +20,12 @@ from canonical_domain import (
     normalize_canonical_datetime,
     validate_report_window,
 )
-from collector import RawFeedEntry, SourceBatch
+from collector import (
+    RawFeedEntry,
+    SourceBatch,
+    SourceDiagnosticSink,
+    source_identifier,
+)
 
 
 _HTML_TAG = re.compile(r"<[^>]*>")
@@ -88,6 +93,50 @@ def _normalize_entry(batch: SourceBatch, entry: RawFeedEntry) -> Article:
         title=title,
         summary=summary,
     )
+
+
+def qualify_source_snapshots(
+    batches: Iterable[SourceBatch],
+    *,
+    diagnostic_sink: SourceDiagnosticSink | None = None,
+) -> tuple[SourceBatch, ...]:
+    """Exclude non-empty source snapshots with no bounded recency evidence."""
+
+    if isinstance(batches, (str, bytes)):
+        raise ValueError("source batches must be an iterable")
+    try:
+        values = tuple(batches)
+    except TypeError:
+        raise ValueError("source batches must be an iterable") from None
+    if any(not isinstance(batch, SourceBatch) for batch in values):
+        raise ValueError("source batches must contain SourceBatch objects")
+
+    qualified: list[SourceBatch] = []
+    for batch in values:
+        valid_articles: list[Article] = []
+        for entry in batch.entries:
+            try:
+                valid_articles.append(_normalize_entry(batch, entry))
+            except (CanonicalContractError, TypeError, ValueError, OverflowError):
+                continue
+        if not valid_articles or any(
+            article.published_at is not None for article in valid_articles
+        ):
+            qualified.append(batch)
+            continue
+        if diagnostic_sink is not None:
+            try:
+                diagnostic_sink(
+                    {
+                        "source_ref": source_identifier(batch.source),
+                        "status": "excluded",
+                        "reason": "source_snapshot_unbounded_recency",
+                        "excluded_count": len(batch.entries),
+                    }
+                )
+            except Exception:
+                pass
+    return tuple(qualified)
 
 
 def normalize_source_batches(batches: Iterable[SourceBatch]) -> StageResult[Article]:
@@ -171,4 +220,5 @@ __all__ = [
     "admit_articles_to_report_window",
     "normalize_source_batches",
     "parse_source_timestamp",
+    "qualify_source_snapshots",
 ]

@@ -25,8 +25,25 @@ from event_classifier import ClassifierGateway, classify_events
 from event_cluster import EmbeddingBackend, cluster_articles
 from event_selector import SelectorGateway, select_events
 from event_writer import WriterGateway, write_events
-from normalizer import admit_articles_to_report_window, normalize_source_batches
+from normalizer import (
+    admit_articles_to_report_window,
+    normalize_source_batches,
+    qualify_source_snapshots,
+)
 from v1_artifacts import ArtifactRun, V1ArtifactManager
+
+
+_CLUSTER_CONFIGURATION_DIAGNOSTIC_FIELDS = (
+    "model_id",
+    "model_revision",
+    "projection_version",
+    "clustering_algorithm_version",
+    "edge_policy_version",
+    "threshold",
+    "base_similarity_floor",
+    "high_confidence_threshold",
+    "title_identity_min_span",
+)
 
 
 @dataclass(frozen=True)
@@ -47,6 +64,16 @@ def _utc_now() -> datetime:
 
 def _new_run_id() -> str:
     return f"gen2-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')}-{uuid.uuid4().hex[:12]}"
+
+
+def _persist_cluster_configuration(run: ArtifactRun, record: Mapping[str, Any]) -> str:
+    return run.persist_diagnostic(
+        {
+            field: record[field]
+            for field in _CLUSTER_CONFIGURATION_DIAGNOSTIC_FIELDS
+            if field in record
+        }
+    )
 
 
 def _source_batch_payload(batch: SourceBatch) -> dict[str, Any]:
@@ -91,11 +118,14 @@ def _checkpoint(
     *,
     object_name: str | None = None,
     output_serializer: Callable[[Any], Any] | None = None,
+    diagnostic_is_pre_persisted: bool = False,
 ) -> None:
     run.persist_stage_result(
         result,
         output_serializer=output_serializer,
-        diagnostic_record=_diagnostic_record(result),
+        diagnostic_record=(
+            None if diagnostic_is_pre_persisted else _diagnostic_record(result)
+        ),
     )
     if object_name is not None:
         run.persist_objects(object_name, result.outputs)
@@ -208,13 +238,18 @@ def run_generation_2(
         source_values,
         fetcher=collector_fetcher,
         clock=clock,
+        diagnostic_sink=run.persist_diagnostic,
     )
     stage_results.append(collector_result)
     _checkpoint(run, collector_result, output_serializer=_source_batch_payload)
     if collector_result.status is StageStatus.FAILED:
         return _failed_run(run, stage_results)
 
-    normalizer_result = normalize_source_batches(collector_result.outputs)
+    qualified_batches = qualify_source_snapshots(
+        collector_result.outputs,
+        diagnostic_sink=run.persist_diagnostic,
+    )
+    normalizer_result = normalize_source_batches(qualified_batches)
     stage_results.append(normalizer_result)
     _checkpoint(run, normalizer_result, object_name="articles-normalized")
     if normalizer_result.status is StageStatus.FAILED:
@@ -248,9 +283,15 @@ def run_generation_2(
     cluster_result = cluster_articles(
         dedup_result.outputs,
         embedder_factory=embedder_factory,
+        diagnostic_sink=lambda record: _persist_cluster_configuration(run, record),
     )
     stage_results.append(cluster_result)
-    _checkpoint(run, cluster_result, object_name="event-candidates")
+    _checkpoint(
+        run,
+        cluster_result,
+        object_name="event-candidates",
+        diagnostic_is_pre_persisted=True,
+    )
     if cluster_result.status is StageStatus.FAILED:
         return _failed_run(run, stage_results)
 

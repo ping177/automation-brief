@@ -22,7 +22,7 @@ v1.4 — Event Selector（COMPLETED / CLOSED）
 v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
-v1.8 — Shadow / Parallel Validation（PLANNED）
+v1.8 — Shadow / Parallel Validation（IN PROGRESS）
 v1.9 — Production Cutover（PLANNED）
 v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 ```
@@ -115,6 +115,14 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - Human Reader-Facing Acceptance: PASS。最终布局为 H1 日期、H2 italic category、H3 bold + `var(--text-accent)` Event title、`摘要：` / `为什么重要：`、Obsidian-compatible HTML `<details>` source folding；无 `## 今日要闻`，category regroup/order 与 canonical global `Brief.event_ids` 保持不变。
 - focused renderer/orchestrator smoke、全部 28 个 `tests/offline_*.py`、Python compile/compileall、shell syntax、Project-State Push Gate 16/16、fixture parsing 与 `git diff --check` 均通过；未调用真实 RSS/DeepSeek/provider，未修改 Generation 1 production routing。
 
+### v1.8 Shadow / Parallel Validation — IN PROGRESS
+
+- 第一小步实现 production-reusable `generation_2_runtime.py`：正式组装 active sources、canonical report slot、冻结 E5 local-only embedder、共享 DeepSeek JSON gateway adapter 与 canonical Generation 2 artifacts；不依赖 Gen1，不接 delivery 或 `reports/`。
+- 新增薄 manual invocation `scripts/run_generation_2_shadow.py`；必须显式 `--real-provider deepseek`，默认 delivery disabled，真实 RSS/provider 运行仅由用户在 Terminal 执行。
+- 首次真实 run 的 input population failure 已以 Gen2 source-snapshot freshness qualification 收敛：所有有效 entries 都无可解析 publication timestamp 的 source 不进入 Article/window/clustering pool，但不修改 nullable Article contract、Gen1 source config 或 production routing。
+- 首次真实 run 的 clustering production hard negatives 已通过 versioned `semantic-title-anchor-v1` edge policy 做正式 corrective replacement；纯 threshold 方案因会拆分已确认真实 positives 而被否决。原 v1.3 `8/8` evidence 保持，新 5-case corrective acceptance 也为 `8/8 exact`。
+- 下一步是继续 real Shadow / Parallel Validation：用户在 Terminal 执行显式 manual Gen2 runs，核对 bounded input 与 corrective clustering artifacts；Gen1 comparison / human review layer 保持后续独立范围。
+
 ### v1.x Implementation Version Roadmap — FROZEN
 
 完整路线与治理规则以 [`docs/DECISIONS.md`](DECISIONS.md) 的 `v1.x Implementation Version Roadmap（FROZEN）` 为 canonical source；这里保留执行索引：
@@ -128,7 +136,7 @@ v1.4  Event Selector（COMPLETED / CLOSED）
 v1.5  Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6  Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7  Offline / Snapshot Validation（COMPLETED / CLOSED）
-v1.8  Shadow / Parallel Validation（NEXT）
+v1.8  Shadow / Parallel Validation（IN PROGRESS）
 v1.9  Production Cutover
 v1.10 Legacy Retirement & v1.x Closeout
 ```

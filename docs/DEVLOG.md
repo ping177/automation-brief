@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-29 — v1.9 Slice 5 Controlled Production Activation — APPLIED / FIRST SCHEDULED ACCEPTANCE PENDING
+
+- 在 baseline commit `f42b6e82030d296f3858946f39f1a27ab694f306`、Asia/Shanghai `2026-08-29T02:02:53+0800`、当日 canonical Morning Brief 不存在的前提下，将 installed LaunchAgent `/Users/wp/Library/LaunchAgents/com.ping.automation-brief.daily.plist` 的唯一 route 参数从 `overnight_brief` 改为 `generation_2`；Label、script path、working directory、stdout/stderr path 与 08:00 calendar schedule 保持不变。plist SHA-256 从 `503d7f8aeebeaeee27c9623c3f2f4b34c82b1ee46c14a23a45e41f465f97fecb` 变为 `4d1369860372699e27127b170197206cabd57d506d965890b5b351ea10612d61`，且 reload 后内容与 checked-in example 语义一致。
+- activation preflight 确认 repo/Git clean、shell 与 `.venv` 路径可用、process-env-first / `.env.local` credential seam 可提供非空 key、冻结 `intfloat/multilingual-e5-small` revision `614241f622f53c4eeff9890bdc4f31cfecc418b3` 可由当前用户以 `local_files_only=True` 初始化；未记录或打印 secret。
+- 使用既有 `launchctl bootout` / `bootstrap` reload；post-reload 为 loaded、`state = not running`、`runs = 0`、`last exit code = never exited`，ProgramArguments 为 `generation_2`，calendar trigger 仍为 08:00。未 kickstart、未手动运行 production shell，未调用真实 RSS/DeepSeek/Obsidian/Bark，也未提前创建当日报告。
+- `overnight_brief` 保留为 explicit human-approved rollback route：只有人工批准后才将 installed route 改回并 reload；禁止 Gen2 failure 自动调用 Gen1、改 plist、覆盖报告或 rollback。v1.9 仍为 IMPLEMENTATION UNDERWAY，下一步观察并验收第一次 scheduled Gen2 production run。
+
 ## 2026-08-29 — v1.9 Slice 4 Full Offline Acceptance — PASS
 
 - 对 Slice 1–3 已实现的完整 checked-in production chain 做 pre-activation offline release gate：`generation_2` route → production publication adapter → finalized artifact → canonical Morning Brief report → mobile/Obsidian publisher → Bark。30/30 `tests/offline_*.py`、Slice 1 adapter、Gen2 runtime、orchestrator、artifact、deterministic ingest / clustering / selector / classifier / writer / renderer / legacy regressions 均 PASS。

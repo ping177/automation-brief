@@ -397,12 +397,14 @@ git diff --check
 
 Acceptance 必须覆盖完整 checked-in chain：`generation_2` → production adapter → finalized artifact → canonical report → mobile/Obsidian publisher → Bark；complete、partial、legal empty、hard failed outcome；manifest/run identity、finalized-only、digest/collision、atomic publication；Asia/Shanghai date handoff 与 invalid/missing dated report；四种 delivery exit matrix；Bark timeout/transport no-resend、HTTP 429/5xx bounded retry、unexpected failure safe diagnostics；process-env-first、missing-key fail closed、no-Gen1 fallback、legacy `overnight_brief` route 和 08:00 plist contract。全部测试使用临时 fixture/data root，不读取真实 secret、不联网、不写真实用户目录。
 
-### Slice 5 Controlled Production Activation checklist（仅准备，未执行）
+### Slice 5 Controlled Production Activation（activation 已应用；第一次 scheduled acceptance 待执行）
 
-- [ ] 将 installed LaunchAgent route 人工切换为 `generation_2`，确认 label、working directory、日志路径和 08:00 schedule 不变。
-- [ ] 确认 scheduled environment 可安全获得 `AUTOMATION_BRIEF_CURATOR_API_KEY`，不写入 plist、命令行或日志。
-- [ ] 确认冻结 embedding model cache 存在，并可由 LaunchAgent 用户读取；不重新下载模型。
-- [ ] 执行一次受控 08:00/等价真实 run，确认实际调用 `generation_2` route。
+- [x] 将 installed LaunchAgent route 人工切换为 `generation_2`，确认 label、working directory、日志路径和 08:00 schedule 不变。
+- [x] 确认 scheduled environment 可安全获得 `AUTOMATION_BRIEF_CURATOR_API_KEY`，不写入 plist、命令行或日志。
+- [x] 确认冻结 embedding model cache 存在，并可由 LaunchAgent 用户读取；以 `local_files_only=True` 初始化，不重新下载模型。
+- [x] 使用 `launchctl bootout` / `bootstrap` reload 并确认 loaded waiting state；`runs = 0`，未 kickstart、未手动生成、未提前创建当日报告。
+- [ ] 等待 08:00 scheduled run，确认 LaunchAgent 实际触发且 exit 状态可审计。
+- [ ] 确认实际调用 `generation_2` route，且无重复 semantic run。
 - [ ] 确认 finalized Gen2 artifact、manifest、run identity 和 `generation_outcome` 正常生成。
 - [ ] 确认 canonical `reports/morning-brief-YYYY-MM-DD.md` 存在且 digest 与 finalized artifact 一致。
 - [ ] 确认 Obsidian note 路径、文件名和内容正确。
@@ -410,7 +412,9 @@ Acceptance 必须覆盖完整 checked-in chain：`generation_2` → production a
 - [ ] 点击 Bark URI，确认打开正确的 Obsidian note。
 - [ ] 完成人工 reader-facing Morning Brief 验收，包含 complete/partial/legal empty 可读性检查。
 - [ ] 检查日志确认没有 `main.py`、Gen1 Curator、Gen1 semantic fallback 或重复 semantic stages。
-- [ ] 保留并演练 explicit、人工批准、可审计的 `overnight_brief` rollback procedure。
+- [x] 保留 explicit、人工批准、可审计的 `overnight_brief` rollback seam；本轮不实际 rollback。
+
+第一次 scheduled acceptance 的 canonical evidence 位置：launchd stdout/stderr 为 repo 根目录 `daily-digest.launchd.out.log` / `daily-digest.launchd.err.log`；Gen2 finalized run 为 `<data-root>/runs/event-driven-morning-brief/<run_id>/manifest.json` 与 `morning-brief.md`；正式报告为 `<data-root>/reports/morning-brief-YYYY-MM-DD.md`；Obsidian note 为 `.env.local` 中既有 `MOBILE_DIGEST_DIR` 下的同名 Morning Brief。只核对这些位置与安全字段，不输出 `.env.local` 内容、API key 或 Bark URL。
 
 ## v1.2 regression checklist
 

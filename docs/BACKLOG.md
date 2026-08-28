@@ -14,7 +14,7 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；v1.9 implementation underway，Slice 1–4 complete）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；v1.9 implementation underway，Slice 5 activation applied）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
@@ -23,7 +23,7 @@ v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–4 COMPLETED）
+v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–4 COMPLETED；Slice 5 ACTIVATION APPLIED / FIRST SCHEDULED ACCEPTANCE PENDING）
 v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 ```
 
@@ -47,7 +47,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 七天真实使用观察和产品 review 已完成。
 - Closeout 不是“Generation 1 完全达到长期产品目标”；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。
 - 这些 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 `v1.0 — Event-driven Morning Brief` architecture rebuild。
-- 当前 production 仍运行 Generation 1 pipeline；在 v1.8 shadow / parallel validation 和 v1.9 production cutover 前不删除或退役旧 production / legacy surface。
+- 该 closeout 当时的 production 仍运行 Generation 1 pipeline；v1.9 Slice 5 现已应用 Gen2 installed activation，但第一次 scheduled acceptance 完成前仍不删除或退役旧 production / legacy surface。
 - READ-ONLY Dependency Audit、Core Data Contract Freeze 与 Runtime / Failure Contract Freeze 已完成；v1.x implementation roadmap 已冻结，下一步唯一任务是 `v1.1 — Canonical Domain & Runtime Foundation`。不重新实施 superseded 的 v0.7.4 路线。
 
 ### v1.0 Core Data Contract Freeze — COMPLETE
@@ -139,11 +139,11 @@ v1.5  Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6  Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7  Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8  Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9  Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–4 COMPLETED；等待审核后继续 Slice 5 Controlled Production Activation）
+v1.9  Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–4 COMPLETED；Slice 5 ACTIVATION APPLIED / FIRST SCHEDULED ACCEPTANCE PENDING）
 v1.10 Legacy Retirement & v1.x Closeout
 ```
 
-v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend，Slice 4 full offline release gate 已 PASS；下一步为 Slice 5 Controlled Production Activation；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback/rollback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend，Slice 4 full offline release gate 已 PASS，Slice 5 installed activation 已应用；下一步为观察并验收第一次 scheduled Generation 2 production run；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 ### v0.7.4 Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 

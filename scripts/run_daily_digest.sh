@@ -9,6 +9,7 @@ CAFFEINATE_BIN="/usr/bin/caffeinate"
 ENV_FILE="$PROJECT_DIR/.env.local"
 CURATOR_KEY_ENV="AUTOMATION_BRIEF_CURATOR_API_KEY"
 REPORT_TYPE=${1:-digest}
+REPORT_DATE=""
 
 if [ "$#" -gt 1 ]; then
   echo "Usage: $0 [digest|overnight_brief|generation_2]" >&2
@@ -125,9 +126,10 @@ if [ "$REPORT_TYPE" = "overnight_brief" ] || [ "$REPORT_TYPE" = "generation_2" ]
 fi
 
 if [ "$REPORT_TYPE" = "generation_2" ]; then
+  REPORT_DATE=$(TZ=Asia/Shanghai date "+%Y-%m-%d")
   generation_start_epoch=$(date "+%s")
   log_stage "run_generation_2_production.py start"
-  if "$PYTHON_BIN" "$PROJECT_DIR/scripts/run_generation_2_production.py"; then
+  if "$PYTHON_BIN" "$PROJECT_DIR/scripts/run_generation_2_production.py" --date "$REPORT_DATE"; then
     generation_exit_code=0
   else
     generation_exit_code=$?
@@ -156,7 +158,15 @@ fi
 
 publish_start_epoch=$(date "+%s")
 log_stage "publish_mobile_digest.py start"
-if "$PYTHON_BIN" "$PROJECT_DIR/scripts/publish_mobile_digest.py" --report-type "$DELIVERY_REPORT_TYPE"; then
+if [ "$REPORT_TYPE" = "generation_2" ]; then
+  if "$PYTHON_BIN" "$PROJECT_DIR/scripts/publish_mobile_digest.py" \
+    --report-type "$DELIVERY_REPORT_TYPE" --report-date "$REPORT_DATE"; then
+    publish_exit_code=0
+  else
+    publish_exit_code=$?
+    echo "Mobile digest sync failed; daily report was already generated." >&2
+  fi
+elif "$PYTHON_BIN" "$PROJECT_DIR/scripts/publish_mobile_digest.py" --report-type "$DELIVERY_REPORT_TYPE"; then
   publish_exit_code=0
 else
   publish_exit_code=$?
@@ -167,7 +177,15 @@ log_stage "publish_mobile_digest.py end exit_code=$publish_exit_code elapsed_sec
 
 bark_start_epoch=$(date "+%s")
 log_stage "send_bark_notification.py start"
-if "$PYTHON_BIN" "$PROJECT_DIR/scripts/send_bark_notification.py" --report-type "$DELIVERY_REPORT_TYPE"; then
+if [ "$REPORT_TYPE" = "generation_2" ]; then
+  if "$PYTHON_BIN" "$PROJECT_DIR/scripts/send_bark_notification.py" \
+    --report-type "$DELIVERY_REPORT_TYPE" --report-date "$REPORT_DATE"; then
+    bark_exit_code=0
+  else
+    bark_exit_code=$?
+    echo "Bark notification failed; daily report was already generated." >&2
+  fi
+elif "$PYTHON_BIN" "$PROJECT_DIR/scripts/send_bark_notification.py" --report-type "$DELIVERY_REPORT_TYPE"; then
   bark_exit_code=0
 else
   bark_exit_code=$?
@@ -175,3 +193,14 @@ else
 fi
 bark_end_epoch=$(date "+%s")
 log_stage "send_bark_notification.py end exit_code=$bark_exit_code elapsed_seconds=$((bark_end_epoch - bark_start_epoch))"
+
+delivery_exit_code=0
+if [ "$REPORT_TYPE" = "generation_2" ]; then
+  if [ "$publish_exit_code" -ne 0 ] || [ "$bark_exit_code" -ne 0 ]; then
+    delivery_exit_code=1
+  fi
+fi
+log_stage "delivery aggregate report_date=${REPORT_DATE:-not_provided} "\
+"publisher_exit_code=$publish_exit_code bark_exit_code=$bark_exit_code "\
+"exit_code=$delivery_exit_code"
+exit "$delivery_exit_code"

@@ -390,13 +390,15 @@
 - 产品原则：Event Clustering 不追求理论上的 100% 同事件识别。只有长期真实使用中反复出现明显 duplicate、明显 overmerge 或明显不可接受 split 时，才重新打开 clustering；不为低概率边缘 case 持续调 threshold、projection 或叠加规则。
 - No frozen-contract amendment required：v1.8 的 source freshness qualification、clustering corrective replacement 与 manual rolling-24h validation 均在既有 Architecture/Data/Runtime Contract 边界内完成。
 
-### v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–2 COMPLETED；installed production 未激活）
+### v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–3 COMPLETED；installed production 未激活）
 
 - v1.x 接管正式 Morning Brief
 - Slice 1：finalized Generation 2 artifact 的 canonical report publication adapter
 - Slice 2：显式 `generation_2` shell route；仅在 adapter 成功后复用既有 `overnight_brief` publisher/Bark contract，failure fail closed 且不调用 Gen1
 - checked-in plist example 使用 `generation_2`；installed LaunchAgent / schedule 保持未切换
-- Slice 3：Bark / Obsidian / delivery seam compliance（尚未开始）
+- Slice 3：shell 只计算一次 Asia/Shanghai canonical report date，并显式传给 adapter、publisher 与 Bark；publisher/Bark 对日期严格校验；两个 active delivery channel 独立尝试并聚合非零结果；Bark ambiguous timeout / 无法可靠判定送达的 transport failure 不自动 resend，HTTP 429/5xx 保留既有 bounded retry 分类
+- Slice 3 不改变 `overnight_brief` Gen1 rollback route 的默认 semantic/fallback 行为；explicit `--report-date` 是新增兼容 seam
+- Slice 4：Full Offline Acceptance（下一步）
 - cutover acceptance
 - explicit auditable rollback path
 - 禁止 automatic Generation 1 semantic fallback。
@@ -420,5 +422,5 @@ Market 不属于 v1.x core；Holdings 不进入 v1.x。Generation 1 继续作为
 1. 正式版本 token 只使用纯数字：`v1.0`、`v1.1`、`v1.2` … `v1.10`；不使用 alpha、beta、Phase A/B 或其它阶段型 version token。
 2. v1.0 已冻结的 Architecture、Core Data Contract、Runtime / Failure Contract 默认不在 implementation 中重新打开。
 3. 如果真实实现发现 frozen contract 存在不可实现矛盾，不得在业务代码中静默改变；必须先报告证据，做最小、显式、可审计的 contract amendment，不扩大架构范围。
-4. v1.7 与 v1.8 已完成并关闭；v1.9 implementation underway，Slice 1–2 已完成，installed production 尚未激活，下一步为 Slice 3 Delivery Seam Compliance。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
+4. v1.7 与 v1.8 已完成并关闭；v1.9 implementation underway，Slice 1–3 已完成，installed production 尚未激活，下一步为 Slice 4 Full Offline Acceptance。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
 5. 本路线不提前选择 embedding model、模型迁移、prompt、token budget 或其它 implementation tuning。

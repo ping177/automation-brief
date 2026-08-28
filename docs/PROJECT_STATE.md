@@ -8,13 +8,13 @@
 
 ## Current version
 
-v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–2 COMPLETED；v1.9 未完成）
+v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–3 COMPLETED；v1.9 未完成）
 
 ## Current status
 
-v1.9 implementation 已开始，Slice 1 与 Slice 2 已完成：薄 production publication adapter 严格从 finalized Generation 2 artifact 校验并原子提升到 canonical `reports/morning-brief-YYYY-MM-DD.md`；complete、partial 与 legal empty 可发布，failed 不创建或覆盖报告，same-digest collision 为幂等成功，different-digest collision fail closed。`run_daily_digest.sh generation_2` 现在是显式、fail-closed 的 routing seam：只在 adapter 成功后复用既有 Morning Brief publisher/Bark contract，adapter 失败不进入任何 reader-facing delivery，也不调用 Gen1。`overnight_brief` Gen1 route 保留为未来 explicit human-approved rollback；installed LaunchAgent、production schedule、Obsidian/Bark delivery scripts 与 Gen1 semantic path 未切换，Slice 3 delivery seam compliance 尚未开始。
+v1.9 implementation 已开始，Slice 1–3 已完成：薄 production publication adapter 严格从 finalized Generation 2 artifact 校验并原子提升到 canonical `reports/morning-brief-YYYY-MM-DD.md`；complete、partial 与 legal empty 可发布，failed 不创建或覆盖报告，same-digest collision 为幂等成功，different-digest collision fail closed。`run_daily_digest.sh generation_2` 只解析一次 Asia/Shanghai canonical report date，并把同一日期显式传给 adapter、publisher 与 Bark；两个 active delivery channel 独立尝试并聚合 exit code，任一失败时返回非零，不重跑 semantic stages、不调用 Gen1。Bark ambiguous timeout / 无法可靠确认送达的 transport failure 不自动 resend；`overnight_brief` Gen1 route 保留为未来 explicit human-approved rollback。installed LaunchAgent、production schedule、Obsidian/Bark delivery scripts 与 Gen1 semantic path 未切换，Slice 4 Full Offline Acceptance 尚未开始。
 
-v1.8 已完成并关闭。正式 Gen2 runtime 不依赖 Generation 1；manual rolling-24h real run 已成功执行并通过用户 reader-facing 人工验收。首次真实 run 的 1521 条 timestamp-null pollution 已以 source-snapshot freshness qualification 收敛。3 个已确认 clustering overmerge 已以 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 完成正式 corrective replacement：保留 pinned model/revision、projection、`0.91` base floor 与 connected components，只对 `0.91–0.925` ambiguity band 增加 normalized-title 4-character identity support；原 v1.3 与 corrective fixture 的 production memberships 均为 `8/8 exact`。Selector 的一次 `unknown_reference` 与 Writer 的一次 invalid JSON 均按既有 local failure semantics 正确隔离，未阻断最终 Brief。Gen2 manual runner 的 rolling-24h `--as-of-now` 与固定 08:00 canonical report slot 均保持既定规则。当前 installed Gen1 production routing、schedule 与 delivery 保持不变；Gen2 runtime core 不直接写 `reports/`，Slice 1–2 route 仅通过显式 shell token 可达，尚未接入 installed schedule。
+v1.8 已完成并关闭。正式 Gen2 runtime 不依赖 Generation 1；manual rolling-24h real run 已成功执行并通过用户 reader-facing 人工验收。首次真实 run 的 1521 条 timestamp-null pollution 已以 source-snapshot freshness qualification 收敛。3 个已确认 clustering overmerge 已以 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 完成正式 corrective replacement：保留 pinned model/revision、projection、`0.91` base floor 与 connected components，只对 `0.91–0.925` ambiguity band 增加 normalized-title 4-character identity support；原 v1.3 与 corrective fixture 的 production memberships 均为 `8/8 exact`。Selector 的一次 `unknown_reference` 与 Writer 的一次 invalid JSON 均按既有 local failure semantics 正确隔离，未阻断最终 Brief。Gen2 manual runner 的 rolling-24h `--as-of-now` 与固定 08:00 canonical report slot 均保持既定规则。当前 installed Gen1 production routing、schedule 与 delivery 保持不变；Gen2 runtime core 不直接写 `reports/`，Slice 1–3 route 仅通过显式 shell token/date seam 可达，尚未接入 installed schedule。
 
 v1.6 已正式 `COMPLETED / CLOSED`：implementation acceptance: PASS；offline full-pipeline E2E: PASS。新增 side-by-side deterministic `brief_renderer.py`、Generation 2 专用 `v1_artifacts.py`、纯 composition `orchestrator.py` 与 direct-script smoke。Orchestrator 接受 explicit report slot/run identity，依 frozen stage order执行 report-window admission、checkpoint-before-downstream、classifier overlay、Writer continuation、Brief status推导与artifact finalization；`events-writer-input` 正式持久化，artifact persistence fail closed。实现不接入 `main.py` production routing，不调用真实 DeepSeek，不实现 delivery、semantic fallback 或 raw Article backfill。
 
@@ -24,11 +24,13 @@ v1.4 real-provider quality validation 为 3/3 runs succeeded；4/4 must-include 
 
 v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不是 Generation 1 完全达到长期产品目标；真实使用暴露出重复 / 事件聚合不足、legacy fallback 中文边界、旧规则误分类、reader-facing UX、市场数据价值不足、持仓能力价值未证明等问题。该 evidence 支持停止继续 patch Generation 1 核心新闻架构，转入已经冻结的 v1.0 Event-driven architecture rebuild。
 
-当前 installed production 仍运行 Generation 1 pipeline；v1.2 至 v1.8 当前均仅以 side-by-side 组件、regression 或 manual-only runtime 落地，Slice 2 只新增显式 `generation_2` shell route，未切换 installed schedule。`overnight_brief` 继续保留为 future explicit human-approved Gen1 rollback route；不删除或退役现有 production / legacy surface。
+当前 installed production 仍运行 Generation 1 pipeline；v1.2 至 v1.8 当前均仅以 side-by-side 组件、regression 或 manual-only runtime 落地，v1.9 Slice 2–3 只新增显式 `generation_2` routing/date/delivery seam，未切换 installed schedule。`overnight_brief` 继续保留为 future explicit human-approved Gen1 rollback route；不删除或退役现有 production / legacy surface。
 
 READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 与 v1.1–v1.7 implementation milestones 已 COMPLETED / CLOSED，v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。v1.8 第一小步保持 manual-only side-by-side，未接入 production routing；Generation 1 继续作为正式 baseline，直到 v1.9 production cutover。
 
 ## Latest completed
+
+2026-08-29 完成 v1.9 Slice 3 Delivery Seam Compliance：publisher/Bark 新增显式 `--report-date` 校验，`generation_2` shell 一次计算 Asia/Shanghai canonical date 并贯穿 adapter 与两个 delivery channel；publisher/Bark 独立尝试并聚合非零结果，adapter failure 仍短路 delivery，Bark explicit-date ambiguous timeout / 不可判定 transport failure 不自动 resend，HTTP 429/5xx 保留 bounded retry。focused routing/date/channel/secret-safety smoke、相关 Gen2/runtime/orchestrator/artifact regressions、Project-State gate、compile、shell/plist syntax 与 diff check 均通过；未调用真实外部服务，未启动 Slice 4。
 
 2026-08-28 完成 v1.9 Slice 2 Explicit Production Routing：`run_daily_digest.sh generation_2` 显式调用 Slice 1 production adapter，只有 adapter 成功才继续以既有 `overnight_brief` report-type contract 调用 publisher/Bark；adapter failure 立即短路 delivery、返回非零且不调用 Gen1。扩展既有 process-env-first / `.env.local` API-key 注入到该 route，未新增 secret management；`overnight_brief` rollback route 保持不变。checked-in plist example 改为 `generation_2`，installed LaunchAgent 未修改或 reload。focused routing smoke 覆盖 success/failure、delivery short-circuit、env inheritance、legacy preservation、no-Gen1 invocation 与 plist syntax；未调用真实外部服务，尚未启动 Slice 3。
 
@@ -122,16 +124,16 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 - v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 - v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
-- v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–2 COMPLETED）
+- v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–3 COMPLETED）
 - v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 
 ## Last verified
 
-2026-08-28
+2026-08-29
 
 ## Next Action
 
-等待本 Slice 审核后继续 `v1.9 — Production Cutover` Slice 3 Delivery Seam Compliance；在此之前保持 installed Gen1 production、`generation_2` route 未接 installed schedule、delivery date/timeout/aggregate semantics 留在 Slice 3 与 explicit rollback 边界。
+等待本 Slice 审核后继续 `v1.9 — Production Cutover` Slice 4 Full Offline Acceptance；在此之前保持 installed Gen1 production、`generation_2` route 未接 installed schedule、真实 delivery 未执行、v1.10 legacy cleanup 未开始。
 
 ## Blockers
 
@@ -166,7 +168,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 - The v1.0 canonical architecture is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`; it does not prescribe immediate Python filenames, package hierarchy, feature flags, or business implementation. `Article` is input, `Event` is the core object, and `Brief` is output; Article dedup and event clustering remain separate.
 - The v1.0 canonical core data contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`; it freezes Article/EventCandidate/Event/Brief identity and ownership, deterministic Evidence projection, immutable Event stage derivation, and the minimal component-local result envelope without implementing runtime behavior.
 - The v1.0 canonical runtime / failure contract is documented in `docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`; it freezes run identity, StageResult semantics, per-component isolation, LLM batch/retry boundaries, Brief status, artifact/delivery behavior and no automatic post-cutover legacy semantic fallback. The contract is docs-only and not implemented.
-- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 through v1.8 are complete and closed with their required verification, and v1.7 Human Reader-Facing Acceptance is PASS. Generation 2 now has an explicit checked-in `generation_2` routing seam but remains unactivated in the installed schedule; v1.9 implementation is underway with Slice 1–2 complete, forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
+- The v1.x implementation version roadmap is frozen in `docs/DECISIONS.md` and indexed in `docs/BACKLOG.md`; v1.1 through v1.8 are complete and closed with their required verification, and v1.7 Human Reader-Facing Acceptance is PASS. Generation 2 now has explicit checked-in routing and date/delivery seams but remains unactivated in the installed schedule; v1.9 implementation is underway with Slice 1–3 complete, forbids automatic Generation 1 semantic fallback, and v1.10 owns post-cutover legacy retirement and closeout.
 - v1.3 side-by-side implementation is present in `event_cluster.py` with fake-embedder smoke, labeled fixtures, and a separate real-model evaluator. The accepted fixed configuration is E5-small revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`, `article-title-summary-v1`, summary cap 300, threshold `0.91`, and `connected-components-v1`; production-critical acceptance is exact `8 / 8` with zero overmerge and split.
 - Canonical Event / EventCandidate semantics are reader-level story bundles inside one approximately 24-hour Morning Brief report window, not persistent atomic occurrence identity. Announcement, immediate reaction, clarification, closely related follow-up, and complementary perspectives may cluster when separate reader-facing items would be materially repetitive. v1.5 Event Writer must read complete Article provenance and preserve material facts and perspectives in `title_zh`, `summary_zh`, and `why_it_matters_zh`.
 - v1.3 clustering remains local embedding + semantic similarity + simple deterministic clustering. DeepSeek, local LLM pair verification, LLM adjudication, translation, and second-pass AI clustering are prohibited in this stage.
@@ -196,4 +198,4 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Handoff Prompt
 
-v1.9 is IMPLEMENTATION UNDERWAY. Slice 1 Production Publication Adapter and Slice 2 Explicit Production Routing are complete and offline-verified: the explicit `generation_2` route runs the adapter first, enters existing Morning Brief delivery only after generation success, and fail-closes before publisher/Bark/Gen1 on adapter failure. `overnight_brief` remains the explicit human-approved Gen1 rollback route; the installed LaunchAgent and schedule remain unchanged, v1.9 has not been activated, and Slice 3 Delivery Seam Compliance is next. Do not start v1.10 retirement or any legacy cleanup.
+v1.9 is IMPLEMENTATION UNDERWAY. Slice 1 Production Publication Adapter, Slice 2 Explicit Production Routing, and Slice 3 Delivery Seam Compliance are complete and offline-verified: the explicit `generation_2` route computes one Asia/Shanghai report date, runs the adapter first, passes that date to both delivery channels, attempts publisher/Bark independently, aggregates failures visibly, and fail-closes before publisher/Bark/Gen1 on generation failure. Bark ambiguous timeout / uncertain transport does not resend. `overnight_brief` remains the explicit human-approved Gen1 rollback route; the installed LaunchAgent and schedule remain unchanged, v1.9 has not been activated, and Slice 4 Full Offline Acceptance is next. Do not start v1.10 retirement or any legacy cleanup.

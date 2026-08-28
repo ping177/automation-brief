@@ -139,11 +139,11 @@ v1.5  Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6  Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7  Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8  Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9  Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–2 COMPLETED；等待审核后继续 Slice 3 Delivery Seam Compliance）
+v1.9  Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–3 COMPLETED；等待审核后继续 Slice 4 Full Offline Acceptance）
 v1.10 Legacy Retirement & v1.x Closeout
 ```
 
-v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend；下一步为 Slice 4 Full Offline Acceptance；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 ### v0.7.4 Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 

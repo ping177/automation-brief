@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-29 — v1.9 Slice 3 Delivery Seam Compliance — COMPLETED
+
+- publisher 与 Bark 新增可选显式 `--report-date YYYY-MM-DD`；日期严格校验，显式值决定 deterministic `morning-brief-YYYY-MM-DD.md`，invalid/missing dated report fail closed，不回退 host-local `today` 或其它旧报告。`generation_2` shell 只在 Asia/Shanghai 计算一次日期，并将同一值传给 Slice 1 adapter、publisher 和 Bark。
+- publisher 与 Bark 在 generation success 后独立执行；`generation_2` 最终 exit code 聚合两个 active channel，任一失败都可见为非零，不重跑 semantic stages、不覆盖 canonical report、不触发 Gen1 fallback。`overnight_brief` legacy route 的默认行为保持不变。
+- Bark explicit-date delivery 对 ambiguous timeout 和无法可靠确认送达的 transport failure 不自动 resend；HTTP 429/5xx 保留既有 bounded retry 分类。failure diagnostics 只输出 allowlisted failure code / status，不输出 token、Authorization、API key 或 secret-bearing URL。
+- 新增 routing/date/channel/timeout/secret-safety offline coverage；未调用真实 RSS/DeepSeek/Bark/Obsidian，未修改 frozen Gen2 semantic core、installed LaunchAgent 或 v1.10 legacy surface。下一步为 Slice 4 Full Offline Acceptance。
+
 ## 2026-08-28 — v1.9 Slice 2 Explicit Production Routing — COMPLETED
 
 - `scripts/run_daily_digest.sh` 新增显式 `generation_2` route：调用既有 `scripts/run_generation_2_production.py`，只有 adapter 成功后才以既有 `overnight_brief` report-type contract 进入 mobile/Obsidian publisher 与 Bark sender；adapter failure 立即短路 delivery、返回非零，不调用 `main.py` 或 Gen1 fallback。

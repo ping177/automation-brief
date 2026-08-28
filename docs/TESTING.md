@@ -360,6 +360,24 @@ git diff --check
 
 routing smoke 必须证明：显式 `generation_2` 先调用 `run_generation_2_production.py`，仅在其成功后调用既有 `overnight_brief` publisher/Bark contract；adapter failure 立即返回非零且不调用 publisher、Bark、`main.py` 或 Gen1 fallback。`overnight_brief` legacy route、process-env-first / `.env.local` API-key inheritance 与 plist example 的 `generation_2` token 均保持可验证。测试只使用临时 repo/data root、fake Python 和 fixture，绝不读取或打印真实 secrets，也不联网。
 
+## v1.9 Slice 3 Delivery Seam Compliance — COMPLETED
+
+本轮只验证显式日期与 delivery failure policy，不执行真实 production activation，不修改或 reload installed LaunchAgent：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_production_routing_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_generation_2_production_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_generation_2_runtime_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_orchestrator_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_v1_artifacts_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest tests.test_project_state_push_gate
+sh -n scripts/run_daily_digest.sh
+plutil -lint scripts/com.ping.automation-brief.daily.plist.example
+git diff --check
+```
+
+focused routing smoke 必须证明：`generation_2` 只解析一次 Asia/Shanghai report date，并将相同日期传给 adapter、publisher 和 Bark；invalid/missing dated report fail closed；publisher/Bark 四种独立结果均被尝试并聚合为最终 exit；adapter failure 仍在 delivery 前短路；Bark explicit-date ambiguous timeout 与无法可靠确认送达的 transport failure 只尝试一次且返回明确 failure，HTTP 429/5xx 保留 bounded retry；日志不泄露 token、Authorization、API key 或 secret-bearing URL。legacy `overnight_brief` route 保持可用，测试只使用临时 data root、fake transport 和 fixture，不联网。
+
 ## v1.2 regression checklist
 
 ```bash

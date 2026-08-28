@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 import json
 import re
 import sys
 import time
-from datetime import date
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, quote
@@ -24,6 +24,7 @@ REPORT_SETTINGS = {
 }
 MAX_ATTEMPTS = 3
 RETRY_DELAYS_SECONDS = (10, 20)
+_REPORT_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def load_env_value(path: Path, key: str) -> str:
@@ -82,12 +83,22 @@ def send_notification(bark_url: str, title: str, body: str, url: str = "") -> No
 
 def format_notification_error(exc: BaseException) -> str:
     if isinstance(exc, HTTPError):
-        return f"HTTP {exc.code} {exc.reason}"
-    if isinstance(exc, URLError):
-        return str(exc.reason)
+        return f"http_{exc.code}"
     if isinstance(exc, TimeoutError):
-        return "request timed out"
-    return str(exc)
+        return "ambiguous_timeout"
+    if isinstance(exc, URLError):
+        if isinstance(exc.reason, TimeoutError):
+            return "ambiguous_timeout"
+        return "transport_failed"
+    if isinstance(exc, OSError):
+        return "transport_failed"
+    return "delivery_failed"
+
+
+def is_retryable_notification_error(exc: BaseException) -> bool:
+    """Keep only the existing explicit HTTP retry classes."""
+
+    return isinstance(exc, HTTPError) and (exc.code == 429 or 500 <= exc.code <= 599)
 
 
 def resolve_report_settings(report_type: str, report_date: date) -> tuple[str, str]:
@@ -98,26 +109,48 @@ def resolve_report_settings(report_type: str, report_date: date) -> tuple[str, s
     return f"{prefix}-{report_date.isoformat()}.md", title
 
 
+def resolve_report_date(report_date: date | str | None) -> date:
+    """Resolve an optional explicit calendar date without timezone guessing."""
+
+    if report_date is None:
+        return date.today()
+    if isinstance(report_date, datetime) or isinstance(report_date, date):
+        if isinstance(report_date, datetime):
+            raise ValueError("report_date must be a YYYY-MM-DD calendar date")
+        return report_date
+    if not isinstance(report_date, str) or not _REPORT_DATE_PATTERN.fullmatch(report_date):
+        raise ValueError("report_date must be a valid YYYY-MM-DD calendar date")
+    try:
+        return date.fromisoformat(report_date)
+    except ValueError:
+        raise ValueError("report_date must be a valid YYYY-MM-DD calendar date") from None
+
+
 def main(
     *,
     data_root: Path | None = None,
     env_file: Path | None = None,
     report_type: str = "digest",
+    report_date: date | str | None = None,
 ) -> int:
     try:
-        report_name, title = resolve_report_settings(report_type, date.today())
+        report_name, title = resolve_report_settings(report_type, resolve_report_date(report_date))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
     paths = get_project_paths(repo_root=PROJECT_DIR, data_root=data_root)
+    report_path = paths.reports_dir / report_name
+    if report_date is not None and not report_path.exists():
+        print(f"Report not found: {report_path}", file=sys.stderr)
+        return 1
+
     resolved_env_file = Path(env_file) if env_file is not None else ENV_FILE
     bark_url = load_env_value(resolved_env_file, "BARK_URL")
     if not bark_url:
         print("BARK_URL is not set; skip Bark notification.")
         return 0
 
-    report_path = paths.reports_dir / report_name
     if not report_path.exists():
         print(f"Report not found: {report_path}", file=sys.stderr)
         return 1
@@ -136,15 +169,29 @@ def main(
         obsidian_uri = build_obsidian_uri(vault_name, mobile_digest_relative_path, report_path.name)
 
     body = "\n".join(body_parts)
+    explicit_report_date = report_date is not None
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             send_notification(bark_url, title, body, obsidian_uri)
             break
         except (HTTPError, URLError, TimeoutError, OSError) as exc:
             error_message = format_notification_error(exc)
+            if explicit_report_date and not is_retryable_notification_error(exc):
+                if error_message == "ambiguous_timeout":
+                    print(
+                        "Bark notification ambiguous: failure_code=ambiguous_timeout; no retry",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(
+                        f"Bark notification failed: failure_code={error_message}; no retry",
+                        file=sys.stderr,
+                    )
+                return 1
             if attempt >= MAX_ATTEMPTS:
                 print(
-                    f"Bark notification failed after {MAX_ATTEMPTS} attempts: {error_message}",
+                    f"Bark notification failed after {MAX_ATTEMPTS} attempts: "
+                    f"failure_code={error_message}",
                     file=sys.stderr,
                 )
                 return 1
@@ -152,10 +199,19 @@ def main(
             delay = RETRY_DELAYS_SECONDS[attempt - 1]
             print(
                 f"Bark notification attempt {attempt}/{MAX_ATTEMPTS} failed: "
-                f"{error_message}; retrying in {delay}s",
+                f"failure_code={error_message}; retrying in {delay}s",
                 file=sys.stderr,
             )
             time.sleep(delay)
+        except Exception:
+            # Never expose an unexpected provider/client exception (which may
+            # contain the configured Bark URL); unknown failures are not safe
+            # retry classes and fail closed for both routes.
+            print(
+                "Bark notification failed: failure_code=delivery_failed; no retry",
+                file=sys.stderr,
+            )
+            return 1
 
     if obsidian_uri:
         print("Bark notification sent with Obsidian URL.")
@@ -174,11 +230,16 @@ if __name__ == "__main__":
         default="digest",
         help="Select the canonical report to announce (default: digest)",
     )
+    parser.add_argument(
+        "--report-date",
+        help="Explicit report date (YYYY-MM-DD); omitted for legacy routes defaults to today",
+    )
     cli_args = parser.parse_args()
     raise SystemExit(
         main(
             data_root=cli_args.data_root,
             env_file=cli_args.env_file,
             report_type=cli_args.report_type,
+            report_date=cli_args.report_date,
         )
     )

@@ -14,7 +14,7 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；next task v1.9 Production Cutover READ-ONLY audit / planning）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；v1.9 implementation underway，Slice 1 complete）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
@@ -23,7 +23,7 @@ v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9 — Production Cutover（PLANNED）
+v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1 COMPLETED）
 v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 ```
 
@@ -139,7 +139,7 @@ v1.5  Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6  Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7  Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8  Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9  Production Cutover（PLANNED；下一步 READ-ONLY audit / planning）
+v1.9  Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1 COMPLETED；等待审核后继续 Slice 2）
 v1.10 Legacy Retirement & v1.x Closeout
 ```
 

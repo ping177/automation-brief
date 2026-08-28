@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-28 — v1.9 Slice 1 Production Publication Adapter — COMPLETED
+
+- 新增薄 `scripts/run_generation_2_production.py`：复用现有 `build_generation_2_runtime()` 与 canonical Asia/Shanghai report slot，执行已有 Gen2 runtime 后只从 finalized run artifact 的 `manifest.json` / `morning-brief.md` 读取发布内容。
+- complete、partial 与 legal empty 允许发布到 canonical `reports/morning-brief-YYYY-MM-DD.md`；failed 不创建或覆盖报告。same-digest target 是幂等成功，different-digest target 默认 fail closed。
+- publication 使用临时文件完整写入、fsync 与同目录 atomic no-overwrite install；输出仅包含 run/outcome/path/digest/status 等安全结构化字段，不记录 secret 或 provider payload。
+- 新增 focused offline smoke，覆盖 outcome、finalized-only、collision、Shanghai date 与 no-Gen1 import boundary。未修改 `main.py`、Generation 2 semantic core、LaunchAgent、delivery 或 frozen contracts；未调用真实 RSS/DeepSeek/Bark/Obsidian，未启动 Slice 2。
+
 ## 2026-08-28 — v1.8 Shadow / Parallel Validation closeout — COMPLETED / CLOSED
 
 - 用户已完成并批准 v1.8 closeout：production-shaped Generation 2 runtime、manual rolling-24h real run、local embedding、真实 DeepSeek 与完整 Gen2 pipeline 均真实跑通，并通过 reader-facing 人工验收。

@@ -12,7 +12,7 @@ v1.8 — Shadow / Parallel Validation（IN PROGRESS；v1.x implementation roadma
 
 ## Current status
 
-v1.8 已进入真实 manual validation。正式 Gen2 runtime 不依赖 Generation 1；首次真实 run 的 1521 条 timestamp-null pollution 已以 source-snapshot freshness qualification 收敛。3 个已确认 clustering overmerge 已以 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 完成正式 corrective replacement：保留 pinned model/revision、projection、`0.91` base floor 与 connected components，只对 `0.91–0.925` ambiguity band 增加 normalized-title 4-character identity support。原 v1.3 与新 corrective fixture 的 production memberships 均为 `8/8 exact`。Gen1 production routing、schedule 与 delivery 保持不变；Gen2 不写 `reports/`、不接 Bark/Obsidian/publisher。
+v1.8 已进入真实 manual validation。正式 Gen2 runtime 不依赖 Generation 1；首次真实 run 的 1521 条 timestamp-null pollution 已以 source-snapshot freshness qualification 收敛。3 个已确认 clustering overmerge 已以 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 完成正式 corrective replacement：保留 pinned model/revision、projection、`0.91` base floor 与 connected components，只对 `0.91–0.925` ambiguity band 增加 normalized-title 4-character identity support。原 v1.3 与新 corrective fixture 的 production memberships 均为 `8/8 exact`。Gen2 manual runner 现在支持与 `--date` 互斥的 rolling-24h `--as-of-now`，不改变未来 production 的固定 08:00 report slot。Gen1 production routing、schedule 与 delivery 保持不变；Gen2 不写 `reports/`、不接 Bark/Obsidian/publisher。
 
 v1.6 已正式 `COMPLETED / CLOSED`：implementation acceptance: PASS；offline full-pipeline E2E: PASS。新增 side-by-side deterministic `brief_renderer.py`、Generation 2 专用 `v1_artifacts.py`、纯 composition `orchestrator.py` 与 direct-script smoke。Orchestrator 接受 explicit report slot/run identity，依 frozen stage order执行 report-window admission、checkpoint-before-downstream、classifier overlay、Writer continuation、Brief status推导与artifact finalization；`events-writer-input` 正式持久化，artifact persistence fail closed。实现不接入 `main.py` production routing，不调用真实 DeepSeek，不实现 delivery、semantic fallback 或 raw Article backfill。
 
@@ -28,7 +28,7 @@ READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature inf
 
 ## Latest completed
 
-2026-08-28 完成 v1.8 第一步 runtime、input population 修复与 clustering corrective replacement。source freshness qualification 使 5 个 legacy 新华网 snapshots 与 GitHub Trending Python Daily 的 1521 条 null pollution 无法进入 Article/window/clustering pool。clustering 保留 model/revision/projection/base floor/connected components，以 `semantic-title-anchor-v1` 拒绝 3 个真实 ambiguity-band hard negatives，同时保留国防部记者会与 CrowdStrike positives；原 v1.3 和新 corrective real-model acceptance 均 `8/8 exact`且 deterministic。不修改 frozen contracts、Gen1 或 delivery。v1.8 尚未 close，下一步是用户审核后重新执行一次 manual real Gen2 run。
+2026-08-28 完成 v1.8 第一步 runtime、input population 修复与 clustering corrective replacement，并新增 manual rolling-24h validation mode。source freshness qualification 使 5 个 legacy 新华网 snapshots 与 GitHub Trending Python Daily 的 1521 条 null pollution 无法进入 Article/window/clustering pool。clustering 保留 model/revision/projection/base floor/connected components，以 `semantic-title-anchor-v1` 拒绝 3 个真实 ambiguity-band hard negatives，同时保留国防部记者会与 CrowdStrike positives；原 v1.3 和新 corrective real-model acceptance 均 `8/8 exact`且 deterministic。rolling slot 以当前 Asia/Shanghai aware 时间结束并向前 24 小时，`--date` 与 `--as-of-now` 互斥；不修改 frozen contracts、Gen1 或 delivery。v1.8 尚未 close，下一步是至少一次有效真实 rolling-24h Gen2 run 与用户 reader-facing 人工验收，明显问题再针对性补测。
 
 2026-08-28 完成并关闭 v1.7 Offline / Snapshot Validation：代表性 clean morning fixture 通过完整 Generation 2 pipeline，并以 empty、partial、hard-stop、malformed/provider protocol fixtures 覆盖 failure semantics、continuation、checkpoint-before-downstream、Brief/Markdown 与 provenance/artifacts。最终 reader-facing layout 已确认 PASS：无“今日要闻”，category 使用 H2 italic，Event title 使用 H3 + `var(--text-accent)` + bold，摘要使用 `摘要：`、保留 `为什么重要：`，来源使用 `<details>/<summary>/<ul>/<li>/<a>` 纯 HTML children；category regroup/order、global `Brief.event_ids`、dedup/provenance 与 written-unclassified fallback 保持不变。focused smoke、全部 28 个 offline scripts、compile/compileall、shell syntax、Project-State Push Gate 16/16、fixture parsing 与 `git diff --check` 均 PASS。未调用真实 RSS/DeepSeek/provider，未修改 Generation 1 production routing；下一步为 v1.8 Shadow / Parallel Validation。
 
@@ -125,7 +125,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Next Action
 
-继续 v1.8 real Shadow / Parallel Validation：由用户在本人 Terminal 执行显式 manual Gen2 runs，并复核 bounded input、corrective clustering 与运行 evidence；不接 delivery，不启动 v1.9 或 comparison/review layer。
+继续 v1.8 real Shadow / Parallel Validation：由用户在本人 Terminal 执行至少一次有效 rolling-24h manual Gen2 run，并完成 reader-facing 人工验收；若发现明显问题再针对性补测。不接 delivery，不启动 v1.9 或 comparison/review layer。
 
 ## Blockers
 
@@ -189,4 +189,4 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、LaunchA
 
 ## Handoff Prompt
 
-v1.8 is IN PROGRESS. The production-shaped Generation 2 runtime remains manual-only and delivery-disabled. Source freshness qualification now excludes wholly timestamp-null snapshots before formal normalization/window/clustering, and `semantic-title-anchor-v1` corrects the three confirmed clustering hard negatives while preserving both real positive counterexamples and the historical v1.3 acceptance. Generation 1 production routing, schedules, Bark/Obsidian delivery, and frozen contracts remain unchanged. Continue real Shadow / Parallel Validation through explicit manual Gen2 runs; do not add delivery, start v1.9, or start the comparison/review layer.
+v1.8 is IN PROGRESS. The production-shaped Generation 2 runtime remains manual-only and delivery-disabled. Source freshness qualification now excludes wholly timestamp-null snapshots before formal normalization/window/clustering, and `semantic-title-anchor-v1` corrects the three confirmed clustering hard negatives while preserving both real positive counterexamples and the historical v1.3 acceptance. Manual validation supports an explicit rolling-24h `--as-of-now` slot in addition to the fixed 08:00 canonical slot; the two CLI modes are mutually exclusive. Generation 1 production routing, schedules, Bark/Obsidian delivery, and frozen contracts remain unchanged. Complete at least one valid rolling-24h run and user reader-facing review; target any follow-up testing to concrete issues, without adding delivery, starting v1.9, or starting the comparison/review layer.

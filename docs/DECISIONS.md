@@ -377,9 +377,10 @@
 - Generation 1 production 正常运行
 - v1.x side-by-side real shadow execution；Gen2 runtime 是未来 production 可直接复用的正式 capability，不能依赖 Gen1 runtime 或 Gen1 report artifacts
 - 不发送 reader-facing v1.x output
-- compare Generation 1 与 v1.x quality / stability
-- 进入或准备 shadow 时验证 LaunchAgent / pmset / actual runtime follow-up。
+- Generation 1 继续作为 production reference；Gen1 comparison / human review 不属于本轮 runtime acceptance
 - v1.8 第一小步的 canonical Gen2 report slot 以 `report_date` 当日 Asia/Shanghai 08:00 为 inclusive `window_end`，前推 24 小时为 inclusive `window_start`，进入 canonical domain 前转换为 aware UTC；该规则不改 Gen1 rolling window，也不把 Gen1 candidate min/max 当 publication window。
+- manual validation 另提供与 `--date` 互斥的 `--as-of-now` rolling-24h mode：`window_end` 为当前 Asia/Shanghai aware datetime，`window_start` 精确向前 24 小时，进入 canonical runtime 前转换为 aware UTC；该 mode 不改变未来 production 的固定 08:00 report slot，也不加入 schedule。
+- v1.8 acceptance 的最小真实门槛为至少一次有效 rolling-24h Gen2 run，并通过用户 reader-facing 人工验收；若发现明显问题，再按具体问题做针对性补测。
 - Gen2 real runtime 从 active `feeds.json`、冻结 E5 model/revision 的 local-only cache、共享 LLM gateway 与 canonical Artifact Manager 组装既有 `run_generation_2()`；manual runner 只负责显式 real-provider opt-in 和输出 outcome/artifact location，不接 delivery、schedule 或 `reports/`。
 - Gen2 ingest 在 formal normalization/window admission 前独立 qualification 每个 fetched source snapshot；存在有效 entries 但全部无可解析 publication timestamp，且当前无其他经治理 bounded-recency evidence 的 snapshot 整体排除。不用 `collected_at`/URL 推断，不改 canonical Article nullable `published_at` contract，不影响 Gen1。
 - v1.8 真实 hard negatives 将 v1.3 clustering implementation configuration 正式 corrective replacement 为 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1`。历史 v1.3 `connected-components-v1` acceptance 不重写；当前实现保留 model/revision、`article-title-summary-v1`、`0.91` base floor 与 connected components。

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import redirect_stderr, redirect_stdout
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from io import StringIO
 import json
 import os
@@ -28,12 +28,13 @@ from generation_2_runtime import (  # noqa: E402
     Generation2RuntimeConfigurationError,
     MorningBriefReportSlot,
     build_generation_2_runtime,
+    resolve_morning_brief_rolling_slot,
     resolve_morning_brief_report_slot,
 )
 from event_cluster import MODEL_ID, MODEL_REVISION  # noqa: E402
 from llm_gateway import GatewayResponse  # noqa: E402
 from project_paths import ProjectPaths  # noqa: E402
-from run_generation_2_shadow import main as shadow_main  # noqa: E402
+from run_generation_2_shadow import main as shadow_main, parse_args  # noqa: E402
 from v1_artifacts import ARTIFACT_ROOT_NAME, V1ArtifactManager  # noqa: E402
 
 
@@ -164,6 +165,82 @@ def test_default_report_date_uses_shanghai_calendar_date() -> None:
     )
     assert slot.report_date == REPORT_DATE
     assert slot.window_end == WINDOW_END
+
+
+def test_rolling_report_slot_uses_shanghai_now_and_exact_24h_window() -> None:
+    as_of_now = datetime(2026, 8, 28, 3, 15, tzinfo=timezone.utc)
+    slot = resolve_morning_brief_rolling_slot(as_of_now)
+
+    assert slot.report_date == REPORT_DATE
+    assert slot.window_end == as_of_now
+    assert slot.window_start == as_of_now - timedelta(hours=24)
+    local_end = slot.window_end.astimezone(runtime_module.MORNING_BRIEF_TIMEZONE)
+    assert local_end.isoformat() == "2026-08-28T11:15:00+08:00"
+    assert slot.window_end - slot.window_start == timedelta(hours=24)
+
+
+def test_rolling_report_slot_requires_aware_now() -> None:
+    try:
+        resolve_morning_brief_rolling_slot(datetime(2026, 8, 28, 3, 15))
+    except Generation2RuntimeConfigurationError:
+        pass
+    else:
+        raise AssertionError("naive rolling as-of-now was accepted")
+
+
+def test_manual_cli_rejects_date_and_as_of_now_together() -> None:
+    stderr = StringIO()
+    with redirect_stderr(stderr):
+        try:
+            parse_args(
+                [
+                    "--date",
+                    REPORT_DATE.isoformat(),
+                    "--as-of-now",
+                    "--real-provider",
+                    "deepseek",
+                ]
+            )
+        except SystemExit as error:
+            assert error.code == 2
+        else:
+            raise AssertionError("--date and --as-of-now were accepted together")
+
+
+def test_manual_cli_supports_rolling_24h_mode() -> None:
+    as_of_now = datetime(2026, 8, 28, 3, 15, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory(prefix="generation-2-rolling-cli-", dir="/private/tmp") as temp:
+        data_root = Path(temp) / "data"
+
+        def builder(**kwargs):
+            assert kwargs["provider"] == "deepseek"
+            assert kwargs["data_root"] == data_root
+            return fake_runtime(data_root)
+
+        stdout = StringIO()
+        stderr = StringIO()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            exit_code = shadow_main(
+                [
+                    "--as-of-now",
+                    "--real-provider",
+                    "deepseek",
+                    "--data-root",
+                    str(data_root),
+                    "--run-id",
+                    "rolling-cli-offline",
+                ],
+                runtime_builder=builder,
+                collector_fetcher=lambda source: FakeFeed(),
+                clock=lambda: as_of_now,
+            )
+
+        assert exit_code == 0, stderr.getvalue()
+        output = json.loads(stdout.getvalue())
+        assert output["report_date"] == REPORT_DATE.isoformat()
+        assert output["window_start"] == (as_of_now - timedelta(hours=24)).isoformat()
+        assert output["window_end"] == as_of_now.isoformat()
+        assert output["run_id"] == "rolling-cli-offline"
 
 
 def test_invalid_report_dates_fail_closed() -> None:
@@ -540,6 +617,10 @@ def test_runtime_and_cli_have_no_gen1_semantic_or_delivery_dependencies() -> Non
 def main() -> None:
     test_report_slot_is_canonical_and_deterministic()
     test_default_report_date_uses_shanghai_calendar_date()
+    test_rolling_report_slot_uses_shanghai_now_and_exact_24h_window()
+    test_rolling_report_slot_requires_aware_now()
+    test_manual_cli_rejects_date_and_as_of_now_together()
+    test_manual_cli_supports_rolling_24h_mode()
     test_invalid_report_dates_fail_closed()
     test_formal_feed_fetcher_is_independent_and_bounded()
     test_timeout_retries_once_and_keeps_timeout_taxonomy()

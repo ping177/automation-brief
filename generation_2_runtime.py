@@ -229,6 +229,44 @@ def resolve_morning_brief_report_slot(
     )
 
 
+def resolve_morning_brief_rolling_slot(
+    as_of_now: datetime | None = None,
+    *,
+    clock: Callable[[], datetime] = _utc_now,
+) -> MorningBriefReportSlot:
+    """Resolve a manual rolling window ending at the current Shanghai time."""
+
+    if as_of_now is None:
+        try:
+            resolved_now = clock()
+        except Exception:
+            raise Generation2RuntimeConfigurationError(
+                "rolling as-of-now clock failed"
+            ) from None
+    else:
+        resolved_now = as_of_now
+
+    try:
+        if (
+            not isinstance(resolved_now, datetime)
+            or resolved_now.tzinfo is None
+            or resolved_now.utcoffset() is None
+        ):
+            raise ValueError
+        local_window_end = resolved_now.astimezone(MORNING_BRIEF_TIMEZONE)
+    except Exception:
+        raise Generation2RuntimeConfigurationError(
+            "rolling as-of-now must be an aware datetime"
+        ) from None
+
+    local_window_start = local_window_end - MORNING_BRIEF_WINDOW
+    return MorningBriefReportSlot(
+        report_date=local_window_end.date(),
+        window_start=local_window_start.astimezone(timezone.utc),
+        window_end=local_window_end.astimezone(timezone.utc),
+    )
+
+
 def build_deepseek_generation_2_gateway(
     *,
     transport: HTTPTransport | None = None,
@@ -347,6 +385,7 @@ __all__ = [
     "MorningBriefReportSlot",
     "build_deepseek_generation_2_gateway",
     "build_generation_2_runtime",
+    "resolve_morning_brief_rolling_slot",
     "resolve_generation_2_model_cache",
     "resolve_morning_brief_report_slot",
 ]

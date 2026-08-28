@@ -121,7 +121,7 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 新增薄 manual invocation `scripts/run_generation_2_shadow.py`；必须显式 `--real-provider deepseek`，默认 delivery disabled，真实 RSS/provider 运行仅由用户在 Terminal 执行。
 - 首次真实 run 的 input population failure 已以 Gen2 source-snapshot freshness qualification 收敛：所有有效 entries 都无可解析 publication timestamp 的 source 不进入 Article/window/clustering pool，但不修改 nullable Article contract、Gen1 source config 或 production routing。
 - 首次真实 run 的 clustering production hard negatives 已通过 versioned `semantic-title-anchor-v1` edge policy 做正式 corrective replacement；纯 threshold 方案因会拆分已确认真实 positives 而被否决。原 v1.3 `8/8` evidence 保持，新 5-case corrective acceptance 也为 `8/8 exact`。
-- 下一步是继续 real Shadow / Parallel Validation：用户在 Terminal 执行显式 manual Gen2 runs，核对 bounded input 与 corrective clustering artifacts；Gen1 comparison / human review layer 保持后续独立范围。
+- manual validation 现在支持与 `--date` 互斥的 `--as-of-now` rolling-24h mode；下一步 acceptance 是用户在 Terminal 执行至少一次有效真实 rolling-24h Gen2 run，并完成 reader-facing 人工验收。若发现明显问题，再按具体问题做针对性补测。
 
 ### v1.x Implementation Version Roadmap — FROZEN
 

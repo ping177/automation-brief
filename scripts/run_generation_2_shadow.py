@@ -21,12 +21,22 @@ from generation_2_runtime import (  # noqa: E402
     Generation2RuntimeConfigurationError,
     build_generation_2_runtime,
     resolve_morning_brief_report_slot,
+    resolve_morning_brief_rolling_slot,
 )
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--date", help="Morning Brief report date (YYYY-MM-DD); defaults to today")
+    slot_group = parser.add_mutually_exclusive_group()
+    slot_group.add_argument(
+        "--date",
+        help="Morning Brief report date (YYYY-MM-DD); defaults to today",
+    )
+    slot_group.add_argument(
+        "--as-of-now",
+        action="store_true",
+        help="Use a manual rolling window ending at the current Shanghai time",
+    )
     parser.add_argument(
         "--real-provider",
         choices=(DEEPSEEK_PROVIDER_ID,),
@@ -50,7 +60,10 @@ def main(
     args = parse_args(argv)
     try:
         slot_options = {} if clock is None else {"clock": clock}
-        slot = resolve_morning_brief_report_slot(args.date, **slot_options)
+        if args.as_of_now:
+            slot = resolve_morning_brief_rolling_slot(**slot_options)
+        else:
+            slot = resolve_morning_brief_report_slot(args.date, **slot_options)
         runtime = runtime_builder(
             provider=args.real_provider,
             feeds_path=args.feeds,

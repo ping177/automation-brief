@@ -117,12 +117,20 @@ Gen2 ingest 在 formal normalization 前对每个 source snapshot 独立做 fres
 
 v1.8 首次真实 run 同时触发 Event Clustering corrective replacement。历史 v1.3 `connected-components-v1` evidence 原样保留；当前 `identity-guarded-connected-components-v2` 仍使用同一 frozen model/revision、`article-title-summary-v1`、base floor `0.91` 和 connected components，但 edge policy 改为 `semantic-title-anchor-v1`：`similarity >= 0.925` 直接接受；`0.91 <= similarity < 0.925` 只在两个 title 经 NFKC、casefold 并仅保留 Unicode `str.isalnum()` 字符后共享至少 4 字符连续 span 时接受。这是针对真实 overmerge 的窄 deterministic correction，不是 NER、关键词表或第二模型。
 
-manual-only 调用必须显式选择 real provider；`--date` 缺省为 Asia/Shanghai 当天。API key 只从当前 process env 读取；正式 pinned embedder 会在 RSS collection 前以 `local_files_only=True` 完成初始化并在 clustering 复用，cache 缺失、错误或 pinned snapshot 不可加载时 fail closed，不会静默下载：
+manual-only 调用必须显式选择 real provider；不指定 slot 参数时，`--date` 缺省为 Asia/Shanghai 当天并解析固定 08:00 canonical report slot。人工验证也可使用与 `--date` 互斥的 `--as-of-now`，以当前 Asia/Shanghai aware 时间结束、向前精确 24 小时的 rolling window 运行；该模式不改变未来 production 的 08:00 slot。API key 只从当前 process env 读取；正式 pinned embedder 会在 RSS collection 前以 `local_files_only=True` 完成初始化并在 clustering 复用，cache 缺失、错误或 pinned snapshot 不可加载时 fail closed，不会静默下载：
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/run_generation_2_shadow.py \
   --real-provider deepseek \
   --date 2026-08-28
+```
+
+rolling-24h manual validation 使用：
+
+```bash
+python scripts/run_generation_2_shadow.py \
+  --real-provider deepseek \
+  --as-of-now
 ```
 
 输出只报告 run outcome 与 canonical artifact directory；主 artifact 只写入 `<data-root>/runs/event-driven-morning-brief/<run_id>/`。该命令不投递、不写 canonical `reports/`，也未加入任何 schedule。

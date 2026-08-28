@@ -2,6 +2,12 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-28 — v1.8 manual rolling-24h validation mode
+
+- `scripts/run_generation_2_shadow.py` 新增与 `--date` 互斥的 `--as-of-now`。该模式以当前 `Asia/Shanghai` aware datetime 为 `window_end`，精确向前 24 小时为 `window_start`，再由 canonical runtime 归一为 aware UTC；不改变固定 08:00 Morning Brief report slot，也不加入任何 schedule。
+- 新增离线 acceptance 覆盖 rolling window、Shanghai timezone、naive datetime fail-closed、CLI 互斥参数及旧 `--date` 行为保持不变。未调用真实 RSS/DeepSeek/Bark/Obsidian，未修改 Gen1、delivery、clustering 或 frozen contracts。
+- v1.8 最小真实 acceptance 收敛为：用户在本人 Terminal 完成至少一次有效 rolling-24h Gen2 run，并进行 reader-facing 人工验收；若发现明显问题，再按具体问题做针对性补测。
+
 ## 2026-08-28 — v1.8 Generation 2 manual runtime wiring
 
 - 新增正式 `generation_2_runtime.py`，以 production-reusable composition 组装 active sources、Asia/Shanghai 08:00 canonical 24h report slot、冻结 `multilingual-e5-small` model/revision 的 local-only cache、共享 DeepSeek JSON gateway adapter、既有 `run_generation_2()` 与 canonical Generation 2 Artifact Manager；`collector.fetch_source()` 已收敛为 Gen2-owned bounded HTTP/feedparser boundary，不再动态导入 Gen1 `main.py`。

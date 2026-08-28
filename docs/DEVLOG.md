@@ -2,6 +2,13 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-29 — v1.9 Slice 4 Full Offline Acceptance — PASS
+
+- 对 Slice 1–3 已实现的完整 checked-in production chain 做 pre-activation offline release gate：`generation_2` route → production publication adapter → finalized artifact → canonical Morning Brief report → mobile/Obsidian publisher → Bark。30/30 `tests/offline_*.py`、Slice 1 adapter、Gen2 runtime、orchestrator、artifact、deterministic ingest / clustering / selector / classifier / writer / renderer / legacy regressions 均 PASS。
+- complete、partial、legal empty、hard failed、finalized-artifact integrity、manifest/run identity、digest/collision、Asia/Shanghai date、delivery outcome matrix、Bark timeout/transport/no-resend、HTTP 429/5xx bounded retry、unexpected failure sanitization、secret/env boundary 与 no-Gen1 fallback 均通过；未新增 production framework、semantic implementation 或依赖。
+- Project-State Push Gate 16/16、`py_compile`、`compileall`、shell syntax、checked-in plist lint 与 `git diff --check` 均 PASS。未调用真实 RSS/DeepSeek/Bark/Obsidian，未修改或 reload installed LaunchAgent，未执行 production activation 或 v1.10 cleanup。
+- 已准备 Slice 5 Controlled Production Activation 的人工 checklist；v1.9 仍为 IMPLEMENTATION UNDERWAY，下一步仅进入受控 activation 审核。
+
 ## 2026-08-29 — v1.9 Slice 3 Delivery Seam Compliance — COMPLETED
 
 - publisher 与 Bark 新增可选显式 `--report-date YYYY-MM-DD`；日期严格校验，显式值决定 deterministic `morning-brief-YYYY-MM-DD.md`，invalid/missing dated report fail closed，不回退 host-local `today` 或其它旧报告。`generation_2` shell 只在 Asia/Shanghai 计算一次日期，并将同一值传给 Slice 1 adapter、publisher 和 Bark。

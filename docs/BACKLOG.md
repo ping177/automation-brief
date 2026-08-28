@@ -14,7 +14,7 @@ v0.7.1 — Morning Brief MVP（CLOSED）
 v0.7.2 — Production Cutover（CLOSED）
 v0.7.3 — Morning Brief Long-term Usage Validation（CLOSED）
 v0.7.4 — Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
-v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；v1.9 implementation underway，Slice 1–2 complete）
+v1.0 — Event-driven Morning Brief（Architecture + Core Data + Runtime / Failure Contract Freeze COMPLETE；v1.x roadmap FROZEN；v1.9 implementation underway，Slice 1–4 complete）
 v1.1 — Canonical Domain & Runtime Foundation（COMPLETED / CLOSED）
 v1.2 — Deterministic Ingest（COMPLETED / CLOSED）
 v1.3 — Event Clustering（COMPLETED / CLOSED）
@@ -23,7 +23,7 @@ v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–2 COMPLETED）
+v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–4 COMPLETED）
 v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 ```
 
@@ -139,11 +139,11 @@ v1.5  Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6  Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7  Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8  Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9  Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–3 COMPLETED；等待审核后继续 Slice 4 Full Offline Acceptance）
+v1.9  Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–4 COMPLETED；等待审核后继续 Slice 5 Controlled Production Activation）
 v1.10 Legacy Retirement & v1.x Closeout
 ```
 
-v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend；下一步为 Slice 4 Full Offline Acceptance；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend，Slice 4 full offline release gate 已 PASS；下一步为 Slice 5 Controlled Production Activation；v1.10 才执行 post-cutover consumer audit、legacy retirement 和 v1.x closeout。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 ### v0.7.4 Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 

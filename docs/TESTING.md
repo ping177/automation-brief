@@ -378,6 +378,40 @@ git diff --check
 
 focused routing smoke 必须证明：`generation_2` 只解析一次 Asia/Shanghai report date，并将相同日期传给 adapter、publisher 和 Bark；invalid/missing dated report fail closed；publisher/Bark 四种独立结果均被尝试并聚合为最终 exit；adapter failure 仍在 delivery 前短路；Bark explicit-date ambiguous timeout 与无法可靠确认送达的 transport failure 只尝试一次且返回明确 failure，HTTP 429/5xx 保留 bounded retry；日志不泄露 token、Authorization、API key 或 secret-bearing URL。legacy `overnight_brief` route 保持可用，测试只使用临时 data root、fake transport 和 fixture，不联网。
 
+## v1.9 Slice 4 Full Offline Acceptance — PASS
+
+本 Slice 是进入受控 activation 前的完整离线 release gate，不新增 production 功能，不修改或 reload installed LaunchAgent，也不调用真实 provider、RSS、Bark 或 Obsidian：
+
+```bash
+set -eu
+for test_file in tests/offline_*.py; do
+  PYTHONDONTWRITEBYTECODE=1 .venv/bin/python "$test_file"
+done
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m unittest tests.test_project_state_push_gate
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-slice4-pyc .venv/bin/python -m py_compile *.py scripts/*.py tests/*.py
+PYTHONPYCACHEPREFIX=/private/tmp/automation-brief-slice4-compileall .venv/bin/python -m compileall -q -- *.py scripts tests
+sh -n scripts/run_daily_digest.sh
+plutil -lint scripts/com.ping.automation-brief.daily.plist.example
+git diff --check
+```
+
+Acceptance 必须覆盖完整 checked-in chain：`generation_2` → production adapter → finalized artifact → canonical report → mobile/Obsidian publisher → Bark；complete、partial、legal empty、hard failed outcome；manifest/run identity、finalized-only、digest/collision、atomic publication；Asia/Shanghai date handoff 与 invalid/missing dated report；四种 delivery exit matrix；Bark timeout/transport no-resend、HTTP 429/5xx bounded retry、unexpected failure safe diagnostics；process-env-first、missing-key fail closed、no-Gen1 fallback、legacy `overnight_brief` route 和 08:00 plist contract。全部测试使用临时 fixture/data root，不读取真实 secret、不联网、不写真实用户目录。
+
+### Slice 5 Controlled Production Activation checklist（仅准备，未执行）
+
+- [ ] 将 installed LaunchAgent route 人工切换为 `generation_2`，确认 label、working directory、日志路径和 08:00 schedule 不变。
+- [ ] 确认 scheduled environment 可安全获得 `AUTOMATION_BRIEF_CURATOR_API_KEY`，不写入 plist、命令行或日志。
+- [ ] 确认冻结 embedding model cache 存在，并可由 LaunchAgent 用户读取；不重新下载模型。
+- [ ] 执行一次受控 08:00/等价真实 run，确认实际调用 `generation_2` route。
+- [ ] 确认 finalized Gen2 artifact、manifest、run identity 和 `generation_outcome` 正常生成。
+- [ ] 确认 canonical `reports/morning-brief-YYYY-MM-DD.md` 存在且 digest 与 finalized artifact 一致。
+- [ ] 确认 Obsidian note 路径、文件名和内容正确。
+- [ ] 确认 Bark 通知正确到达，且失败/ambiguous timeout 不自动重复发送。
+- [ ] 点击 Bark URI，确认打开正确的 Obsidian note。
+- [ ] 完成人工 reader-facing Morning Brief 验收，包含 complete/partial/legal empty 可读性检查。
+- [ ] 检查日志确认没有 `main.py`、Gen1 Curator、Gen1 semantic fallback 或重复 semantic stages。
+- [ ] 保留并演练 explicit、人工批准、可审计的 `overnight_brief` rollback procedure。
+
 ## v1.2 regression checklist
 
 ```bash

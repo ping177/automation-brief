@@ -4,7 +4,7 @@ automation-brief 是一个低成本的个人早间简报（Morning Brief）：�
 
 v0.2-alpha 新增“每日早间回顾简报”模式，用规则把过去 24 小时的重要事件、市场信号和今日关注变量整理成结构化输出。v0.2.1 收紧了 digest 分流规则，避免泛科技内容和 AI 工具内容混入每日市场简报。v0.2.2 继续收紧“今天值得关注的变量”，避免普通产品发布、游戏、消费科技和业务调整误入。v0.5-alpha 及后续版本新增并完善了显式 `market_brief` 市场简报能力；该入口继续保留，但不是 Morning Brief 的最终统一产品形态。v0.6.0-alpha 已完成 AI Curator shadow foundation；默认 `digest` 与显式 `market_brief` 链路仍不调用真实 AI provider。
 
-当前已完成并关闭 `v0.7.2 — Production Cutover`、`v0.7.3 — Morning Brief Long-term Usage Validation`、`v1.1 — Canonical Domain & Runtime Foundation` 至 `v1.8 — Shadow / Parallel Validation`；v1.8 已通过 manual rolling-24h real run 与用户 reader-facing 人工验收。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构。v1.9 implementation 已开始，Slice 1 Production Publication Adapter、Slice 2 Explicit Production Routing、Slice 3 Delivery Seam Compliance 与 Slice 4 Full Offline Acceptance 均已完成，Slice 5 已应用 production activation：installed LaunchAgent 现使用显式 `generation_2` route，保持原 Label、路径、日志与 Asia/Shanghai 08:00 schedule；第一次 scheduled Gen2 production acceptance 尚待 08:00 实际运行。该 route 只使用一次 canonical report date，先运行 adapter，再把同一日期显式传给既有 Morning Brief publisher/Bark seam；两个 active channel 都会被尝试，任一失败时任务返回非零，且不调用 Gen1 或重新运行 semantic stages。Bark ambiguous timeout / 无法可靠确认送达的 transport failure 不自动 resend；`overnight_brief` 继续保留为 explicit human-approved Gen1 rollback route，禁止 automatic fallback/rollback。frozen Gen2 contracts 与 v1.10 legacy surface 保持不变。accepted embedding 仍为 `intfloat/multilingual-e5-small` immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`，reader-level story-bundle threshold 为 `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。下一步是观察并验收第一次 scheduled Gen2 production run，不删除 legacy。
+当前已完成并关闭 `v0.7.2 — Production Cutover`、`v0.7.3 — Morning Brief Long-term Usage Validation`、`v1.1 — Canonical Domain & Runtime Foundation` 至 `v1.8 — Shadow / Parallel Validation`；v1.8 已通过 manual rolling-24h real run 与用户 reader-facing 人工验收。七天真实使用 review 支持停止继续 patch Generation 1 核心新闻架构。v1.9 已完成并关闭，Slice 1 Production Publication Adapter、Slice 2 Explicit Production Routing、Slice 3 Delivery Seam Compliance、Slice 4 Full Offline Acceptance 与 Slice 5 Controlled Production Activation 均已完成：installed LaunchAgent 现使用显式 `generation_2` route，保持原 Label、路径、日志与 Asia/Shanghai 08:00 schedule；第一次 scheduled Gen2 production acceptance 已 PASS WITH ACCEPTED DEGRADATION。该 route 只使用一次 canonical report date，先运行 adapter，再把同一日期显式传给既有 Morning Brief publisher/Bark seam；两个 active channel 都会被尝试，任一失败时任务返回非零，且不调用 Gen1 或重新运行 semantic stages。Bark ambiguous timeout / 无法可靠确认送达的 transport failure 不自动 resend；`overnight_brief` 继续保留为 explicit human-approved Gen1 rollback route，禁止 automatic fallback/rollback。frozen Gen2 contracts 与 v1.10 legacy surface 保持不变。accepted embedding 仍为 `intfloat/multilingual-e5-small` immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`，reader-level story-bundle threshold 为 `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。下一步观察 Generation 2 production stability；确认 post-cutover stability 后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit，不删除 legacy。
 显式 `market_brief` 当前只做新闻 + 最小行情验证，不做买卖建议，也不替用户做投资决策；普通 `daily digest` 与现有自动化链路保持不变。
 
 ## Generation 1 保留合同（legacy / explicit rollback）
@@ -53,7 +53,7 @@ v1.5 — Event Classifier + Writer（COMPLETED / CLOSED）
 v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
-v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–4 COMPLETED；Slice 5 ACTIVATION APPLIED / FIRST SCHEDULED ACCEPTANCE PENDING）
+v1.9 — Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
 v1.10 — Legacy Retirement & v1.x Closeout
 ```
 
@@ -73,7 +73,7 @@ v0.6.1 Phase 1 固定上述合同，Phase 2 已实现 feed metadata normalizatio
 
 下一代产品继续叫 Morning Brief，核心架构原则是：**Article 是输入，Event 是核心业务对象，Brief 是输出。** v1.0 冻结 Sources → collection → normalization → Article-level dedup → event-level clustering → relative selection → post-selection classification → event writing → deterministic rendering → delivery 的主链；`orchestrator` 与 `llm_gateway` 只提供基础设施边界。
 
-v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 已完成 Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze，v1.x implementation roadmap 已冻结，迁移路线为 preserve mature infrastructure + rewrite news core。v1.1 至 v1.8 均已完成并关闭；v1.8 的 manual rolling-24h real run、完整 Gen2 pipeline 与用户 reader-facing 人工验收均 PASS。这些 milestone 均未改 production routing、未删除 legacy。Generation 1 继续作为正式 baseline，直到 v1.9 cutover，v1.10 才进行 legacy retirement。架构职责见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical object contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)，runtime / failure contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
+v0.7.3 七天真实使用验证已 CLOSED，作为 Generation 1 baseline 保留；产品 review 支持停止继续 patch Generation 1 核心新闻架构。v1.0 已完成 Architecture Freeze、READ-ONLY Dependency Audit、Core Data Contract Freeze 和 Runtime / Failure Contract Freeze，v1.x implementation roadmap 已冻结，迁移路线为 preserve mature infrastructure + rewrite news core。v1.1 至 v1.9 均已完成并关闭；v1.8 的 manual rolling-24h real run、完整 Gen2 pipeline 与用户 reader-facing 人工验收均 PASS，v1.9 的第一次 scheduled production acceptance 为 PASS WITH ACCEPTED DEGRADATION。这些 milestone 均未删除 legacy。Generation 2 已成为 active production route，Generation 1 继续保留为 explicit human-approved rollback route，v1.10 才进行 legacy retirement。架构职责见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_ARCHITECTURE.md)，canonical object contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_DATA_CONTRACT.md)，runtime / failure contract 见 [`docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md`](docs/EVENT_DRIVEN_MORNING_BRIEF_RUNTIME_CONTRACT.md)。
 
 ## v1.1 — Canonical Domain & Runtime Foundation（implementation complete / closed）
 
@@ -139,9 +139,9 @@ python scripts/run_generation_2_shadow.py \
 
 v1.3 acceptance 已按修正后的 24h Morning Brief story-bundle semantics 通过，并冻结 `intfloat/multilingual-e5-small` 的 immutable revision、`article-title-summary-v1` projection 和 threshold `0.91`。详见 [`docs/V1.3_EVENT_CLUSTERING_SPEC.md`](docs/V1.3_EVENT_CLUSTERING_SPEC.md)。
 
-正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1 至 v1.8 均已完成并关闭；v1.9 implementation 已开始且 Slice 1–4 已完成，Slice 5 production activation 已应用，第一次 scheduled Gen2 production acceptance 尚待 08:00 实际运行。v1.8 的 real run、完整 Gen2 pipeline 与 reader-facing 人工验收均 PASS，v1.9 full offline release gate 也 PASS，无 release blocker。下一步为观察并验收第一次 scheduled Generation 2 production run；v1.9 仍禁止 automatic Generation 1 semantic fallback/rollback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+正式路线为 `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10`。v1.0 是已关闭的 governance baseline，v1.1 至 v1.9 均已完成并关闭；v1.9 的第一次 scheduled Gen2 production acceptance 为 PASS WITH ACCEPTED DEGRADATION，full offline release gate 与 category presentation corrective 也均 PASS，后者仅调整 reader-facing section 顺序，canonical Selector/Event/Brief order 不变。下一步观察 Generation 2 production stability；确认 post-cutover stability 后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit。v1.9 仍禁止 automatic Generation 1 semantic fallback/rollback，v1.10 才执行 legacy retirement 与 v1.x closeout。完整 milestone scope 与治理规则见 [`docs/DECISIONS.md`](docs/DECISIONS.md) 和 [`docs/BACKLOG.md`](docs/BACKLOG.md)。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
-原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。旧产品 retirement 必须等 v1.8 完成 shadow / parallel validation、v1.9 完成 production cutover 后，进入 v1.10 才开始。
+原 `v0.7.4 — Legacy Product Retirement & Capability Consolidation` 不删除历史，但其独立实施路线已 superseded / replaced by v1.0。v1.8 shadow / parallel validation 与 v1.9 production cutover 已完成，旧产品 retirement 进入 v1.10 后才开始。
 
 ## 项目文档
 
@@ -408,7 +408,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python main.py --report-type overnight_brief
 
 输出文件为 `~/Projects/_project-data/automation-brief/reports/morning-brief-YYYY-MM-DD.md`。
 
-`python3 main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief` 或 `overnight_brief`。`scripts/run_daily_digest.sh` 无参数时保持普通 `digest` 行为；显式传入 `overnight_brief` 时保留既有 Gen1 Morning Brief rollback route；显式传入 `generation_2` 时在 shell 中只解析一次 Asia/Shanghai canonical report date，将它同时传给 Generation 2 adapter、mobile publisher 和 Bark，成功后两个 delivery channel 独立执行并聚合 exit code，adapter 失败则不进入 delivery。publisher/Bark 对显式日期严格 fail closed，不回退到 today 或其它旧报告；Bark ambiguous timeout 不自动 resend。仓库 plist example 与 installed LaunchAgent 现均使用 `generation_2` route；installed route 的第一次 scheduled production acceptance 尚待 08:00 实际运行。
+`python3 main.py` 使用当前 `config.json`，仍按现有配置生成普通每日早间回顾，不会默认切换到 `market_brief` 或 `overnight_brief`。`scripts/run_daily_digest.sh` 无参数时保持普通 `digest` 行为；显式传入 `overnight_brief` 时保留既有 Gen1 Morning Brief rollback route；显式传入 `generation_2` 时在 shell 中只解析一次 Asia/Shanghai canonical report date，将它同时传给 Generation 2 adapter、mobile publisher 和 Bark，成功后两个 delivery channel 独立执行并聚合 exit code，adapter 失败则不进入 delivery。publisher/Bark 对显式日期严格 fail closed，不回退到 today 或其它旧报告；Bark ambiguous timeout 不自动 resend。仓库 plist example 与 installed LaunchAgent 现均使用 `generation_2` route；第一次 scheduled production acceptance 已 PASS WITH ACCEPTED DEGRADATION，v1.9 已 COMPLETED / CLOSED。下一步观察 Generation 2 production stability；确认 post-cutover stability 后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit。
 
 ## RSS 源健康检查
 
@@ -917,7 +917,7 @@ launchctl print gui/$(id -u)/com.ping.automation-brief.daily | grep -E "runs|las
 
 ### 睡眠和自动唤醒
 
-v0.3.5 已验证 `pmset` 自动唤醒配合 launchd 可以完成无人值守运行；v1.9 Slice 5 已把同一基础设施的 installed route 切换为 `generation_2`，第一次 scheduled Gen2 acceptance pending：
+v0.3.5 已验证 `pmset` 自动唤醒配合 launchd 可以完成无人值守运行；v1.9 Slice 5 已把同一基础设施的 installed route 切换为 `generation_2`，第一次 scheduled Gen2 acceptance 已 PASS WITH ACCEPTED DEGRADATION：
 
 ```text
 Mac 睡眠

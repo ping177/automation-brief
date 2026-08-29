@@ -619,13 +619,13 @@ def test_representative_reader_layout_runs_full_pipeline(root: Path) -> None:
     assert "## 今日要闻" not in rendered_markdown
     assert [
         line for line in rendered_markdown.splitlines() if line.startswith("## ")
-    ] == ["## *科技与 AI*", "## *宏观与政策*"]
+    ] == ["## *宏观与政策*", "## *科技与 AI*"]
     assert [
         line for line in rendered_markdown.splitlines() if line.startswith("### ")
     ] == [
-        '### <span style="color: var(--text-accent);"><strong>芯片产业链出现多方进展</strong></span>',
         '### <span style="color: var(--text-accent);"><strong>阿尔法各方公布紧急协调安排</strong></span>',
         '### <span style="color: var(--text-accent);"><strong>贝塔央行下调基准利率</strong></span>',
+        '### <span style="color: var(--text-accent);"><strong>芯片产业链出现多方进展</strong></span>',
     ]
     assert rendered_markdown.count("摘要：") == 3
     assert rendered_markdown.count("<details>") == 3
@@ -657,7 +657,7 @@ def test_v17_snapshot_matrix_covers_empty_partial_and_hard_stops(root: Path) -> 
                 line
                 for line in result.rendered_markdown.splitlines()
                 if line.startswith("## ")
-            ] == ["## *科技与 AI*", "## *宏观与政策*", "## *其他*"]
+            ] == ["## *宏观与政策*", "## *科技与 AI*", "## *其他*"]
             assert "不应进入简报的事件" not in result.rendered_markdown
         if name in {"selector_failed", "writer_all_failed"}:
             assert result.rendered_markdown is None

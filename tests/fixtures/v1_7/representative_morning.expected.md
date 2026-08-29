@@ -1,22 +1,5 @@
 # 早间简报｜2026-08-27
 
-## *科技与 AI*
-
-### <span style="color: var(--text-accent);"><strong>芯片产业链出现多方进展</strong></span>
-
-摘要：多家来源从产品发布、客户需求和封装产能三个角度描述了同一项产业变化，信息彼此补充。
-
-为什么重要：这些事实共同表明，相关产业的竞争与交付条件正在发生具体变化。
-
-<details>
-<summary>来源（3）</summary>
-<ul>
-<li>财新 · <a href="https://fixture.example/v17/chip-demand">原文</a></li>
-<li>Nikkei · <a href="https://fixture.example/v17/chip-accelerator">原文</a></li>
-<li>WSJ · <a href="https://fixture.example/v17/chip-packaging">原文</a></li>
-</ul>
-</details>
-
 ## *宏观与政策*
 
 ### <span style="color: var(--text-accent);"><strong>阿尔法各方公布紧急协调安排</strong></span>
@@ -44,5 +27,22 @@
 <ul>
 <li>Financial Times · <a href="https://fixture.example/v17/beta-rate">原文</a></li>
 <li>Bloomberg · <a href="https://fixture.example/v17/beta-lenders">原文</a></li>
+</ul>
+</details>
+
+## *科技与 AI*
+
+### <span style="color: var(--text-accent);"><strong>芯片产业链出现多方进展</strong></span>
+
+摘要：多家来源从产品发布、客户需求和封装产能三个角度描述了同一项产业变化，信息彼此补充。
+
+为什么重要：这些事实共同表明，相关产业的竞争与交付条件正在发生具体变化。
+
+<details>
+<summary>来源（3）</summary>
+<ul>
+<li>财新 · <a href="https://fixture.example/v17/chip-demand">原文</a></li>
+<li>Nikkei · <a href="https://fixture.example/v17/chip-accelerator">原文</a></li>
+<li>WSJ · <a href="https://fixture.example/v17/chip-packaging">原文</a></li>
 </ul>
 </details>

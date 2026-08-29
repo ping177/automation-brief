@@ -366,7 +366,7 @@
 
 #### v1.7 reader-facing presentation amendment
 
-- 决策：Generation 2 Morning Brief 的 Markdown 按 canonical category 分区展示，取代线性列表中不 regroup 的旧 reader-facing 选择。Section 顺序由各 category 最早的 `selection_order` 决定，section 内保持 `selection_order`；canonical `Brief.event_ids` 仍保持全局 selector order。
+- 决策（v1.7 baseline）：Generation 2 Morning Brief 的 Markdown 按 canonical category 分区展示，取代线性列表中不 regroup 的旧 reader-facing 选择。Section 顺序当时由各 category 最早的 `selection_order` 决定，section 内保持 `selection_order`；canonical `Brief.event_ids` 仍保持全局 selector order。该 section-order 规则已由 v1.9 focused presentation corrective supersede。
 - 决策：written-unclassified Event 在 Markdown 中进入“其他” section，仅作 presentation fallback；Event 仍为 `classification=null`，不将 classifier failure 映射为 canonical `other`。
 - 决策：Obsidian 可折叠来源块保留 `<details>/<summary>`，内容使用真正的 HTML `<ul>/<li>/<a>` children，展示全部 surviving provenance，不设 source ceiling。
 - 最终 reader-facing layout：Markdown 直接以 H1 日期开始，不再输出“今日要闻”；category 为 `## *Category*`，Event title 为 `###` + bold + `var(--text-accent)`，正文保留 `摘要：` / `为什么重要：`。
@@ -390,7 +390,7 @@
 - 产品原则：Event Clustering 不追求理论上的 100% 同事件识别。只有长期真实使用中反复出现明显 duplicate、明显 overmerge 或明显不可接受 split 时，才重新打开 clustering；不为低概率边缘 case 持续调 threshold、projection 或叠加规则。
 - No frozen-contract amendment required：v1.8 的 source freshness qualification、clustering corrective replacement 与 manual rolling-24h validation 均在既有 Architecture/Data/Runtime Contract 边界内完成。
 
-### v1.9 — Production Cutover（IMPLEMENTATION UNDERWAY；Slice 1–4 COMPLETED；Slice 5 ACTIVATION APPLIED / FIRST SCHEDULED ACCEPTANCE PENDING）
+### v1.9 — Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
 
 - v1.x 接管正式 Morning Brief
 - Slice 1：finalized Generation 2 artifact 的 canonical report publication adapter
@@ -401,7 +401,10 @@
 - Slice 4：Full Offline Acceptance 已通过完整 offline release gate；30 个 offline smoke、production-chain outcome matrix、publication/digest/date/delivery/secret boundary、runtime/orchestrator/artifact、shell/plist 与 Project-State gate 均 PASS
 - Slice 4 仅完成 pre-activation acceptance，不执行真实 provider/delivery 或 installed schedule activation
 - Slice 5：2026-08-29 08:00 前将 installed LaunchAgent route 从 `overnight_brief` 最小切换为 `generation_2` 并安全 reload；未 kickstart、未手动 generation、未调用真实 provider/delivery，当日 canonical report 保持不存在
-- Slice 5 activation applied 后仍不关闭 v1.9；第一次 scheduled Gen2 production run 的 artifact、report、delivery、reader-facing 与 no-Gen1 evidence 完成验收后再决定 closeout
+- Slice 5 activation applied 后，第一次 scheduled Gen2 production run 的 artifact、report、delivery、reader-facing 与 no-Gen1 evidence 已完成验收；final closeout review 已通过
+- 第一次 scheduled Gen2 production run 已 PASS WITH ACCEPTED DEGRADATION：唯一 partial 为 Investing.com 10 条 timezone-less timestamp 的既有 `item_validation_failed` fail-closed variation；finalized artifact、canonical report、Obsidian 与 Bark 均属于同一次 run，未发现 Gen1、fallback 或 duplicate semantic run
+- v1.9 focused presentation corrective：Renderer section 固定为 `geopolitics → china_policy → macro_policy → financial_markets → energy_commodities → company_industry → technology_ai → public_safety → other`；仅改变 reader-facing presentation，section 内继续保持 selector `selection_order`，`Brief.event_ids`、Event classification 与 canonical schema 不变；written-unclassified 仍映射到“其他”，且“其他”最后
+- v1.9 final closeout：Slice 1–5、第一次 scheduled acceptance 与 category presentation corrective 均 COMPLETED / PASS；Generation 2 保持 active production route，v1.9 正式 CLOSED。后续先观察 production stability，确认后才进入 v1.10 Legacy Retirement READ-ONLY dependency audit
 - cutover acceptance
 - explicit auditable rollback path
 - 禁止 automatic Generation 1 semantic fallback。
@@ -418,12 +421,12 @@
 - final regression / governance closeout
 - v1.x milestone closed
 
-Market 不属于 v1.x core；Holdings 不进入 v1.x。Generation 1 继续作为正式 baseline，直到 v1.9 cutover；保留 Gen1 到 cutover 不代表长期双架构。
+Market 不属于 v1.x core；Holdings 不进入 v1.x。v1.9 cutover 已完成，Generation 1 仅保留为 explicit human-approved rollback route；保留 Gen1 不代表长期双架构，legacy retirement 进入 v1.10 后才开始。
 
 ### Roadmap governance rules
 
 1. 正式版本 token 只使用纯数字：`v1.0`、`v1.1`、`v1.2` … `v1.10`；不使用 alpha、beta、Phase A/B 或其它阶段型 version token。
 2. v1.0 已冻结的 Architecture、Core Data Contract、Runtime / Failure Contract 默认不在 implementation 中重新打开。
 3. 如果真实实现发现 frozen contract 存在不可实现矛盾，不得在业务代码中静默改变；必须先报告证据，做最小、显式、可审计的 contract amendment，不扩大架构范围。
-4. v1.7 与 v1.8 已完成并关闭；v1.9 implementation underway，Slice 1–4 已完成，Slice 5 activation 已应用且第一次 scheduled acceptance pending。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
+4. v1.7、v1.8 与 v1.9 已完成并关闭；v1.9 Slice 1–5、第一次 scheduled acceptance 与 category presentation corrective 均已完成，第一次 scheduled acceptance 为 PASS WITH ACCEPTED DEGRADATION。不得以 commit hash 或 narrative slice 名称替代已冻结的 numeric milestone。
 5. 本路线不提前选择 embedding model、模型迁移、prompt、token budget 或其它 implementation tuning。

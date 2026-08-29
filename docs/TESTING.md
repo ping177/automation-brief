@@ -48,7 +48,7 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 - `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering`、`v1.4 — Event Selector`、`v1.5 — Event Classifier + Writer`、`v1.6 — Renderer + Artifacts + Orchestrator Integration` 与 `v1.7 — Offline / Snapshot Validation` 均为 `COMPLETED / CLOSED`；v1.5 的三段实现、offline regression 与最终 real-provider acceptance 已完成，v1.6 implementation acceptance、v1.7 offline full-pipeline E2E 与最终 Human Reader-Facing Acceptance 均 PASS。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
 - v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6/v1.7 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
-- Generation 1 在 v1.8 shadow 前后继续作为正式 baseline，直到 v1.9 cutover；Market 不属于 v1.x core，Holdings 不进入 v1.x。
+- Generation 1 在 v1.8 shadow 前后作为正式 baseline；v1.9 cutover 完成后仅保留为 explicit human-approved rollback route。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 - roadmap freeze 当时不修改三份 v1.0 canonical contract semantics、不创建 v1.1 Python module、不运行业务 pipeline 或真实外部 API；后续 v1.1 implementation verification 见下节。
 
 ## v1.1 Canonical Domain & Runtime Foundation verification
@@ -397,24 +397,37 @@ git diff --check
 
 Acceptance 必须覆盖完整 checked-in chain：`generation_2` → production adapter → finalized artifact → canonical report → mobile/Obsidian publisher → Bark；complete、partial、legal empty、hard failed outcome；manifest/run identity、finalized-only、digest/collision、atomic publication；Asia/Shanghai date handoff 与 invalid/missing dated report；四种 delivery exit matrix；Bark timeout/transport no-resend、HTTP 429/5xx bounded retry、unexpected failure safe diagnostics；process-env-first、missing-key fail closed、no-Gen1 fallback、legacy `overnight_brief` route 和 08:00 plist contract。全部测试使用临时 fixture/data root，不读取真实 secret、不联网、不写真实用户目录。
 
-### Slice 5 Controlled Production Activation（activation 已应用；第一次 scheduled acceptance 待执行）
+### Slice 5 Controlled Production Activation（activation 已应用；第一次 scheduled acceptance PASS WITH ACCEPTED DEGRADATION）
 
 - [x] 将 installed LaunchAgent route 人工切换为 `generation_2`，确认 label、working directory、日志路径和 08:00 schedule 不变。
 - [x] 确认 scheduled environment 可安全获得 `AUTOMATION_BRIEF_CURATOR_API_KEY`，不写入 plist、命令行或日志。
 - [x] 确认冻结 embedding model cache 存在，并可由 LaunchAgent 用户读取；以 `local_files_only=True` 初始化，不重新下载模型。
 - [x] 使用 `launchctl bootout` / `bootstrap` reload 并确认 loaded waiting state；`runs = 0`，未 kickstart、未手动生成、未提前创建当日报告。
-- [ ] 等待 08:00 scheduled run，确认 LaunchAgent 实际触发且 exit 状态可审计。
-- [ ] 确认实际调用 `generation_2` route，且无重复 semantic run。
-- [ ] 确认 finalized Gen2 artifact、manifest、run identity 和 `generation_outcome` 正常生成。
-- [ ] 确认 canonical `reports/morning-brief-YYYY-MM-DD.md` 存在且 digest 与 finalized artifact 一致。
-- [ ] 确认 Obsidian note 路径、文件名和内容正确。
-- [ ] 确认 Bark 通知正确到达，且失败/ambiguous timeout 不自动重复发送。
-- [ ] 点击 Bark URI，确认打开正确的 Obsidian note。
-- [ ] 完成人工 reader-facing Morning Brief 验收，包含 complete/partial/legal empty 可读性检查。
-- [ ] 检查日志确认没有 `main.py`、Gen1 Curator、Gen1 semantic fallback 或重复 semantic stages。
+- [x] 等待 08:00 scheduled run，确认 LaunchAgent 实际触发且 exit 状态可审计。
+- [x] 确认实际调用 `generation_2` route，且无重复 semantic run。
+- [x] 确认 finalized Gen2 artifact、manifest、run identity 和 `generation_outcome` 正常生成。
+- [x] 确认 canonical `reports/morning-brief-YYYY-MM-DD.md` 存在且 digest 与 finalized artifact 一致。
+- [x] 确认 Obsidian note 路径、文件名和内容正确。
+- [x] 确认 Bark 通知正确到达，且失败/ambiguous timeout 不自动重复发送。
+- [ ] 点击 Bark URI，确认打开正确的 Obsidian note（可选 follow-up；不作为本次 closeout gate，用户已确认 delivery 成功）。
+- [x] 完成人工 reader-facing Morning Brief 验收；第一次 scheduled run 为 partial，但 banner、内容与 delivery 均可接受，complete/partial/legal empty 离线矩阵保持通过。
+- [x] 检查日志确认没有 `main.py`、Gen1 Curator、Gen1 semantic fallback 或重复 semantic stages。
 - [x] 保留 explicit、人工批准、可审计的 `overnight_brief` rollback seam；本轮不实际 rollback。
 
-第一次 scheduled acceptance 的 canonical evidence 位置：launchd stdout/stderr 为 repo 根目录 `daily-digest.launchd.out.log` / `daily-digest.launchd.err.log`；Gen2 finalized run 为 `<data-root>/runs/event-driven-morning-brief/<run_id>/manifest.json` 与 `morning-brief.md`；正式报告为 `<data-root>/reports/morning-brief-YYYY-MM-DD.md`；Obsidian note 为 `.env.local` 中既有 `MOBILE_DIGEST_DIR` 下的同名 Morning Brief。只核对这些位置与安全字段，不输出 `.env.local` 内容、API key 或 Bark URL。
+第一次 scheduled acceptance 的 canonical evidence 位置：launchd stdout/stderr 为 repo 根目录 `daily-digest.launchd.out.log` / `daily-digest.launchd.err.log`；Gen2 finalized run 为 `<data-root>/runs/event-driven-morning-brief/<run_id>/manifest.json` 与 `morning-brief.md`；正式报告为 `<data-root>/reports/morning-brief-YYYY-MM-DD.md`；Obsidian note 为 `.env.local` 中既有 `MOBILE_DIGEST_DIR` 下的同名 Morning Brief。实际验收 run_id 为 `gen2-20260829T000008.376254Z-728ecd201649`，`generation_outcome=partial`，原因是已接受的 Investing.com timezone-less timestamp variation；只核对这些位置与安全字段，不输出 `.env.local` 内容、API key 或 Bark URL。
+
+## v1.9 Focused Reader-Facing Category Presentation Corrective — COMPLETED
+
+Renderer 仅按固定顺序遍历非空 category bucket：`geopolitics → china_policy → macro_policy → financial_markets → energy_commodities → company_industry → technology_ai → public_safety → other`。grouping 仍使用 selector-owned `selection_order`，section 内 Event 顺序、`Brief.event_ids`、Event classification 与 canonical schema 均不变；`classification=None` 的 written-unclassified 继续只在 reader-facing 层映射到“其他”，且“其他”最后。该 corrective 不修改 Selector、Classifier、Writer、orchestrator semantic behavior、production routing、delivery 或 LaunchAgent。
+
+新增/更新的 offline coverage 锁定完整九类顺序、空 section 跳过、section 内 selection order、canonical `Brief.event_ids` 不变、genuine `other` 与 written-unclassified 同桶，以及 renderer/orchestrator representative Markdown snapshot。该项不需要 canonical `.expected.json` 变化。
+
+## v1.9 Final Closeout — COMPLETED / CLOSED
+
+- [x] final review 确认 Slice 1–5、第一次 scheduled Gen2 production acceptance 与 category presentation corrective 均通过；Generation 2 继续作为 installed `generation_2` active route，08:00 schedule、delivery seam 与 explicit human-approved `overnight_brief` rollback 保持不变。
+- [x] 第一次 scheduled run `gen2-20260829T000008.376254Z-728ecd201649` 记录为 PASS WITH ACCEPTED DEGRADATION；唯一 partial 为 Investing.com 10 条 timezone-less timestamp 的既有 `item_validation_failed` fail-closed variation，作为 accepted non-blocker 保留。
+- [x] renderer/orchestrator focused smoke、representative Markdown snapshot、Project-State Push Gate 与 `git diff --check` 通过；此前 full offline/runtime/artifact/routing validation 仍有效。
+- [x] 未修改或 reload installed LaunchAgent、未调用真实 RSS/DeepSeek/Bark/Obsidian、未开始 v1.10 legacy retirement；后续只在 post-cutover stability 确认后开始 v1.10 Legacy Retirement READ-ONLY dependency audit。
 
 ## v1.2 regression checklist
 

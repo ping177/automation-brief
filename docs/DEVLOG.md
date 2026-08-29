@@ -2,12 +2,27 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
-## 2026-08-29 — v1.9 Slice 5 Controlled Production Activation — APPLIED / FIRST SCHEDULED ACCEPTANCE PENDING
+## 2026-08-29 — v1.9 Production Cutover Final Closeout — COMPLETED / CLOSED
+
+- 完成 v1.9 final review：Slice 1 Production Publication Adapter、Slice 2 Explicit Production Routing、Slice 3 Delivery Seam Compliance、Slice 4 Full Offline Acceptance、Slice 5 Controlled Production Activation 与 focused reader-facing category presentation corrective 均已完成并通过验收。
+- 第一次 scheduled Gen2 production acceptance 保留为 PASS WITH ACCEPTED DEGRADATION；run `gen2-20260829T000008.376254Z-728ecd201649` 的唯一 partial 是 Investing.com 10 条 timezone-less timestamp 的既有 `item_validation_failed` fail-closed variation，继续作为 accepted non-blocker，不在 closeout 中修改。
+- Generation 2 保持 installed `generation_2` active production route、08:00 Asia/Shanghai schedule 与显式人工 rollback seam；未发现 Gen1、automatic fallback 或 duplicate semantic run，现有 legacy surface 保留。
+- Renderer category 顺序 corrective 只影响 reader-facing presentation，canonical Selector/Event/Brief order 不变；相关 focused smoke、representative snapshot、Project-State Push Gate 与 diff checks 通过。v1.10 Legacy Retirement READ-ONLY dependency audit 仅在后续稳定性确认后开始，本轮未开始。
+
+## 2026-08-29 — v1.9 First Scheduled Gen2 Acceptance + Category Presentation Corrective — PASS WITH ACCEPTED DEGRADATION
+
+- 第一次 08:00 scheduled Generation 2 production run 已由 installed LaunchAgent 的 `run_daily_digest.sh generation_2` 触发；唯一 run 为 `gen2-20260829T000008.376254Z-728ecd201649`。production adapter、mobile/Obsidian publisher、Bark sender 与 aggregate shell task 均 exit `0`。
+- manifest 已 finalized，`generation_outcome=partial` 仅来自 normalizer 对 Investing.com 中文财经 10 条 timezone-less timestamp 的既有 `item_validation_failed` fail-closed variation；collector、dedup、clustering、selector、classifier、writer 与 renderer 均无 failure，20 个 selected/classified/written Events 正常完成。该 variation 属于既有 accepted source-provider input behavior，不修改。
+- finalized `morning-brief.md`、canonical `reports/morning-brief-2026-08-29.md` 与 Obsidian note SHA-256 均为 `725de7028a2145f8d3863e6126d24a887582036209a37be122267e1e237a001c`；未发现 `main.py`、Gen1 Curator、automatic fallback 或 duplicate semantic run。用户确认 Morning Brief 与 delivery 成功。
+- 完成 focused reader-facing category presentation corrective：section 固定为 `geopolitics → china_policy → macro_policy → financial_markets → energy_commodities → company_industry → technology_ai → public_safety → other`；仅改变 Renderer presentation，保留 selector/Event/Brief canonical order，written-unclassified 仍映射到“其他”。
+- 更新 renderer/orchestrator offline smoke 与 representative Markdown snapshot，新增全九类顺序、空 section、section 内 selection order、canonical `Brief.event_ids` 和 genuine `other`/written-unclassified coverage；本 corrective 不修改 semantic core、production routing、delivery、LaunchAgent 或 frozen contracts。当时 v1.9 尚待 final closeout；现已由上方记录正式 COMPLETED / CLOSED，v1.10 cleanup 不开始。
+
+## 2026-08-29 — v1.9 Slice 5 Controlled Production Activation — APPLIED / ACCEPTANCE RECORDED BELOW
 
 - 在 baseline commit `f42b6e82030d296f3858946f39f1a27ab694f306`、Asia/Shanghai `2026-08-29T02:02:53+0800`、当日 canonical Morning Brief 不存在的前提下，将 installed LaunchAgent `/Users/wp/Library/LaunchAgents/com.ping.automation-brief.daily.plist` 的唯一 route 参数从 `overnight_brief` 改为 `generation_2`；Label、script path、working directory、stdout/stderr path 与 08:00 calendar schedule 保持不变。plist SHA-256 从 `503d7f8aeebeaeee27c9623c3f2f4b34c82b1ee46c14a23a45e41f465f97fecb` 变为 `4d1369860372699e27127b170197206cabd57d506d965890b5b351ea10612d61`，且 reload 后内容与 checked-in example 语义一致。
 - activation preflight 确认 repo/Git clean、shell 与 `.venv` 路径可用、process-env-first / `.env.local` credential seam 可提供非空 key、冻结 `intfloat/multilingual-e5-small` revision `614241f622f53c4eeff9890bdc4f31cfecc418b3` 可由当前用户以 `local_files_only=True` 初始化；未记录或打印 secret。
 - 使用既有 `launchctl bootout` / `bootstrap` reload；post-reload 为 loaded、`state = not running`、`runs = 0`、`last exit code = never exited`，ProgramArguments 为 `generation_2`，calendar trigger 仍为 08:00。未 kickstart、未手动运行 production shell，未调用真实 RSS/DeepSeek/Obsidian/Bark，也未提前创建当日报告。
-- `overnight_brief` 保留为 explicit human-approved rollback route：只有人工批准后才将 installed route 改回并 reload；禁止 Gen2 failure 自动调用 Gen1、改 plist、覆盖报告或 rollback。v1.9 仍为 IMPLEMENTATION UNDERWAY，下一步观察并验收第一次 scheduled Gen2 production run。
+- `overnight_brief` 保留为 explicit human-approved rollback route：只有人工批准后才将 installed route 改回并 reload；禁止 Gen2 failure 自动调用 Gen1、改 plist、覆盖报告或 rollback。该 activation 记录当时 v1.9 尚待 scheduled acceptance；后续 acceptance、reader-facing corrective 与 final closeout 见本日志上方记录。
 
 ## 2026-08-29 — v1.9 Slice 4 Full Offline Acceptance — PASS
 

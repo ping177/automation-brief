@@ -54,6 +54,17 @@ _CATEGORY_DISPLAY_LABELS = {
     EventCategory.PUBLIC_SAFETY: "公共安全",
     EventCategory.OTHER: "其他",
 }
+_CATEGORY_PRESENTATION_ORDER = (
+    EventCategory.GEOPOLITICS,
+    EventCategory.CHINA_POLICY,
+    EventCategory.MACRO_POLICY,
+    EventCategory.FINANCIAL_MARKETS,
+    EventCategory.ENERGY_COMMODITIES,
+    EventCategory.COMPANY_INDUSTRY,
+    EventCategory.TECHNOLOGY_AI,
+    EventCategory.PUBLIC_SAFETY,
+    EventCategory.OTHER,
+)
 
 
 @dataclass(frozen=True)
@@ -226,7 +237,11 @@ def _group_written_events_by_category(
             else event.classification.category
         )
         grouped.setdefault(category, []).append(event)
-    return tuple((category, tuple(events)) for category, events in grouped.items())
+    return tuple(
+        (category, tuple(grouped[category]))
+        for category in _CATEGORY_PRESENTATION_ORDER
+        if category in grouped
+    )
 
 
 def _validate_selected_events(

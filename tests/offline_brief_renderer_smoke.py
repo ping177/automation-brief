@@ -233,15 +233,16 @@ def test_partial_writer_preserves_relative_selection_order_without_ceiling() -> 
     assert markdown.count("摘要：") == 3
 
 
-def test_category_sections_follow_earliest_selection_order_without_changing_brief_order() -> None:
-    items = tuple(article(f"grouped-{index}") for index in range(1, 6))
+def test_category_sections_follow_fixed_presentation_order_without_changing_brief_order() -> None:
+    items = tuple(article(f"grouped-{index}") for index in range(1, 7))
     selected = tuple(selected_event(item, order=index) for index, item in enumerate(items, start=1))
     classified = (
         classified_event(selected[0], EventCategory.TECHNOLOGY_AI),
         classified_event(selected[1], EventCategory.MACRO_POLICY),
         classified_event(selected[2], EventCategory.TECHNOLOGY_AI),
         classified_event(selected[3], EventCategory.PUBLIC_SAFETY),
-        selected[4],
+        classified_event(selected[4], EventCategory.OTHER),
+        selected[5],
     )
     written = tuple(
         written_event(event, f"分组{index}") for index, event in enumerate(classified, start=1)
@@ -270,14 +271,15 @@ def test_category_sections_follow_earliest_selection_order_without_changing_brie
     markdown = rendered.markdown
     assert "## 今日要闻" not in markdown
     section_headings = [line for line in markdown.splitlines() if line.startswith("## ")]
-    assert section_headings == ["## *科技与 AI*", "## *宏观与政策*", "## *公共安全*", "## *其他*"]
+    assert section_headings == ["## *宏观与政策*", "## *科技与 AI*", "## *公共安全*", "## *其他*"]
     event_headings = [line for line in markdown.splitlines() if line.startswith("### ")]
     assert event_headings == [
+        '### <span style="color: var(--text-accent);"><strong>分组2中文标题</strong></span>',
         '### <span style="color: var(--text-accent);"><strong>分组1中文标题</strong></span>',
         '### <span style="color: var(--text-accent);"><strong>分组3中文标题</strong></span>',
-        '### <span style="color: var(--text-accent);"><strong>分组2中文标题</strong></span>',
         '### <span style="color: var(--text-accent);"><strong>分组4中文标题</strong></span>',
         '### <span style="color: var(--text-accent);"><strong>分组5中文标题</strong></span>',
+        '### <span style="color: var(--text-accent);"><strong>分组6中文标题</strong></span>',
     ]
     assert markdown.index("<strong>分组1中文标题</strong>") < markdown.index(
         "<strong>分组3中文标题</strong>"
@@ -285,6 +287,73 @@ def test_category_sections_follow_earliest_selection_order_without_changing_brie
     for event in written:
         assert event.writing is not None
         assert markdown.count(event.writing.title_zh) == 1
+
+
+def test_all_category_sections_use_the_fixed_nine_category_order() -> None:
+    items = tuple(article(f"all-categories-{index}") for index in range(1, 10))
+    selected = tuple(selected_event(item, order=index) for index, item in enumerate(items, start=1))
+    classified = tuple(
+        classified_event(event, category)
+        for event, category in zip(
+            selected,
+            (
+                EventCategory.OTHER,
+                EventCategory.PUBLIC_SAFETY,
+                EventCategory.TECHNOLOGY_AI,
+                EventCategory.COMPANY_INDUSTRY,
+                EventCategory.ENERGY_COMMODITIES,
+                EventCategory.FINANCIAL_MARKETS,
+                EventCategory.MACRO_POLICY,
+                EventCategory.CHINA_POLICY,
+                EventCategory.GEOPOLITICS,
+            ),
+        )
+    )
+    written = tuple(
+        written_event(event, f"全类{index}") for index, event in enumerate(classified, start=1)
+    )
+    selector_result = succeeded(StageName.EVENT_SELECTOR, selected)
+    writer_result = succeeded(StageName.EVENT_WRITER, written)
+
+    rendered = render_brief(
+        selector_result,
+        writer_result,
+        items,
+        REPORT_DATE,
+        WINDOW_START,
+        WINDOW_END,
+        upstream_results=complete_upstream(
+            selector_result,
+            writer_result,
+            classifier_outputs=classified,
+        ),
+    )
+
+    assert rendered.stage_result.status == StageStatus.SUCCEEDED
+    assert rendered.brief is not None
+    assert rendered.brief.event_ids == tuple(event.event_id for event in written)
+    assert [event.selection_order for event in written] == list(range(1, 10))
+    assert rendered.markdown is not None
+    assert [
+        line for line in rendered.markdown.splitlines() if line.startswith("## ")
+    ] == [
+        "## *国际与地缘*",
+        "## *中国政策*",
+        "## *宏观与政策*",
+        "## *金融市场*",
+        "## *能源与大宗商品*",
+        "## *公司与产业*",
+        "## *科技与 AI*",
+        "## *公共安全*",
+        "## *其他*",
+    ]
+    event_titles = [
+        line for line in rendered.markdown.splitlines() if line.startswith("### ")
+    ]
+    assert event_titles == [
+        f'### <span style="color: var(--text-accent);"><strong>{written[index].writing.title_zh}</strong></span>'
+        for index in (8, 7, 6, 5, 4, 3, 2, 1, 0)
+    ]
 
 
 def test_classifier_failure_can_render_written_unclassified_event_as_partial() -> None:
@@ -483,7 +552,8 @@ def test_renderer_has_no_semantic_or_legacy_module_dependency() -> None:
 def main() -> None:
     test_normal_complete_brief_renders_all_written_events()
     test_partial_writer_preserves_relative_selection_order_without_ceiling()
-    test_category_sections_follow_earliest_selection_order_without_changing_brief_order()
+    test_category_sections_follow_fixed_presentation_order_without_changing_brief_order()
+    test_all_category_sections_use_the_fixed_nine_category_order()
     test_classifier_failure_can_render_written_unclassified_event_as_partial()
     test_empty_complete_brief_is_a_natural_empty_success()
     test_empty_partial_brief_keeps_empty_content_and_partial_status()

@@ -2,6 +2,21 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-30 — v1.9.1 Classifier `other` Boundary Correction — COMPLETED / CLOSED
+
+- 完成最终 closeout review：prompt 仅增加 named-category boundary clarification；现有 compact-fixture `--classifier-only` runner 仅用于 validation，不调用 Writer、feeds、完整 runtime、artifacts 或 delivery。
+- 用户手动对同一 fixture 完成 3 次 real DeepSeek validation（`deepseek-v4-flash`）；每次 exit 0、classifier stage `succeeded`、technical failures 为空，5 个 case 每次均 classification_match=true。灾害 cases 稳定进入 `public_safety`，Anthropic/AI 训练数据版权诉讼稳定进入 `technology_ai`，合理 counterexample 稳定保持 `other`。
+- offline regression、全部 30 个 offline smoke、Project-State Push Gate 16/16、compile/compileall、shell syntax 与 `git diff --check` 均通过。未修改 production routing、LaunchAgent、delivery、canonical taxonomy、Selector、Writer、runtime 或 frozen contracts。
+- partial banner 未修改，作为独立 presentation follow-up 保留；v1.10 未开始。
+
+## 2026-08-30 — v1.9.1 Classifier `other` Boundary Correction — OFFLINE IMPLEMENTATION RECORD
+
+- 根据 2026-08-29 / 2026-08-30 scheduled Gen2 acceptance 中连续出现的明显 `other` misuse，完成最小 classifier prompt clarification：优先选择最具体的 named category，补充 `public_safety` 与 `technology_ai` 边界，`other` 仅在无自然 named-category 时使用，法律/诉讼/任免/人员形式本身不构成 `other` 理由，混合事件按 dominant subject 选择。
+- 新增 `tests/fixtures/event_classifier_boundary_v1_9_1.json` 与 classifier smoke focused regression：尼泊尔山洪、泥石流救援 → `public_safety`；Anthropic/AI 版权诉讼 → `technology_ai`；社区文化活动保留为合理 `other` counterexample。测试保持 Event membership、article projection 与 selection order 不变，不硬编码事件映射。
+- classifier smoke、classifier → writer continuation、writer 与 orchestrator smoke、全部 30 个 offline smoke、Project-State Push Gate 16/16、compile/compileall、shell syntax 与 `git diff --check` 均通过。未调用真实 RSS/DeepSeek/Bark/Obsidian 或 scheduled production。
+- 本 corrective 不修改 production routing、LaunchAgent、delivery、clustering、Selector、Writer、canonical taxonomy、frozen contracts 或 v1.10 legacy surface；当时 v1.9 保持 COMPLETED / CLOSED，后续 focused real-provider validation 与 closeout 结果见上方记录。
+- 为当前 compact fixture 增加 validation-only `--classifier-only` runner 分支：复用既有 DeepSeek gateway，只执行 classifier、输出安全 case-level stdout report，不调用 Writer、feeds、完整 runtime、artifact 或 production delivery；真实 provider 仍仅由用户显式执行。
+
 ## 2026-08-29 — v1.9 Production Cutover Final Closeout — COMPLETED / CLOSED
 
 - 完成 v1.9 final review：Slice 1 Production Publication Adapter、Slice 2 Explicit Production Routing、Slice 3 Delivery Seam Compliance、Slice 4 Full Offline Acceptance、Slice 5 Controlled Production Activation 与 focused reader-facing category presentation corrective 均已完成并通过验收。

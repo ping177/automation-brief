@@ -24,6 +24,7 @@ v1.6 — Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
 v1.9 — Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
+v1.9.1 — Classifier “other” Boundary Correction（COMPLETED / CLOSED；offline regression PASS；focused real-provider validation 3/3 PASS）
 v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 ```
 
@@ -34,6 +35,15 @@ v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 当前无已知 P0 阻塞。
 
 P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推送或 Mac 自动唤醒链路的紧急问题。
+
+### v1.9.1 Classifier “other” Boundary Correction — COMPLETED / CLOSED
+
+- 仅对 classifier system prompt 增加简短 named-category boundary、specific-category preference、mixed-event dominant-subject 与 `other` 保留条件；不改变 canonical taxonomy、validator 或 runtime contract。
+- focused offline fixture 覆盖尼泊尔山洪与泥石流救援 → `public_safety`、Anthropic/AI 版权诉讼 → `technology_ai`，以及应保持 `other` 的无自然 named-category 反例；不使用 keyword rule、score、source rule、entity mapping、second classifier 或 judge。
+- 现有 `scripts/evaluate_event_classifier_writer_quality.py` 已增加显式 `--classifier-only` compact-fixture validation seam：只执行 classifier、复用既有 DeepSeek gateway、stdout 输出安全 case-level report，不写 production artifacts 或运行其它 semantic stages。
+- 已通过的 offline correction 不改变 production routing、LaunchAgent、delivery、Selector、Writer 或 Gen1 rollback seam；v1.9 保持 COMPLETED / CLOSED，v1.10 尚未开始。
+- 用户已手动完成同一 compact fixture 的 3 次 focused real-provider validation：每次 exit 0、classifier stage succeeded、technical failures 为空，5/5 case expectations 全部匹配；v1.9.1 closeout 完成。
+- partial banner 未在 v1.9.1 中修改；仅作为独立 presentation follow-up 评估 backend partial 与 reader-facing wording 的区分。
 
 ### v0.7.2 Production Cutover acceptance — CLOSED
 
@@ -142,6 +152,11 @@ v1.8  Shadow / Parallel Validation（COMPLETED / CLOSED）
 v1.9  Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
 v1.10 Legacy Retirement & v1.x Closeout
 ```
+
+`v1.9.1` 是 v1.9 之后单独追踪的 numeric classifier corrective，不改变已冻结的
+v1.0→v1.10 milestone 顺序；offline regression 与 focused real-provider validation
+均已通过，v1.9.1 已 COMPLETED / CLOSED。partial banner follow-up 与 v1.10 legacy
+retirement 仍是后续独立事项。
 
 v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback/rollback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend，Slice 4 full offline release gate 已 PASS，Slice 5 installed activation 已应用；第一次 scheduled Generation 2 production run 已 PASS WITH ACCEPTED DEGRADATION，category presentation-order corrective 已完成且不改变 canonical Selector/Event/Brief order；v1.9 已 COMPLETED / CLOSED。下一步观察 Generation 2 production stability；确认 post-cutover stability 后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 

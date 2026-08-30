@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Explicit v1.5 Classifier + Writer quality-validation runner.
+"""Explicit classifier quality-validation runner.
 
 The default dry-run exercises the complete fixture -> classifier -> continuation
 -> writer path with a local fake gateway.  A real provider call requires the
-explicit ``--real-provider deepseek`` opt-in.  Reports are printed to stdout,
-are safe for manual review, and are never persisted automatically.
+explicit ``--real-provider deepseek`` opt-in.  ``--classifier-only`` adds a
+focused compact-fixture mode for the v1.9.1 category-boundary cases. Reports
+are printed to stdout, are safe for manual review, and are never persisted
+automatically.
 """
 
 from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
@@ -26,6 +28,7 @@ from canonical_domain import (  # noqa: E402
     Article,
     Event,
     EventCandidate,
+    EventCategory,
     StageResult,
     StageStatus,
     datetime_in_report_window,
@@ -55,6 +58,13 @@ FIXTURE_PATH = (
     / "fixtures"
     / "event_classifier_writer_quality_v1_5.json"
 )
+BOUNDARY_FIXTURE_PATH = (
+    PROJECT_ROOT
+    / "tests"
+    / "fixtures"
+    / "event_classifier_boundary_v1_9_1.json"
+)
+BOUNDARY_FIXTURE_TIMESTAMP = datetime(2026, 8, 27, tzinfo=timezone.utc)
 _KEY_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
@@ -79,6 +89,17 @@ class QualityRun:
     classifier_result: StageResult[Event]
     continuation_events: tuple[Event, ...]
     writer_result: StageResult[Event]
+
+
+@dataclass(frozen=True)
+class ClassifierBoundaryFixture:
+    """Compact synthetic Events and expected categories for classifier-only review."""
+
+    fixture_id: str
+    selected_events: tuple[Event, ...]
+    articles: tuple[Article, ...]
+    case_id_by_id: Mapping[str, str]
+    expected_category_by_id: Mapping[str, EventCategory]
 
 
 class _OfflineQualityGateway:
@@ -274,6 +295,80 @@ def load_quality_fixture(path: Path) -> QualityFixture:
     )
 
 
+def load_classifier_boundary_fixture(path: Path) -> ClassifierBoundaryFixture:
+    """Load the compact v1.9.1 fixture without the v1.5 writer schema."""
+
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("classifier boundary fixture must be an object")
+    _require_exact_keys(payload, {"fixture_id", "cases"}, "classifier boundary fixture")
+    fixture_id = _required_key(payload["fixture_id"], "fixture_id")
+    raw_cases = payload["cases"]
+    if not isinstance(raw_cases, list) or not raw_cases:
+        raise ValueError("classifier boundary fixture cases must be a non-empty list")
+
+    articles: list[Article] = []
+    events: list[Event] = []
+    case_id_by_id: dict[str, str] = {}
+    expected_category_by_id: dict[str, EventCategory] = {}
+    case_ids_seen: set[str] = set()
+    article_ids_seen: set[str] = set()
+
+    for selection_order, raw_case in enumerate(raw_cases, start=1):
+        if not isinstance(raw_case, Mapping):
+            raise ValueError("classifier boundary case must be an object")
+        _require_exact_keys(
+            raw_case,
+            {"case_id", "title", "summary", "language", "expected_category"},
+            "classifier boundary case",
+        )
+        case_id = _required_key(raw_case["case_id"], "case_id")
+        if case_id in case_ids_seen:
+            raise ValueError("classifier boundary case IDs must be unique")
+        title = _required_text(raw_case["title"], "title")
+        language = _required_text(raw_case["language"], "language")
+        summary = raw_case["summary"]
+        if summary is not None and not isinstance(summary, str):
+            raise ValueError("summary must be text or null")
+        try:
+            expected_category = EventCategory(raw_case["expected_category"])
+        except (TypeError, ValueError) as error:
+            raise ValueError("expected_category must be a canonical EventCategory") from error
+
+        article = Article.from_source(
+            source="v1.9.1 classifier boundary fixture",
+            url=f"https://fixture.invalid/v1-9-1/{case_id}",
+            published_at=BOUNDARY_FIXTURE_TIMESTAMP,
+            collected_at=BOUNDARY_FIXTURE_TIMESTAMP,
+            language=language,
+            title=title,
+            summary=summary,
+        )
+        if article.article_id in article_ids_seen:
+            raise ValueError("classifier boundary Article IDs must be unique")
+        article_ids_seen.add(article.article_id)
+        event = Event.from_candidate(
+            EventCandidate.from_article_ids((article.article_id,)),
+            selection_order=selection_order,
+        )
+        if event.event_id in case_id_by_id:
+            raise ValueError("classifier boundary Event IDs must be unique")
+        case_ids_seen.add(case_id)
+        articles.append(article)
+        events.append(event)
+        case_id_by_id[event.event_id] = case_id
+        expected_category_by_id[event.event_id] = expected_category
+
+    validate_event_selection_order(events)
+    return ClassifierBoundaryFixture(
+        fixture_id=fixture_id,
+        selected_events=tuple(events),
+        articles=tuple(articles),
+        case_id_by_id=case_id_by_id,
+        expected_category_by_id=expected_category_by_id,
+    )
+
+
 def _continue_after_classifier(
     selected_events: Sequence[Event],
     classifier_result: StageResult[Event],
@@ -302,6 +397,15 @@ def run_quality_validation(
         continuation_events=continuation_events,
         writer_result=writer_result,
     )
+
+
+def run_classifier_validation(
+    fixture: ClassifierBoundaryFixture,
+    gateway: ClassifierGateway,
+) -> StageResult[Event]:
+    """Run only the frozen classifier stage for the compact boundary fixture."""
+
+    return classify_events(fixture.selected_events, fixture.articles, gateway)
 
 
 def _failure_dicts(result: StageResult[Event], event_id: str) -> list[dict[str, Any]]:
@@ -387,6 +491,53 @@ def render_quality_report(
     }
 
 
+def render_classifier_report(
+    fixture: ClassifierBoundaryFixture,
+    result: StageResult[Event],
+    *,
+    mode: str,
+    provider_id: str,
+    model: str,
+) -> dict[str, Any]:
+    """Render safe case-level classifier outcomes without writer/runtime fields."""
+
+    classified_by_id = {event.event_id: event for event in result.outputs}
+    event_reports: list[dict[str, Any]] = []
+    for event in fixture.selected_events:
+        classified = classified_by_id.get(event.event_id)
+        actual_category = (
+            None
+            if classified is None or classified.classification is None
+            else classified.classification.category.value
+        )
+        expected_category = fixture.expected_category_by_id[event.event_id].value
+        event_reports.append(
+            {
+                "case_id": fixture.case_id_by_id[event.event_id],
+                "event_id": event.event_id,
+                "expected_category": expected_category,
+                "actual_category": actual_category,
+                "classification_match": actual_category == expected_category,
+                "classifier_failure": _failure_dicts(result, event.event_id),
+            }
+        )
+
+    return {
+        "mode": mode,
+        "provider_id": provider_id,
+        "model": model,
+        "fixture_id": fixture.fixture_id,
+        "provenance": "synthetic",
+        "event_count": len(fixture.selected_events),
+        "classifier_stage_status": result.status.value,
+        "technical_failures": [
+            {"stage": "classifier", **failure.to_dict()}
+            for failure in result.failures
+        ],
+        "events": event_reports,
+    }
+
+
 def build_dry_run_report(fixture: QualityFixture) -> dict[str, Any]:
     run = run_quality_validation(fixture, _OfflineQualityGateway())
     return render_quality_report(
@@ -405,6 +556,11 @@ def _deepseek_gateway() -> _DeepSeekQualityGateway:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", type=Path, default=FIXTURE_PATH)
+    parser.add_argument(
+        "--classifier-only",
+        action="store_true",
+        help="validate the compact v1.9.1 classifier-boundary fixture only",
+    )
     parser.add_argument("--real-provider", choices=(DEEPSEEK_PROVIDER_ID,))
     return parser.parse_args(argv)
 
@@ -412,6 +568,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     try:
+        if args.classifier_only:
+            fixture = load_classifier_boundary_fixture(args.fixture)
+            if args.real_provider is None:
+                result = run_classifier_validation(fixture, _OfflineQualityGateway())
+                mode = "dry-run"
+                provider_id = "offline"
+                model = "fixture"
+            else:
+                result = run_classifier_validation(fixture, _deepseek_gateway())
+                mode = "real-provider"
+                provider_id = DEEPSEEK_PROVIDER_ID
+                model = DEEPSEEK_MODEL
+            report = render_classifier_report(
+                fixture,
+                result,
+                mode=mode,
+                provider_id=provider_id,
+                model=model,
+            )
+            print(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2))
+            if args.real_provider is not None and result.status is not StageStatus.SUCCEEDED:
+                raise SystemExit(1)
+            return
+
         fixture = load_quality_fixture(args.fixture)
         if args.real_provider is None:
             run = run_quality_validation(fixture, _OfflineQualityGateway())
@@ -452,14 +632,19 @@ __all__ = [
     "DEEPSEEK_MODEL",
     "DEEPSEEK_PROVIDER_ID",
     "DEEPSEEK_TIMEOUT_SECONDS",
+    "BOUNDARY_FIXTURE_PATH",
     "FIXTURE_PATH",
+    "ClassifierBoundaryFixture",
     "QualityFixture",
     "QualityRun",
     "_DeepSeekQualityGateway",
     "build_dry_run_report",
+    "load_classifier_boundary_fixture",
     "load_quality_fixture",
     "parse_args",
+    "render_classifier_report",
     "render_quality_report",
+    "run_classifier_validation",
     "run_quality_validation",
 ]
 

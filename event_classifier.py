@@ -35,7 +35,15 @@ _CLASSIFIER_SYSTEM_INSTRUCTION = (
     "provenance, legacy category, or clustering diagnostics. Use exactly one value from "
     "the frozen vocabulary: "
     + ", ".join(category.value for category in EventCategory)
-    + '. If no specific category naturally fits the event, choose "other"; semantic '
+    + '. Prefer the most specific named category supported by the Article bundle. '
+    + 'Category boundary guidance: public_safety covers disasters, floods, earthquakes, '
+    + 'accidents, major casualties, rescue, public-health emergencies, and emergency response; '
+    + 'technology_ai covers events whose core is an AI company, AI model, training data, '
+    + 'AI product, or AI copyright/intellectual-property dispute or lawsuit. Reserve "other" '
+    + 'only when none of the named categories naturally fits; do not choose "other" merely '
+    + 'because an event involves law, litigation, appointments, or personnel. For mixed events, '
+    + 'choose the named category that best matches the dominant subject. If no specific category '
+    + 'naturally fits the event, choose "other"; semantic '
     + 'uncertainty is not a failure. Return exactly one JSON object with only '
     + '"classifications". Each item must '
     'contain only "event_id" and "category". Do not add prose.'

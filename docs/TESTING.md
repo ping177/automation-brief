@@ -47,6 +47,7 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 - `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering`、`v1.4 — Event Selector`、`v1.5 — Event Classifier + Writer`、`v1.6 — Renderer + Artifacts + Orchestrator Integration` 与 `v1.7 — Offline / Snapshot Validation` 均为 `COMPLETED / CLOSED`；v1.5 的三段实现、offline regression 与最终 real-provider acceptance 已完成，v1.6 implementation acceptance、v1.7 offline full-pipeline E2E 与最终 Human Reader-Facing Acceptance 均 PASS。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
+- `v1.9.1` 是 v1.9 之后的 numeric classifier corrective，已 COMPLETED / CLOSED；单独记录 implementation/validation 状态，不改变上述 v1.0→v1.10 milestone 顺序，也不表示 v1.10 已开始。
 - v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6/v1.7 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后作为正式 baseline；v1.9 cutover 完成后仅保留为 explicit human-approved rollback route。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 - roadmap freeze 当时不修改三份 v1.0 canonical contract semantics、不创建 v1.1 Python module、不运行业务 pipeline 或真实外部 API；后续 v1.1 implementation verification 见下节。
@@ -428,6 +429,36 @@ Renderer 仅按固定顺序遍历非空 category bucket：`geopolitics → china
 - [x] 第一次 scheduled run `gen2-20260829T000008.376254Z-728ecd201649` 记录为 PASS WITH ACCEPTED DEGRADATION；唯一 partial 为 Investing.com 10 条 timezone-less timestamp 的既有 `item_validation_failed` fail-closed variation，作为 accepted non-blocker 保留。
 - [x] renderer/orchestrator focused smoke、representative Markdown snapshot、Project-State Push Gate 与 `git diff --check` 通过；此前 full offline/runtime/artifact/routing validation 仍有效。
 - [x] 未修改或 reload installed LaunchAgent、未调用真实 RSS/DeepSeek/Bark/Obsidian、未开始 v1.10 legacy retirement；后续只在 post-cutover stability 确认后开始 v1.10 Legacy Retirement READ-ONLY dependency audit。
+
+## v1.9.1 Classifier `other` Boundary Correction — COMPLETED / CLOSED
+
+v1.9.1 只在现有 classifier prompt 增加 named-category boundary clarification，并以
+`tests/fixtures/event_classifier_boundary_v1_9_1.json` 做 focused offline regression。
+fixture 覆盖灾害/重大伤亡 → `public_safety`、AI 公司/版权诉讼 → `technology_ai`，以及
+没有自然 named-category 的 `other` counterexample；不调用真实 provider，不改变
+Event/Brief canonical data、Selector、Writer 或 production route。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_classifier_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_event_classifier_writer_continuation_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python scripts/evaluate_event_classifier_writer_quality.py \
+  --classifier-only \
+  --fixture tests/fixtures/event_classifier_boundary_v1_9_1.json
+```
+
+offline gate 仍需运行全部 `tests/offline_*.py`、`tests.test_project_state_push_gate`、
+相关 compile 与 `git diff --check`。focused real-provider same-case validation 只能由用户
+显式手动执行；runner 的 `--real-provider deepseek` 只走 classifier-only 分支并将安全 report
+打印到 stdout，不写 production artifacts。真实运行前由用户在 Terminal 按现有 `.env.local`
+process-env-first 方式提供 `AUTOMATION_BRIEF_CURATOR_API_KEY`；runner 不自动运行额外
+provider calls、不读取或输出 API key，不调用真实 RSS/Bark/Obsidian。此次 closeout 未重新
+调用 DeepSeek，用户的 3 次手动 real-provider 结果记录如下。
+
+最终 real-provider acceptance：用户手动对同一 fixture 运行 3 次，均 exit 0、
+`classifier_stage_status=succeeded`、`technical_failures=[]`，5/5 cases 每次
+`classification_match=true`；灾害 cases → `public_safety`、AI legal-dispute cases →
+`technology_ai`、intentional `other` counterexample → `other`。partial banner 未在
+v1.9.1 中修改，后续可作为独立 presentation follow-up 评估。
 
 ## v1.2 regression checklist
 

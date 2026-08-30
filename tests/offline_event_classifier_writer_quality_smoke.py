@@ -14,14 +14,18 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from canonical_domain import EventCategory, FailureCode, StageStatus  # noqa: E402
 from evaluate_event_classifier_writer_quality import (  # noqa: E402
+    BOUNDARY_FIXTURE_PATH,
     DEEPSEEK_MAX_TOKENS,
     DEEPSEEK_MODEL,
     FIXTURE_PATH,
     _DeepSeekQualityGateway,
     build_dry_run_report,
+    load_classifier_boundary_fixture,
     load_quality_fixture,
     parse_args,
+    render_classifier_report,
     render_quality_report,
+    run_classifier_validation,
     run_quality_validation,
 )
 from llm_gateway import GatewayError, GatewayResponse  # noqa: E402
@@ -115,6 +119,40 @@ class CapturingDelegate:
         self.parameters = parameters
         return GatewayResponse(
             payload={"classifications": []},
+            attempts=1,
+            provider_id="fixture",
+            model="fixture-model",
+        )
+
+
+class BoundaryClassifierGateway:
+    """No-network gateway that echoes the compact fixture's expected classes."""
+
+    def __init__(self, fixture) -> None:
+        self.category_by_id = {
+            event.event_id: fixture.expected_category_by_id[event.event_id].value
+            for event in fixture.selected_events
+        }
+        self.calls: list[Sequence[Mapping[str, Any]]] = []
+
+    def complete_json(
+        self,
+        messages: Sequence[Mapping[str, Any]],
+        *,
+        parameters: Mapping[str, Any] | None = None,
+    ) -> GatewayResponse:
+        assert parameters is None
+        projection = _projection(messages)
+        assert set(projection) == {"events"}
+        event_projection = projection["events"][0]
+        event_id = event_projection["event_id"]
+        self.calls.append(messages)
+        return GatewayResponse(
+            payload={
+                "classifications": [
+                    {"event_id": event_id, "category": self.category_by_id[event_id]}
+                ]
+            },
             attempts=1,
             provider_id="fixture",
             model="fixture-model",
@@ -303,10 +341,93 @@ def test_deepseek_adapter_reuses_frozen_gateway_parameters() -> None:
     assert DEEPSEEK_MODEL == "deepseek-v4-flash"
 
 
+def test_classifier_boundary_fixture_builds_five_single_article_events() -> None:
+    fixture = load_classifier_boundary_fixture(BOUNDARY_FIXTURE_PATH)
+
+    assert fixture.fixture_id == "v1-9-1-classifier-other-boundary"
+    assert [event.selection_order for event in fixture.selected_events] == list(range(1, 6))
+    assert all(len(event.article_ids) == 1 for event in fixture.selected_events)
+    assert [
+        fixture.expected_category_by_id[event.event_id].value
+        for event in fixture.selected_events
+    ] == [
+        "public_safety",
+        "public_safety",
+        "technology_ai",
+        "technology_ai",
+        "other",
+    ]
+    assert set(fixture.case_id_by_id.values()) == {
+        "nepal-flood-casualties",
+        "jilong-mudslide-rescue",
+        "anthropic-copyright-lawsuit",
+        "ai-training-data-lawsuit",
+        "community-festival",
+    }
+
+
+def test_classifier_only_boundary_path_calls_only_classifier_for_each_case() -> None:
+    fixture = load_classifier_boundary_fixture(BOUNDARY_FIXTURE_PATH)
+    gateway = BoundaryClassifierGateway(fixture)
+
+    result = run_classifier_validation(fixture, gateway)
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.failures == ()
+    assert len(gateway.calls) == 5
+    assert [event.selection_order for event in result.outputs] == list(range(1, 6))
+    assert [
+        event.classification.category.value for event in result.outputs
+    ] == [
+        "public_safety",
+        "public_safety",
+        "technology_ai",
+        "technology_ai",
+        "other",
+    ]
+
+
+def test_classifier_only_report_is_safe_and_has_no_writer_or_artifact_fields() -> None:
+    fixture = load_classifier_boundary_fixture(BOUNDARY_FIXTURE_PATH)
+    result = run_classifier_validation(fixture, BoundaryClassifierGateway(fixture))
+
+    report = render_classifier_report(
+        fixture,
+        result,
+        mode="offline-test",
+        provider_id="fixture",
+        model="fixture-model",
+    )
+
+    assert report["classifier_stage_status"] == "succeeded"
+    assert "writer_stage_status" not in report
+    assert "run_id" not in report
+    assert all(item["classification_match"] for item in report["events"])
+    serialized = json.dumps(report, ensure_ascii=False).casefold()
+    for forbidden in ("api_key", "authorization", ".env.local", "raw response"):
+        assert forbidden not in serialized
+
+
+def test_cli_requires_explicit_classifier_only_opt_in_for_compact_fixture() -> None:
+    args = parse_args(
+        [
+            "--classifier-only",
+            "--fixture",
+            str(BOUNDARY_FIXTURE_PATH),
+            "--real-provider",
+            "deepseek",
+        ]
+    )
+
+    assert args.classifier_only is True
+    assert args.real_provider == "deepseek"
+
+
 def test_cli_defaults_to_dry_run_and_does_not_import_production_routing() -> None:
     args = parse_args(["--fixture", str(FIXTURE_PATH)])
 
     assert args.real_provider is None
+    assert args.classifier_only is False
     source = (PROJECT_ROOT / "scripts" / "evaluate_event_classifier_writer_quality.py").read_text(
         encoding="utf-8"
     )
@@ -321,6 +442,10 @@ def main() -> None:
     test_classifier_failure_continues_with_original_event_and_report_is_safe()
     test_writer_failure_remains_local_and_does_not_backfill()
     test_deepseek_adapter_reuses_frozen_gateway_parameters()
+    test_classifier_boundary_fixture_builds_five_single_article_events()
+    test_classifier_only_boundary_path_calls_only_classifier_for_each_case()
+    test_classifier_only_report_is_safe_and_has_no_writer_or_artifact_fields()
+    test_cli_requires_explicit_classifier_only_opt_in_for_compact_fixture()
     test_cli_defaults_to_dry_run_and_does_not_import_production_routing()
     print("offline event classifier/writer quality smoke passed")
 

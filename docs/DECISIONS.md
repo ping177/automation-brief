@@ -409,6 +409,16 @@
 - explicit auditable rollback path
 - 禁止 automatic Generation 1 semantic fallback。
 
+### v1.9.1 — Classifier “other” Boundary Correction（COMPLETED / CLOSED）
+
+- 说明：`v1.9.1` 是 v1.9 production cutover 之后的 numeric corrective，不改变已冻结的 v1.0→v1.10 milestone 顺序，也不代表 v1.10 已开始。
+- 决策：只在现有 classifier system prompt 增加简短 category boundary clarification 与 specific-category preference；`public_safety` 覆盖灾害、洪水、地震、事故、重大伤亡、救援、公共卫生紧急事件与应急响应，`technology_ai` 覆盖以 AI 公司/模型/训练数据/产品或 AI 版权/知识产权争议或诉讼为核心的事件。
+- 决策：`other` 仅在没有任何 named category 自然适用时使用；不要因为法律、诉讼、任免或人员形式就选择 `other`；混合事件按 dominant subject 选择最自然的 named category。保留 canonical vocabulary、response validator、Event/Brief schema 与 runtime failure semantics。
+- 决策：以 focused offline fixture/regression 覆盖高置信度灾害边界、AI 版权诉讼边界与合理 `other` counterexample；不引入 keyword/score/source/entity rule、category weighting、second classifier、judge、semantic repair 或 taxonomy redesign。production route、LaunchAgent、delivery 与 Gen1 rollback seam 不变。
+- 决策：为用户手动 real-provider same-case validation 复用既有 quality runner，增加显式 `--classifier-only` compact-fixture 分支；该分支只调用 classifier gateway、只向 stdout 输出安全结果，不调用 Writer、feeds、完整 Gen2 runtime、artifacts 或 delivery，不改变 production semantic behavior。
+- 验收：offline regression PASS；用户手动完成 3 次 same-case real-provider validation，均 `exit=0`、classifier stage `succeeded`、technical failures 为空，5/5 case expectations 每次全部匹配；灾害 cases 稳定为 `public_safety`、AI legal-dispute cases 稳定为 `technology_ai`、intentional `other` counterexample 稳定保持 `other`。
+- 状态：v1.9.1 已 COMPLETED / CLOSED。partial banner 未修改，作为独立 presentation follow-up；v1.10 尚未开始。
+
 ### v1.10 — Legacy Retirement & v1.x Closeout
 
 - post-cutover consumer audit

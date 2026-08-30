@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Iterable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from canonical_domain import (
     Article,
@@ -52,8 +53,16 @@ def _selected_timestamp(entry: RawFeedEntry) -> str | None:
     return None
 
 
-def parse_source_timestamp(value: str | None) -> datetime | None:
-    """Parse a source timestamp and enforce the canonical aware-UTC rule."""
+def parse_source_timestamp(
+    value: str | None,
+    source_timezone: str | None = None,
+) -> datetime | None:
+    """Parse a source timestamp and enforce the canonical aware-UTC rule.
+
+    A naive source value is localized only when the source declares a valid
+    IANA timezone.  Without that declaration, canonical aware-UTC validation
+    continues to reject the value.
+    """
 
     if value is None:
         return None
@@ -70,6 +79,12 @@ def parse_source_timestamp(value: str | None) -> datetime | None:
             parsed = datetime.fromisoformat(normalized_text)
         except ValueError as exc:
             raise ValueError("source timestamp is not parseable") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        if source_timezone is not None:
+            try:
+                parsed = parsed.replace(tzinfo=ZoneInfo(source_timezone))
+            except (OSError, TypeError, ValueError, ZoneInfoNotFoundError) as error:
+                raise ValueError("source timezone is invalid") from error
     return normalize_canonical_datetime(parsed, "published_at")
 
 
@@ -81,7 +96,10 @@ def _normalize_entry(batch: SourceBatch, entry: RawFeedEntry) -> Article:
     if entry.link is not None and not isinstance(entry.link, str):
         raise ValueError("link must be a string")
     url = entry.link.strip() if entry.link is not None and entry.link.strip() else None
-    published_at = parse_source_timestamp(_selected_timestamp(entry))
+    published_at = parse_source_timestamp(
+        _selected_timestamp(entry),
+        source_timezone=entry.source.timezone,
+    )
     summary = _clean_text(entry.summary) or _clean_text(entry.description)
 
     return Article.from_source(

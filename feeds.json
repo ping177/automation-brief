@@ -77,7 +77,8 @@
     "category": "财经市场",
     "mode": "all",
     "role": "market",
-    "language": "zh-CN"
+    "language": "zh-CN",
+    "timezone": "UTC"
   },
   {
     "name": "OpenAI News",

@@ -2,6 +2,15 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-30 — v1.9.2 Source Timezone Normalization — COMPLETED / CLOSED
+
+- 根据连续 scheduled Gen2 run 中 Investing.com 中文财经固定 10 条 timezone-less timestamp 的已确认 source audit，完成最小 source-scoped timezone normalization：`SourceConfig` 增加可选 IANA-compatible `timezone`，仅声明 source timezone 且 raw timestamp 为 naive 时做 localization。
+- `feeds.json` 只为 `Investing.com 中文财经` 声明 `timezone: "UTC"`；其它 source 未批量补 timezone。`UTC` 通过 Python 标准 `zoneinfo` database validation，缺失 timezone 保持合法，空值/非法值 fail closed。
+- 已 aware timestamp 继续保留自身 offset/instant，未声明 timezone 的 naive timestamp 继续 `item_validation_failed`；canonical Article 仍只接收既有 timezone-aware UTC datetime，report-window admission 逻辑未改变。
+- 新增 deterministic ingest regression，覆盖 SourceConfig validation、Investing representative raw timestamp、declared/undeclared naive、aware passthrough、source identity、report-window boundary 与 active feed projection；focused ingest/feed normalization smoke PASS。
+- 用户随后完成 source-only controlled live RSS validation：collector `succeeded`、10 条 raw entries、normalizer `succeeded`、10 条 normalized articles、`failure_codes=[]`、timezone `UTC`，原先固定的 10 × `item_validation_failed` 已消失；未调用 DeepSeek、embedding、Bark、Obsidian 或 scheduled production。
+- v1.9.2 closeout：offline ingest 与 controlled live RSS validation 均 PASS；Investing source 保留，partial banner、semantic stages、production routing、LaunchAgent、delivery 与 frozen contracts 未修改，v1.10 尚未开始。
+
 ## 2026-08-30 — v1.9.1 Classifier `other` Boundary Correction — COMPLETED / CLOSED
 
 - 完成最终 closeout review：prompt 仅增加 named-category boundary clarification；现有 compact-fixture `--classifier-only` runner 仅用于 validation，不调用 Writer、feeds、完整 runtime、artifacts 或 delivery。

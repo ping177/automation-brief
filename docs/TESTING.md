@@ -13,6 +13,19 @@ git status --short
 
 `git diff --check` 用于检查尾随空格、空白错误和 patch 格式问题。docs-only 改动不需要跑 Python 编译、RSS 健康检查或真实日报生成，除非文档改动同时暴露出需要验证的运行假设。
 
+## v1.9.2 Source Timezone Normalization — offline + controlled live gate
+
+offline gate 只验证 Gen2 source metadata 与 deterministic normalizer seam，不调用 live RSS、DeepSeek、Bark、Obsidian 或 scheduled production：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_deterministic_ingest_smoke.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python tests/offline_feed_normalization_smoke.py
+```
+
+focused ingest regression 必须覆盖：Investing `timezone: "UTC"` + naive `YYYY-MM-DD HH:MM:SS` 得到 exact aware UTC instant；未声明 timezone 的 naive value 继续 `item_validation_failed`；already-aware value 不被 source timezone 覆盖；空值/非法 IANA timezone deterministic reject；source identity、Article/canonical URL/language、dedup、report-window admission 与 downstream semantic stages 保持不变。`feeds.json` 只声明 Investing timezone，其它 source 缺失字段仍合法。
+
+用户完成的 source-only controlled live RSS gate：collector `succeeded`、10 条 raw entries、normalizer `succeeded`、10 条 normalized articles、`failure_codes=[]`、timezone `UTC`；未调用 DeepSeek、embedding、Bark、Obsidian 或 production run。v1.9.2 offline 与 controlled live validation 均 PASS，已 COMPLETED / CLOSED。
+
 ## v1.0 Architecture Freeze docs-only checklist
 
 v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
@@ -47,7 +60,7 @@ v1.0 freeze 的验证只检查治理合同，不启动任何业务 pipeline：
 
 - `v1.0` governance baseline、`v1.1 — Canonical Domain & Runtime Foundation`、`v1.2 — Deterministic Ingest`、`v1.3 — Event Clustering`、`v1.4 — Event Selector`、`v1.5 — Event Classifier + Writer`、`v1.6 — Renderer + Artifacts + Orchestrator Integration` 与 `v1.7 — Offline / Snapshot Validation` 均为 `COMPLETED / CLOSED`；v1.5 的三段实现、offline regression 与最终 real-provider acceptance 已完成，v1.6 implementation acceptance、v1.7 offline full-pipeline E2E 与最终 Human Reader-Facing Acceptance 均 PASS。
 - `v1.0 → v1.1 → v1.2 → v1.3 → v1.4 → v1.5 → v1.6 → v1.7 → v1.8 → v1.9 → v1.10` 与 `docs/DECISIONS.md` canonical roadmap 一致；不新增 alpha/beta/Phase version token。
-- `v1.9.1` 是 v1.9 之后的 numeric classifier corrective，已 COMPLETED / CLOSED；单独记录 implementation/validation 状态，不改变上述 v1.0→v1.10 milestone 顺序，也不表示 v1.10 已开始。
+- `v1.9.1` 与 `v1.9.2` 是 v1.9 之后的 numeric correctives；两者均已 COMPLETED / CLOSED，v1.9.2 的 offline 与 controlled live RSS validation 均 PASS，单独记录 implementation/validation 状态，不改变上述 v1.0→v1.10 milestone 顺序，也不表示 v1.10 已开始。
 - v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300、threshold `0.91`；v1.6/v1.7 不做 production cutover；v1.8 不发送 reader-facing v1.x output；v1.9 不启用 automatic Generation 1 semantic fallback；v1.10 才执行 post-cutover consumer audit 与 legacy retirement。
 - Generation 1 在 v1.8 shadow 前后作为正式 baseline；v1.9 cutover 完成后仅保留为 explicit human-approved rollback route。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 - roadmap freeze 当时不修改三份 v1.0 canonical contract semantics、不创建 v1.1 Python module、不运行业务 pipeline 或真实外部 API；后续 v1.1 implementation verification 见下节。

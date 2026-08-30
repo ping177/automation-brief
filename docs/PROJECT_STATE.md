@@ -8,13 +8,15 @@
 
 ## Current version
 
-v1.9.1 — Classifier “other” Boundary Correction（COMPLETED / CLOSED；offline regression PASS；focused real-provider validation 3/3 PASS）
+v1.9.2 — Source Timezone Normalization（COMPLETED / CLOSED；offline ingest validation PASS；controlled live RSS validation PASS）
 
 ## Current status
 
 v1.9 已完成并关闭，Slice 1–5 均已完成且 production activation 已应用：installed LaunchAgent 现显式使用 `generation_2`，Label、script/working/log paths 与 Asia/Shanghai 08:00 schedule 保持不变；第一次 scheduled Gen2 production acceptance 已完成并为 PASS WITH ACCEPTED DEGRADATION。薄 production publication adapter 严格从 finalized Generation 2 artifact 校验并原子提升到 canonical `reports/morning-brief-YYYY-MM-DD.md`；complete、partial 与 legal empty 可发布，failed 不创建或覆盖报告，same-digest collision 为幂等成功，different-digest collision fail closed。route 只解析一次 canonical report date，并把同一日期显式传给 adapter、publisher 与 Bark；两个 active delivery channel 独立尝试并聚合 exit code，任一失败时返回非零，不重跑 semantic stages、不调用 Gen1。Bark ambiguous timeout / 无法可靠确认送达的 transport failure 不自动 resend。`overnight_brief` Gen1 route 保留为 explicit human-approved rollback；禁止 automatic fallback/rollback。category presentation-order corrective 已完成，仅改变 reader-facing section 顺序，不改变 Selector、Event 或 Brief canonical data。v1.9 保持 COMPLETED / CLOSED。
 
 v1.9.1 是 post-v1.9 production corrective，现已 COMPLETED / CLOSED：最小 classifier category-boundary prompt clarification、focused offline regression、validation-only runner 的显式 `--classifier-only` compact-fixture 模式与用户手动 focused real-provider validation 均已完成。3 次 real-provider run 均 `exit=0`、`classifier_stage_status=succeeded`、`technical_failures=[]`，5/5 cases 每次均 classification_match=true。该 corrective 未改变 production routing、LaunchAgent、delivery、canonical taxonomy、Selector、Writer 或 v1.0 frozen contracts。Generation 2 继续是 active production route；v1.10 尚未开始。partial banner 未在本 corrective 中修改，后续作为独立 presentation follow-up 观察。
+
+v1.9.2 是 post-v1.9.1 source corrective，现已 COMPLETED / CLOSED：`SourceConfig` 增加可选、经标准 `zoneinfo` 验证的 IANA `timezone`；`feeds.json` 仅为 `Investing.com 中文财经` 声明 `UTC`。normalizer 只对该 source 声明下的 naive timestamp 做 localization；未声明 source 的 naive timestamp 继续 fail closed，already-aware timestamp 不被覆盖。focused deterministic ingest 与 active feed projection validation 已 PASS；用户完成的 source-only controlled live RSS validation 也 PASS（10/10 entries normalized、`failure_codes=[]`）。未修改 canonical datetime contract、partial banner、semantic stages、production routing、LaunchAgent、delivery 或 v1.10 surface。
 
 v1.8 已完成并关闭。正式 Gen2 runtime 不依赖 Generation 1；manual rolling-24h real run 已成功执行并通过用户 reader-facing 人工验收。首次真实 run 的 1521 条 timestamp-null pollution 已以 source-snapshot freshness qualification 收敛。3 个已确认 clustering overmerge 已以 `identity-guarded-connected-components-v2` / `semantic-title-anchor-v1` 完成正式 corrective replacement：保留 pinned model/revision、projection、`0.91` base floor 与 connected components，只对 `0.91–0.925` ambiguity band 增加 normalized-title 4-character identity support；原 v1.3 与 corrective fixture 的 production memberships 均为 `8/8 exact`。Selector 的一次 `unknown_reference` 与 Writer 的一次 invalid JSON 均按既有 local failure semantics 正确隔离，未阻断最终 Brief。Gen2 manual runner 的 rolling-24h `--as-of-now` 与固定 08:00 canonical report slot 均保持既定规则。Gen2 runtime core 不直接写 `reports/`；installed schedule 已在 Slice 5 接入显式 `generation_2` route，第一次 scheduled production acceptance 已 PASS WITH ACCEPTED DEGRADATION。
 
@@ -31,6 +33,8 @@ v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不�
 READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 与 v1.1–v1.7 implementation milestones 已 COMPLETED / CLOSED，v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。v1.8 第一小步保持 manual-only side-by-side，未接入 production routing；v1.9 现已完成 production cutover，Generation 1 仅保留为 explicit rollback route。
 
 ## Latest completed
+
+2026-08-30 完成并关闭 v1.9.2 Source Timezone Normalization：新增 source-scoped optional IANA timezone metadata，`Investing.com 中文财经` 声明 `UTC`；focused deterministic ingest 覆盖 declared/undeclared naive、already-aware passthrough、invalid timezone、source identity、representative Investing timestamp 与 report-window boundary，focused ingest/feed normalization smoke PASS。用户完成 source-only controlled live RSS validation：collector `succeeded`、10 条 raw entries、normalizer `succeeded`、10 条 normalized articles、`failure_codes=[]`；未调用 DeepSeek、embedding、Bark、Obsidian 或 scheduled production。未修改 canonical datetime contract、partial banner、semantic stages、production routing、LaunchAgent、delivery 或 v1.10 surface。
 
 2026-08-30 完成并关闭 v1.9.1 Classifier “other” Boundary Correction：offline regression PASS；用户使用现有 `--classifier-only` runner 对同一 compact fixture 完成 3 次 real DeepSeek validation，provider/model 为 `deepseek` / `deepseek-v4-flash`，每次 classifier stage `succeeded`、`technical_failures=[]`、5/5 cases `classification_match=true`。尼泊尔山洪与西藏泥石流救援稳定为 `public_safety`，Anthropic 与 AI 训练数据版权诉讼稳定为 `technology_ai`，intentional `other` counterexample 稳定保持 `other`。未修改 taxonomy、canonical Event/Brief schema、Selector、Writer、runtime、routing、delivery 或 LaunchAgent；partial banner 未修改，保留为独立后续 follow-up；v1.10 尚未开始。
 
@@ -95,7 +99,7 @@ v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-202608
 Status: local macOS production activated on Generation 2; first scheduled acceptance PASS WITH ACCEPTED DEGRADATION
 Public URL: none
 Provider: DeepSeek `deepseek-v4-flash`; prior Gen1 real production success accepted, first scheduled Gen2 acceptance PASS WITH ACCEPTED DEGRADATION
-Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。当前仓库运行时默认路径已迁移到 `.env.local`。2026-08-29 v1.9 Slice 5 已将 installed LaunchAgent route 最小切换为 `generation_2` 并 reload，保持 08:00 schedule；未 kickstart，第一次 scheduled Gen2 production acceptance 已 PASS WITH ACCEPTED DEGRADATION。该 run 的 partial 仅为已接受的 Investing.com timezone-less timestamp variation；category presentation corrective 已完成。v1.9.1 已完成 offline classifier corrective、validation-only runner preparation 与 3/3 focused real-provider validation；partial banner 未修改，v1.10 才进行 legacy retirement。
+Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。当前仓库运行时默认路径已迁移到 `.env.local`。2026-08-29 v1.9 Slice 5 已将 installed LaunchAgent route 最小切换为 `generation_2` 并 reload，保持 08:00 schedule；未 kickstart，第一次 scheduled Gen2 production acceptance 已 PASS WITH ACCEPTED DEGRADATION。该 run 的 partial 仅为已接受的 Investing.com timezone-less timestamp variation；category presentation corrective 已完成。v1.9.1 已完成 offline classifier corrective、validation-only runner preparation 与 3/3 focused real-provider validation；v1.9.2 已完成 source-scoped timezone corrective，offline 与 source-only controlled live RSS validation 均 PASS，Investing `UTC` localization active；partial banner 未修改，v1.10 尚未开始。
 
 ## Version Index
 
@@ -138,6 +142,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 La
 - v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
 - v1.9 — Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
 - v1.9.1 — Classifier “other” Boundary Correction（COMPLETED / CLOSED；offline regression PASS；focused real-provider validation 3/3 PASS）
+- v1.9.2 — Source Timezone Normalization（COMPLETED / CLOSED；offline ingest validation PASS；controlled live RSS validation PASS）
 - v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 
 ## Last verified
@@ -146,7 +151,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 La
 
 ## Next Action
 
-继续观察 Generation 2 production stability；partial banner presentation policy 可作为独立 follow-up。确认稳定后开始 v1.10 Legacy Retirement READ-ONLY dependency audit；v1.10 implementation 与 legacy cleanup 尚未开始。
+继续观察 Generation 2 production stability，确认后续 scheduled run 中 Investing 不再产生 `item_validation_failed` / 已知 partial；partial banner presentation policy 仍是独立 follow-up。随后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit；v1.10 implementation 与 legacy cleanup 尚未开始。
 
 ## Blockers
 
@@ -156,6 +161,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 La
 
 - Git branch、latest commit、working tree 由 project-command-center 实时 Git 扫描读取；PROJECT_STATE.md 不作为这些字段的权威来源。
 - v1.9.1 是已完成的 post-v1.9 production corrective：classifier `other` boundary prompt clarification、focused offline regression、validation-only runner preparation 与 3/3 focused real-provider validation 均 PASS；partial banner 未修改，v1.10 尚未开始。
+- v1.9.2 是已完成的 post-v1.9.1 source corrective：仅对显式 source timezone 的 naive timestamp 做 deterministic localization；Investing.com 中文财经声明 `UTC`，其它 source 缺失 timezone 保持 fail-closed。offline 与 source-only controlled live RSS validation 均 PASS（10/10 entries normalized、`failure_codes=[]`）；不修改 partial banner 或 semantic/production architecture。
 - README states production daily digest / `market_brief` do not call DeepSeek、Tavily 或任何真实 AI provider / paid search API；Phase 4 provider remains explicit/manual, and only the explicit v0.7 Morning Brief (`overnight_brief`) path may consume its validated events。
 - v0.3.5 verified the Mac sleep -> pmset wake -> launchd -> digest -> Obsidian iCloud -> Bark -> iPhone Obsidian loop.
 - v0.4.1 expanded source roles for `global_tech_business`, `ai_industry`, and `ai_tools`.
@@ -212,4 +218,4 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 La
 
 ## Handoff Prompt
 
-v1.9.1 is COMPLETED / CLOSED as a post-v1.9 production corrective. The minimal classifier prompt boundary clarification, focused offline regression, explicit classifier-only compact-fixture validation seam, and three manual real-provider runs are complete: all runs succeeded with zero technical failures and all five case expectations matched. Generation 2 remains the active production route, with no changes to routing, LaunchAgent, delivery, canonical taxonomy, Selector, Writer, or frozen contracts. The partial banner was intentionally not changed and remains a separate follow-up. Continue observing production stability before beginning the v1.10 Legacy Retirement READ-ONLY dependency audit; do not start v1.10 implementation or legacy cleanup yet.
+v1.9.2 Source Timezone Normalization is COMPLETED / CLOSED after v1.9.1 CLOSED. `SourceConfig` has optional IANA-validated source timezone metadata, and only Investing.com 中文财经 is declared `UTC`; offline deterministic ingest and source-only controlled live RSS validation both pass (10/10 entries normalized with no failure codes). Naive timestamps without a declaration still fail closed, aware timestamps keep their own instant, and no canonical datetime contract, semantic stage, production route, LaunchAgent, delivery, or partial banner changed. Generation 2 remains active production and v1.10 has not started.

@@ -16,6 +16,7 @@ import time as time_module
 from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence
 import urllib.request
 from urllib.error import HTTPError, URLError
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import feedparser
 
@@ -45,6 +46,7 @@ class SourceConfig:
     name: str
     url: str
     language: str = "und"
+    timezone: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
@@ -54,6 +56,18 @@ class SourceConfig:
         object.__setattr__(self, "name", self.name.strip())
         object.__setattr__(self, "url", self.url.strip())
         object.__setattr__(self, "language", normalize_language(self.language))
+        if self.timezone is None:
+            return
+        if not isinstance(self.timezone, str):
+            raise ValueError("source timezone must be a string or None")
+        normalized_timezone = self.timezone.strip()
+        if not normalized_timezone:
+            raise ValueError("source timezone must be a non-empty IANA timezone")
+        try:
+            ZoneInfo(normalized_timezone)
+        except (OSError, ValueError, ZoneInfoNotFoundError) as error:
+            raise ValueError("source timezone must be a valid IANA timezone") from error
+        object.__setattr__(self, "timezone", normalized_timezone)
 
 
 @dataclass(frozen=True)
@@ -149,7 +163,7 @@ def source_identifier(source: SourceConfig) -> str:
 
 
 def normalize_sources(raw_sources: Any) -> tuple[SourceConfig, ...]:
-    """Load only source name, URL, and language from the active feed config."""
+    """Load non-legacy source metadata from the active feed config."""
 
     if not isinstance(raw_sources, list):
         raise ValueError("feeds.json must be a list of source objects")
@@ -165,6 +179,7 @@ def normalize_sources(raw_sources: Any) -> tuple[SourceConfig, ...]:
                 name=name.strip() if isinstance(name, str) else "",
                 url=url.strip() if isinstance(url, str) else "",
                 language=raw_source.get("language"),
+                timezone=raw_source.get("timezone"),
             )
         )
     return tuple(sources)

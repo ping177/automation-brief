@@ -37,8 +37,13 @@ class FakeFeed:
     entries: list[dict[str, str]]
 
 
-def source(name: str) -> SourceConfig:
-    return SourceConfig(name=name, url=f"https://{name.lower()}.example/feed.xml", language="en")
+def source(name: str, *, timezone_name: str | None = None) -> SourceConfig:
+    return SourceConfig(
+        name=name,
+        url=f"https://{name.lower()}.example/feed.xml",
+        language="en",
+        timezone=timezone_name,
+    )
 
 
 def test_source_config_drops_legacy_metadata() -> None:
@@ -60,6 +65,44 @@ def test_source_config_drops_legacy_metadata() -> None:
     assert not hasattr(sources[0], "role")
 
 
+def test_source_timezone_is_optional_and_validated() -> None:
+    configured = SourceConfig(
+        "UTC source",
+        "https://example.com/feed.xml",
+        "en",
+        timezone=" UTC ",
+    )
+    assert configured.timezone == "UTC"
+    assert source_identifier(configured) == source_identifier(
+        SourceConfig("UTC source", "https://example.com/feed.xml", "en")
+    )
+
+    normalized = normalize_sources(
+        [
+            {
+                "name": "UTC source",
+                "url": "https://example.com/feed.xml",
+                "language": "en",
+                "timezone": "UTC",
+            }
+        ]
+    )
+    assert normalized == (configured,)
+
+    for invalid in ("", "Not/AZone", 42, True):
+        try:
+            SourceConfig(
+                "Invalid timezone",
+                "https://example.com/feed.xml",
+                "en",
+                timezone=invalid,  # type: ignore[arg-type]
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"invalid source timezone was accepted: {invalid!r}")
+
+
 def test_load_sources_reuses_active_feed_config_projection() -> None:
     sources = load_sources(PROJECT_ROOT / "feeds.json")
 
@@ -68,6 +111,14 @@ def test_load_sources_reuses_active_feed_config_projection() -> None:
     assert all(config.language in {"zh-CN", "en", "und"} for config in sources)
     assert all(not hasattr(config, "mode") for config in sources)
     assert all(not hasattr(config, "role") for config in sources)
+
+
+def test_load_sources_preserves_only_declared_investing_timezone() -> None:
+    sources = load_sources(PROJECT_ROOT / "feeds.json")
+    investing = next(source for source in sources if source.name == "Investing.com 中文财经")
+
+    assert investing.timezone == "UTC"
+    assert [source.timezone for source in sources].count(None) == len(sources) - 1
 
 
 def test_collector_keeps_successful_empty_batch_and_isolates_failure() -> None:
@@ -275,6 +326,138 @@ def test_normalizer_emits_only_canonical_articles() -> None:
         "title",
         "summary",
     }
+
+
+def test_normalizer_localizes_naive_timestamp_with_declared_source_timezone() -> None:
+    configured = source("UTC timestamp", timezone_name="UTC")
+    result = normalize_source_batches(
+        (
+            source_batch(
+                configured,
+                [
+                    {
+                        "title": "UTC publication",
+                        "link": "https://example.com/utc-publication",
+                        "published": "2026-08-29 23:35:10",
+                    }
+                ],
+            ),
+        )
+    )
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.failures == ()
+    assert result.outputs[0].published_at == datetime(
+        2026, 8, 29, 23, 35, 10, tzinfo=timezone.utc
+    )
+
+
+def test_normalizer_keeps_naive_timestamp_fail_closed_without_source_timezone() -> None:
+    result = normalize_source_batches(
+        (
+            source_batch(
+                source("Undeclared timestamp"),
+                [
+                    {
+                        "title": "Undeclared publication",
+                        "link": "https://example.com/undeclared-publication",
+                        "published": "2026-08-29 23:35:10",
+                    }
+                ],
+            ),
+        )
+    )
+
+    assert result.status == StageStatus.FAILED
+    assert result.outputs == ()
+    assert result.failures[0].code == FailureCode.ITEM_VALIDATION_FAILED
+
+
+def test_normalizer_does_not_override_already_aware_timestamp() -> None:
+    configured = source("Aware timestamp", timezone_name="UTC")
+    result = normalize_source_batches(
+        (
+            source_batch(
+                configured,
+                [
+                    {
+                        "title": "Offset publication",
+                        "link": "https://example.com/offset-publication",
+                        "published": "2026-08-29T23:35:10+08:00",
+                    }
+                ],
+            ),
+        )
+    )
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.outputs[0].published_at == datetime(
+        2026, 8, 29, 15, 35, 10, tzinfo=timezone.utc
+    )
+
+
+def test_investing_representative_timestamp_normalizes_to_utc() -> None:
+    investing = next(
+        config
+        for config in load_sources(PROJECT_ROOT / "feeds.json")
+        if config.name == "Investing.com 中文财经"
+    )
+    result = normalize_source_batches(
+        (
+            source_batch(
+                investing,
+                [
+                    {
+                        "title": "Investing representative",
+                        "link": "https://cn.investing.com/news/stock-market-news/article-3543166",
+                        "published": "2026-08-29 23:35:10",
+                    }
+                ],
+            ),
+        )
+    )
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert len(result.outputs) == 1
+    assert result.outputs[0].published_at == datetime(
+        2026, 8, 29, 23, 35, 10, tzinfo=timezone.utc
+    )
+
+
+def test_report_window_uses_localized_source_timestamp_before_admission() -> None:
+    configured = source("Window UTC", timezone_name="UTC")
+    normalized = normalize_source_batches(
+        (
+            source_batch(
+                configured,
+                [
+                    {
+                        "title": "At UTC start",
+                        "link": "https://example.com/window-start",
+                        "published": "2026-08-29 00:00:00",
+                    },
+                    {
+                        "title": "At UTC end",
+                        "link": "https://example.com/window-end",
+                        "published": "2026-08-30 00:00:00",
+                    },
+                    {
+                        "title": "Outside UTC window",
+                        "link": "https://example.com/window-outside",
+                        "published": "2026-08-28 23:59:59",
+                    },
+                ],
+            ),
+        )
+    )
+
+    admitted = admit_articles_to_report_window(
+        normalized.outputs,
+        datetime(2026, 8, 29, 0, 0, tzinfo=timezone.utc),
+        datetime(2026, 8, 30, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert [article.title for article in admitted] == ["At UTC start", "At UTC end"]
 
 
 def test_source_snapshot_with_parseable_timestamps_is_qualified() -> None:
@@ -679,7 +862,9 @@ def test_offline_ingest_pipeline_is_deterministic_and_keeps_different_urls() -> 
 
 def main() -> None:
     test_source_config_drops_legacy_metadata()
+    test_source_timezone_is_optional_and_validated()
     test_load_sources_reuses_active_feed_config_projection()
+    test_load_sources_preserves_only_declared_investing_timezone()
     test_collector_keeps_successful_empty_batch_and_isolates_failure()
     test_all_successful_empty_sources_are_successful()
     test_all_source_failures_are_failed()
@@ -688,6 +873,11 @@ def main() -> None:
     test_malformed_source_feed_isolated_from_successful_source()
     test_successful_entries_are_extracted_without_raw_payload()
     test_normalizer_emits_only_canonical_articles()
+    test_normalizer_localizes_naive_timestamp_with_declared_source_timezone()
+    test_normalizer_keeps_naive_timestamp_fail_closed_without_source_timezone()
+    test_normalizer_does_not_override_already_aware_timestamp()
+    test_investing_representative_timestamp_normalizes_to_utc()
+    test_report_window_uses_localized_source_timestamp_before_admission()
     test_source_snapshot_with_parseable_timestamps_is_qualified()
     test_all_null_timestamp_snapshot_is_excluded_with_bounded_diagnostic()
     test_unbounded_snapshot_does_not_block_timestamped_sibling_source()

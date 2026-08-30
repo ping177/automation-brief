@@ -25,6 +25,7 @@ v1.7 — Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
 v1.9 — Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
 v1.9.1 — Classifier “other” Boundary Correction（COMPLETED / CLOSED；offline regression PASS；focused real-provider validation 3/3 PASS）
+v1.9.2 — Source Timezone Normalization（COMPLETED / CLOSED；offline ingest validation PASS；controlled live RSS validation PASS）
 v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 ```
 
@@ -44,6 +45,15 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - 已通过的 offline correction 不改变 production routing、LaunchAgent、delivery、Selector、Writer 或 Gen1 rollback seam；v1.9 保持 COMPLETED / CLOSED，v1.10 尚未开始。
 - 用户已手动完成同一 compact fixture 的 3 次 focused real-provider validation：每次 exit 0、classifier stage succeeded、technical failures 为空，5/5 case expectations 全部匹配；v1.9.1 closeout 完成。
 - partial banner 未在 v1.9.1 中修改；仅作为独立 presentation follow-up 评估 backend partial 与 reader-facing wording 的区分。
+
+### v1.9.2 Source Timezone Normalization — COMPLETED / CLOSED
+
+- 为 Gen2 source metadata 增加可选、显式、IANA-compatible `timezone`；缺失保持合法，空值/非法值 deterministic fail closed。
+- 仅对声明了 source timezone 的 naive timestamp 做 source-scoped localization，再进入既有 canonical aware-UTC normalization；未声明 source 的 naive timestamp 继续 `item_validation_failed`，already-aware timestamp 不被覆盖。
+- `Investing.com 中文财经` 声明 `timezone: "UTC"`，恢复其 `YYYY-MM-DD HH:MM:SS` raw timestamp 进入 normalizer、report-window admission 与后续 pipeline 的资格；不保证固定条目数，不修改 canonical datetime contract。
+- focused deterministic ingest regression 已覆盖 declared UTC、undeclared-naive reject、aware passthrough、invalid timezone、Investing representative 与 report-window boundary；offline validation PASS。
+- 用户完成 source-only controlled live RSS validation：collector `succeeded`、10 条 raw entries、normalizer `succeeded`、10 条 normalized articles、`failure_codes=[]`、source timezone `UTC`；原先固定的 10 × `item_validation_failed` 已消失。该验证未调用 DeepSeek、embedding、Bark、Obsidian 或 production run。
+- 不修改 `main.py`、Gen1、clustering、selector、classifier、writer、renderer、runtime routing、delivery、LaunchAgent 或 partial banner；v1.10 尚未开始。
 
 ### v0.7.2 Production Cutover acceptance — CLOSED
 
@@ -150,13 +160,15 @@ v1.6  Renderer + Artifacts + Orchestrator Integration（COMPLETED / CLOSED）
 v1.7  Offline / Snapshot Validation（COMPLETED / CLOSED）
 v1.8  Shadow / Parallel Validation（COMPLETED / CLOSED）
 v1.9  Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
+v1.9.1 Classifier “other” Boundary Correction（COMPLETED / CLOSED）
+v1.9.2 Source Timezone Normalization（COMPLETED / CLOSED；offline ingest validation PASS；controlled live RSS validation PASS）
 v1.10 Legacy Retirement & v1.x Closeout
 ```
 
-`v1.9.1` 是 v1.9 之后单独追踪的 numeric classifier corrective，不改变已冻结的
-v1.0→v1.10 milestone 顺序；offline regression 与 focused real-provider validation
-均已通过，v1.9.1 已 COMPLETED / CLOSED。partial banner follow-up 与 v1.10 legacy
-retirement 仍是后续独立事项。
+`v1.9.1` 与 `v1.9.2` 是 v1.9 之后单独追踪的 numeric correctives，不改变已冻结的
+v1.0→v1.10 milestone 顺序；两个 corrective 的 offline validation 与各自 focused
+real-provider/source-only validation 均已通过并 CLOSED。partial banner follow-up 与
+v1.10 legacy retirement 仍是后续独立事项。
 
 v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback/rollback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend，Slice 4 full offline release gate 已 PASS，Slice 5 installed activation 已应用；第一次 scheduled Generation 2 production run 已 PASS WITH ACCEPTED DEGRADATION，category presentation-order corrective 已完成且不改变 canonical Selector/Event/Brief order；v1.9 已 COMPLETED / CLOSED。下一步观察 Generation 2 production stability；确认 post-cutover stability 后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 

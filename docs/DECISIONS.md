@@ -232,6 +232,8 @@
 
 本路线是 v1.0 Event-driven Morning Brief 同一产品世代内的 implementation milestones，不是新的产品架构或第二套版本治理。v1.0 的 `completed / closed` 指 Architecture、Dependency、Core Data、Runtime / Failure 四项治理合同基线已关闭；现有 canonical Architecture 文档中的最终 narrative `v1.0 CLOSED` 仍由 production cutover 与 legacy retirement 的完成条件表达，numeric closeout 对应 v1.10。这个映射不创建第二个 version token 体系。
 
+`v1.9.1` 与 `v1.9.2` 是 v1.9 之后单独追踪的 numeric correctives，不改变上述 v1.0→v1.10 主路线；具体状态与边界在 v1.9.1 / v1.9.2 小节记录。
+
 ### v1.0 — Event-driven Morning Brief architecture / governance baseline（COMPLETED / CLOSED）
 
 - Architecture Freeze
@@ -418,6 +420,16 @@
 - 决策：为用户手动 real-provider same-case validation 复用既有 quality runner，增加显式 `--classifier-only` compact-fixture 分支；该分支只调用 classifier gateway、只向 stdout 输出安全结果，不调用 Writer、feeds、完整 Gen2 runtime、artifacts 或 delivery，不改变 production semantic behavior。
 - 验收：offline regression PASS；用户手动完成 3 次 same-case real-provider validation，均 `exit=0`、classifier stage `succeeded`、technical failures 为空，5/5 case expectations 每次全部匹配；灾害 cases 稳定为 `public_safety`、AI legal-dispute cases 稳定为 `technology_ai`、intentional `other` counterexample 稳定保持 `other`。
 - 状态：v1.9.1 已 COMPLETED / CLOSED。partial banner 未修改，作为独立 presentation follow-up；v1.10 尚未开始。
+
+### v1.9.2 — Source Timezone Normalization（COMPLETED / CLOSED）
+
+- 说明：`v1.9.2` 是 v1.9.1 之后的 numeric source corrective；v1.9 与 v1.9.1 保持 CLOSED，v1.10 尚未开始。
+- 决策：在现有 Gen2 source metadata 中增加可选 `timezone` 字段；缺失表示没有 source-level timezone assumption，空值或非法值由 `SourceConfig` deterministic reject。使用 Python 标准 `zoneinfo.ZoneInfo` 做 IANA-compatible validation，`UTC` 合法且不新增依赖。
+- 决策：仅当 raw source timestamp 已成功解析为 naive datetime 且 `SourceConfig.timezone` 已声明时，按该 source timezone attach/localize 后进入既有 canonical aware-UTC normalization；source timestamp 已 aware 时保留其自身 offset/instant，未声明 timezone 的 naive value 继续 fail closed。
+- 决策：`feeds.json` 仅为 `Investing.com 中文财经` 声明 `timezone: "UTC"`；不按 source name、language 或 URL 猜测，不把 collected_at 冒充 published_at，不改变 `Article` identity、canonical URL、language、dedup、clustering、Selector、Classifier、Writer、Renderer、StageResult、runtime routing 或 delivery。
+- 决策：以 deterministic ingest smoke 覆盖 declared UTC、undeclared-naive rejection、already-aware passthrough、invalid metadata、Investing representative 与 report-window admission；source timezone localization 只恢复进入 normalizer/window 的资格，不保证条目数量或最终入选。
+- 验收：offline ingest validation PASS；用户完成 source-only controlled live RSS validation，collector `succeeded`、10 条 raw entries、normalizer `succeeded`、10 条 normalized articles、`failure_codes=[]`，sample published timestamp 为 aware UTC；未调用 DeepSeek、embedding、Bark、Obsidian 或 production run。
+- 状态：v1.9.2 已 COMPLETED / CLOSED。Investing source 保留并声明 `UTC`；不修改 partial banner、不改变 canonical datetime contract 或 semantic/production architecture，v1.10 尚未开始。
 
 ### v1.10 — Legacy Retirement & v1.x Closeout
 

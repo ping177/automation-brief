@@ -232,7 +232,7 @@
 
 本路线是 v1.0 Event-driven Morning Brief 同一产品世代内的 implementation milestones，不是新的产品架构或第二套版本治理。v1.0 的 `completed / closed` 指 Architecture、Dependency、Core Data、Runtime / Failure 四项治理合同基线已关闭；现有 canonical Architecture 文档中的最终 narrative `v1.0 CLOSED` 仍由 production cutover 与 legacy retirement 的完成条件表达，numeric closeout 对应 v1.10。这个映射不创建第二个 version token 体系。
 
-`v1.9.1` 与 `v1.9.2` 是 v1.9 之后单独追踪的 numeric correctives，不改变上述 v1.0→v1.10 主路线；具体状态与边界在 v1.9.1 / v1.9.2 小节记录。
+`v1.9.1`、`v1.9.2` 与 `v1.9.3` 是 v1.9 之后单独追踪的 numeric correctives，不改变上述 v1.0→v1.10 主路线；具体状态与边界在各自小节记录。
 
 ### v1.0 — Event-driven Morning Brief architecture / governance baseline（COMPLETED / CLOSED）
 
@@ -430,6 +430,16 @@
 - 决策：以 deterministic ingest smoke 覆盖 declared UTC、undeclared-naive rejection、already-aware passthrough、invalid metadata、Investing representative 与 report-window admission；source timezone localization 只恢复进入 normalizer/window 的资格，不保证条目数量或最终入选。
 - 验收：offline ingest validation PASS；用户完成 source-only controlled live RSS validation，collector `succeeded`、10 条 raw entries、normalizer `succeeded`、10 条 normalized articles、`failure_codes=[]`，sample published timestamp 为 aware UTC；未调用 DeepSeek、embedding、Bark、Obsidian 或 production run。
 - 状态：v1.9.2 已 COMPLETED / CLOSED。Investing source 保留并声明 `UTC`；不修改 partial banner、不改变 canonical datetime contract 或 semantic/production architecture，v1.10 尚未开始。
+
+### v1.9.3 — Classifier Boundary Correction（COMPLETED / CLOSED）
+
+- 说明：`v1.9.3` 是 v1.9.2 之后的 numeric classifier corrective，不改变已冻结的 v1.0→v1.10 milestone 顺序，也不代表 v1.10 已开始。
+- 决策：只在现有 classifier system prompt 增加最小 category boundary clarification。`geopolitics` 自然覆盖 foreign national-government / state-level political events，其中外国政府领导、内阁改组、部长任免或国家级政治权力/政府结构变化是核心 subject；不把所有人物任免机械归入该类。`china_policy` 自然覆盖中国中央政府、国务院部门或多个中央部委出台的重要全国性制度、监管、行业政策与政策改革，中央层面的住房销售制度、预售门槛和优先现房销售调整优先归入该类。`macro_policy` 仍用于更广义宏观经济、货币或财政政策；`other` 仅在没有任何 named category 自然适用时使用；mixed event 继续按 dominant subject。
+- 生产根因：2026-08-31 scheduled production 中“韩国总统李在明改组内阁、提名六部长官”与“中国三部门完善商品住房销售制度、提高预售门槛并优先现房销售”均由 provider 合法返回 `other`；strict parsing 与 overlay 正常，缺口是上述两个正向 boundary 未在 prompt 中明确。
+- 决策：focused fixture 精确保留 v1.9.1 五个 case 并新增韩国/中国两个 boundary case；不引入 keyword/entity/source rule、第二 classifier、repair call、taxonomy 新类别或其它 stage 逻辑。production routing、clustering、selector、writer、renderer、collector、normalizer、runtime、delivery、canonical schema 与 frozen contracts 不变。
+- 验收：focused classifier、classifier → writer continuation、Python compile、JSON validation、`git diff --check` 与全部 30 个 offline smoke 均 PASS；用户连续 3 次 real-provider validation 均 `classifier_stage_status=succeeded`、`technical_failures=[]`、7/7 match，新增 case 分别得到 `geopolitics` 与 `china_policy`。
+- 说明：首次 `invalid_input` invocation 只因 shell 未加载 `.env.local` / process-env credential，在 gateway provider preflight 前失败且未产生质量结果；该 invocation 不是产品、fixture 或 classifier defect，也不计为 classifier quality failure。
+- 状态：v1.9.3 已 COMPLETED / CLOSED。Generation 2 保持 active production；clustering 继续现有 frozen policy，2026-08-31 相似灾害 overmerge 仅为历史 observation、不构成当前 blocker；VentureBeat 单次 `transport_failed` 为 accepted transient degradation / observation，不开启 corrective version。下一步继续观察 Generation 2 scheduled production stability，v1.10 尚未开始。
 
 ### v1.10 — Legacy Retirement & v1.x Closeout
 

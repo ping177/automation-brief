@@ -2,6 +2,15 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-08-31 — v1.9.3 Classifier Boundary Correction — COMPLETED / CLOSED
+
+- 2026-08-31 scheduled production 中，韩国总统李在明内阁改组/部长提名与中国中央三部门全国性商品住房销售制度改革分别自然适用 `geopolitics` 与 `china_policy`；此前 provider 合法返回 `other` 的根因是既有 classifier prompt 缺少这两个 named category 的正向 boundary，不是 parser、overlay 或 taxonomy failure。
+- 仅在现有 system prompt 增加最小 boundary clarification：foreign national-government/state-level political events 适用 `geopolitics`；中国中央政府、国务院部门或跨部委的重要全国性制度/监管/行业政策改革适用 `china_policy`；`macro_policy`、`other` 与 mixed-event dominant-subject contract 保持不变。未修改 clustering、selector、writer、renderer、collector、normalizer、runtime、routing 或 delivery。
+- 新增 `tests/fixtures/event_classifier_boundary_v1_9_3.json`，精确保留 v1.9.1 五个 boundary cases 并加入韩国/中国两个 case；focused classifier、classifier → writer continuation、Python compile、JSON validation、`git diff --check` 与全部 30 个 offline smoke 均 PASS。
+- 用户连续 3 次手动 real-provider validation 均 `classifier_stage_status=succeeded`、`technical_failures=[]`、7/7 classification matches：两类灾害为 `public_safety`，两类 AI 版权诉讼为 `technology_ai`，community festival 为 `other`，韩国与中国边界 case 分别为 `geopolitics` 与 `china_policy`。
+- 首次 `invalid_input` invocation 仅因 shell 未加载 `.env.local` / process-env credential，发生在 provider preflight、没有实际产品分类结果；不属于产品、fixture 或 classifier defect，也不计为 classifier quality failure。
+- v1.9.3 已 COMPLETED / CLOSED。Generation 2 继续 active production；clustering 保持现有 frozen policy，2026-08-31 相似灾害 overmerge 仅作历史 observation，不构成当前 blocker；VentureBeat 单次 `transport_failed` 记录为 accepted transient degradation / observation，不开启 corrective version。v1.10 Legacy Retirement 尚未开始，下一步继续观察 scheduled production stability。
+
 ## 2026-08-30 — v1.9.2 Source Timezone Normalization — COMPLETED / CLOSED
 
 - 根据连续 scheduled Gen2 run 中 Investing.com 中文财经固定 10 条 timezone-less timestamp 的已确认 source audit，完成最小 source-scoped timezone normalization：`SourceConfig` 增加可选 IANA-compatible `timezone`，仅声明 source timezone 且 raw timestamp 为 naive 时做 localization。

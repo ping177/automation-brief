@@ -39,6 +39,12 @@ BOUNDARY_FIXTURE_PATH = (
     / "fixtures"
     / "event_classifier_boundary_v1_9_1.json"
 )
+BOUNDARY_V1_9_3_FIXTURE_PATH = (
+    PROJECT_ROOT
+    / "tests"
+    / "fixtures"
+    / "event_classifier_boundary_v1_9_3.json"
+)
 
 
 class FakeGateway:
@@ -180,6 +186,42 @@ def load_boundary_fixture() -> tuple[tuple[Event, ...], tuple[Article, ...], tup
     return tuple(events), tuple(articles), tuple(expected_categories)
 
 
+def load_v1_9_3_boundary_fixture() -> tuple[tuple[Event, ...], tuple[Article, ...], tuple[EventCategory, ...]]:
+    payload = json.loads(BOUNDARY_V1_9_3_FIXTURE_PATH.read_text(encoding="utf-8"))
+    assert set(payload) == {"fixture_id", "cases"}
+    assert payload["fixture_id"] == "v1-9-3-classifier-category-boundary"
+    cases = payload["cases"]
+    assert isinstance(cases, list) and cases
+    legacy_payload = json.loads(BOUNDARY_FIXTURE_PATH.read_text(encoding="utf-8"))
+    assert legacy_payload["cases"] == cases[:5]
+    assert {case["case_id"] for case in cases} >= {
+        "korea-cabinet-reshuffle",
+        "china-housing-sales-reform",
+    }
+
+    events: list[Event] = []
+    articles: list[Article] = []
+    expected_categories: list[EventCategory] = []
+    for index, case in enumerate(cases, start=1):
+        assert set(case) == {
+            "case_id",
+            "title",
+            "summary",
+            "language",
+            "expected_category",
+        }
+        item = article(
+            f"boundary-v1-9-3-{case['case_id']}",
+            title=case["title"],
+            summary=case["summary"],
+            language=case["language"],
+        )
+        events.append(selected_event(item, order=index))
+        articles.append(item)
+        expected_categories.append(EventCategory(case["expected_category"]))
+    return tuple(events), tuple(articles), tuple(expected_categories)
+
+
 def test_empty_input_is_success_without_gateway_call() -> None:
     gateway = FakeGateway(payload={"classifications": [{"unexpected": "not-called"}]})
 
@@ -278,6 +320,59 @@ def test_v1_9_1_prompt_declares_category_boundaries_and_specific_category_prefer
         "do not choose \"other\" merely because an event involves law, litigation, appointments, or personnel",
         "mixed events",
         "dominant subject",
+    ):
+        assert required_text in normalized_prompt
+
+
+def test_v1_9_3_boundary_fixture_preserves_existing_cases_and_adds_government_boundaries() -> None:
+    events, articles, expected_categories = load_v1_9_3_boundary_fixture()
+    gateway = FakeGateway(
+        responses=[
+            {
+                "classifications": [
+                    {"event_id": event.event_id, "category": category.value}
+                ]
+            }
+            for event, category in zip(events, expected_categories)
+        ]
+    )
+
+    result = classify(events, articles, gateway)
+
+    assert result.status == StageStatus.SUCCEEDED
+    assert result.failures == ()
+    assert [event.classification.category for event in result.outputs] == list(expected_categories)
+    assert [event.event_id for event in result.outputs] == [event.event_id for event in events]
+    assert [event.article_ids for event in result.outputs] == [event.article_ids for event in events]
+    assert [event.selection_order for event in result.outputs] == list(range(1, len(events) + 1))
+
+
+def test_v1_9_3_prompt_declares_government_category_boundaries() -> None:
+    events, articles, _ = load_v1_9_3_boundary_fixture()
+    gateway = FakeGateway(
+        payload={"classifications": [{"event_id": events[0].event_id, "category": "public_safety"}]}
+    )
+
+    result = classify([events[0]], [articles[0]], gateway)
+
+    assert result.status == StageStatus.SUCCEEDED
+    system_prompt = gateway.calls[0][0][0]["content"]
+    normalized_prompt = " ".join(system_prompt.casefold().split())
+    for required_text in (
+        "geopolitics covers foreign national-government or state-level political events",
+        "foreign head of government",
+        "cabinet reshuffle",
+        "minister appointment",
+        "government-structure change",
+        "do not classify every appointment or personnel change as geopolitics",
+        "china_policy covers major nationwide institutional, regulatory, industry-policy, or policy-reform actions",
+        "china's central government",
+        "state council departments",
+        "multiple central ministries",
+        "nationwide housing-sales rules",
+        "pre-sale thresholds",
+        "completed homes",
+        "macro_policy remains for broader macroeconomic, monetary, or fiscal policy",
     ):
         assert required_text in normalized_prompt
 
@@ -579,6 +674,8 @@ def main() -> None:
     test_other_is_normal_success_when_no_specific_category_fits()
     test_v1_9_1_boundary_fixture_prefers_specific_categories_and_keeps_other_counterexample()
     test_v1_9_1_prompt_declares_category_boundaries_and_specific_category_preference()
+    test_v1_9_3_boundary_fixture_preserves_existing_cases_and_adds_government_boundaries()
+    test_v1_9_3_prompt_declares_government_category_boundaries()
     test_projection_contains_complete_membership_in_canonical_order_and_no_side_channels()
     test_projection_is_deterministic_for_article_lookup_order()
     test_response_shape_and_category_validation_are_item_local()

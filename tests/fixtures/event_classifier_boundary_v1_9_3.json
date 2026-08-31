@@ -1,0 +1,54 @@
+{
+  "fixture_id": "v1-9-3-classifier-category-boundary",
+  "cases": [
+    {
+      "case_id": "nepal-flood-casualties",
+      "title": "尼泊尔北部山洪遇难人数升至669人",
+      "summary": "根据尼泊尔警方29日公布的数据，尼泊尔北部地区山洪造成的死亡人数已升至669人。",
+      "language": "zh-CN",
+      "expected_category": "public_safety"
+    },
+    {
+      "case_id": "jilong-mudslide-rescue",
+      "title": "西藏吉隆县泥石流灾害救援持续推进",
+      "summary": "因尼泊尔一侧发生泥石流灾害，导致西藏日喀则市吉隆县吉隆口岸重大人员伤亡和失联，各方力量持续开展抢险救援与物资投送。",
+      "language": "zh-CN",
+      "expected_category": "public_safety"
+    },
+    {
+      "case_id": "anthropic-copyright-lawsuit",
+      "title": "Sony Music, Warner sue Anthropic, alleging a “brazen campaign” of intellectual property theft",
+      "summary": "This latest lawsuit is particularly broad and homes in on accusations of illegal piracy.",
+      "language": "en",
+      "expected_category": "technology_ai"
+    },
+    {
+      "case_id": "ai-training-data-lawsuit",
+      "title": "AI model company faces lawsuit over copyrighted training data",
+      "summary": "Rights holders sued the AI company over its use of copyrighted works to train and operate a generative model.",
+      "language": "en",
+      "expected_category": "technology_ai"
+    },
+    {
+      "case_id": "community-festival",
+      "title": "Community festival opens",
+      "summary": "A local cultural event is reported.",
+      "language": "en",
+      "expected_category": "other"
+    },
+    {
+      "case_id": "korea-cabinet-reshuffle",
+      "title": "韩国总统李在明改组内阁 提名六部长官人选",
+      "summary": "韩国总统李在明宣布改组内阁，并提名六名部长官人选，相关任命将按国家程序推进。",
+      "language": "zh-CN",
+      "expected_category": "geopolitics"
+    },
+    {
+      "case_id": "china-housing-sales-reform",
+      "title": "住建部等三部门完善商品住房销售制度 提高预售门槛优先现房销售",
+      "summary": "中国住房和城乡建设部等三个中央政府部门发布全国性商品住房销售制度调整，提高预售门槛并提出优先销售现房。",
+      "language": "zh-CN",
+      "expected_category": "china_policy"
+    }
+  ]
+}

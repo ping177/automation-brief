@@ -26,6 +26,7 @@ v1.8 — Shadow / Parallel Validation（COMPLETED / CLOSED）
 v1.9 — Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
 v1.9.1 — Classifier “other” Boundary Correction（COMPLETED / CLOSED；offline regression PASS；focused real-provider validation 3/3 PASS）
 v1.9.2 — Source Timezone Normalization（COMPLETED / CLOSED；offline ingest validation PASS；controlled live RSS validation PASS）
+v1.9.3 — Classifier Boundary Correction（COMPLETED / CLOSED；offline 30/30 PASS；focused real-provider validation 3/3 PASS）
 v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 ```
 
@@ -54,6 +55,14 @@ P0 只用于影响每日 08:00 自动生成、Obsidian iCloud 同步、Bark 推�
 - focused deterministic ingest regression 已覆盖 declared UTC、undeclared-naive reject、aware passthrough、invalid timezone、Investing representative 与 report-window boundary；offline validation PASS。
 - 用户完成 source-only controlled live RSS validation：collector `succeeded`、10 条 raw entries、normalizer `succeeded`、10 条 normalized articles、`failure_codes=[]`、source timezone `UTC`；原先固定的 10 × `item_validation_failed` 已消失。该验证未调用 DeepSeek、embedding、Bark、Obsidian 或 production run。
 - 不修改 `main.py`、Gen1、clustering、selector、classifier、writer、renderer、runtime routing、delivery、LaunchAgent 或 partial banner；v1.10 尚未开始。
+
+### v1.9.3 Classifier Boundary Correction — COMPLETED / CLOSED
+
+- 2026-08-31 production 中韩国总统李在明内阁改组/部长提名与中国中央三部门全国性商品住房销售制度改革被 provider 合法返回 `other`；根因是 prompt 缺少 `geopolitics` / `china_policy` 正向 boundary。
+- 仅补充现有 prompt boundary；新增 fixture 精确保留 v1.9.1 五个 case 并增加韩国 → `geopolitics`、中国住房制度 → `china_policy` 两个 case。未修改 clustering、selector、writer、renderer、collector、normalizer、runtime、routing 或 delivery。
+- focused classifier、classifier → writer continuation 与全部 30/30 offline smoke PASS；用户 3/3 real-provider runs 每次 7/7 match、`classifier_stage_status=succeeded`、`technical_failures=[]`。
+- 首次 `invalid_input` invocation 仅因 shell 未加载 `.env.local` / process-env credential 的 provider preflight 条件未满足，不是产品、fixture 或 classifier defect，也不计为 quality failure。
+- v1.10 尚未开始；下一步继续观察 Generation 2 scheduled production stability。clustering 保持 frozen policy，2026-08-31 相似灾害 overmerge 仅作 observation、不构成当前 blocker；VentureBeat 单次 `transport_failed` 为 accepted transient degradation / observation，不开启 corrective version。
 
 ### v0.7.2 Production Cutover acceptance — CLOSED
 
@@ -162,15 +171,16 @@ v1.8  Shadow / Parallel Validation（COMPLETED / CLOSED）
 v1.9  Production Cutover（COMPLETED / CLOSED；Slice 1–5 COMPLETED；FIRST SCHEDULED ACCEPTANCE PASS WITH ACCEPTED DEGRADATION；category presentation corrective COMPLETED）
 v1.9.1 Classifier “other” Boundary Correction（COMPLETED / CLOSED）
 v1.9.2 Source Timezone Normalization（COMPLETED / CLOSED；offline ingest validation PASS；controlled live RSS validation PASS）
+v1.9.3 Classifier Boundary Correction（COMPLETED / CLOSED；offline 30/30 PASS；focused real-provider validation 3/3 PASS）
 v1.10 Legacy Retirement & v1.x Closeout
 ```
 
-`v1.9.1` 与 `v1.9.2` 是 v1.9 之后单独追踪的 numeric correctives，不改变已冻结的
-v1.0→v1.10 milestone 顺序；两个 corrective 的 offline validation 与各自 focused
+`v1.9.1`、`v1.9.2` 与 `v1.9.3` 是 v1.9 之后单独追踪的 numeric correctives，不改变已冻结的
+v1.0→v1.10 milestone 顺序；三个 corrective 的 offline validation 与各自 focused
 real-provider/source-only validation 均已通过并 CLOSED。partial banner follow-up 与
 v1.10 legacy retirement 仍是后续独立事项。
 
-v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback/rollback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend，Slice 4 full offline release gate 已 PASS，Slice 5 installed activation 已应用；第一次 scheduled Generation 2 production run 已 PASS WITH ACCEPTED DEGRADATION，category presentation-order corrective 已完成且不改变 canonical Selector/Event/Brief order；v1.9 已 COMPLETED / CLOSED。下一步观察 Generation 2 production stability；确认 post-cutover stability 后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit。Market 不属于 v1.x core，Holdings 不进入 v1.x。
+v1.3 已冻结 E5-small immutable revision、`article-title-summary-v1`、summary cap 300 与 threshold `0.91`；v1.6 仍不做 production cutover；v1.8 前 Generation 1 继续提供正式 reader-facing output；v1.9 禁止 automatic Generation 1 semantic fallback/rollback；v1.9 Slice 3 已完成显式 Asia/Shanghai report-date handoff、publisher/Bark independent delivery aggregate 与 Bark ambiguous-timeout no-resend，Slice 4 full offline release gate 已 PASS，Slice 5 installed activation 已应用；第一次 scheduled Generation 2 production run 已 PASS WITH ACCEPTED DEGRADATION，category presentation-order corrective 已完成且不改变 canonical Selector/Event/Brief order；v1.9、v1.9.1、v1.9.2 与 v1.9.3 均已 COMPLETED / CLOSED。v1.9.3 classifier boundary corrective 仅补充 prompt，下一步观察 Generation 2 production stability；确认 post-cutover stability 后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit。Market 不属于 v1.x core，Holdings 不进入 v1.x。
 
 ### v0.7.4 Legacy Product Retirement & Capability Consolidation（SUPERSEDED / replaced by v1.0 plan）
 

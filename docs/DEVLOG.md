@@ -2,6 +2,14 @@
 
 本文记录 automation-brief 的主要开发节点、验证结果和阶段结论。
 
+## 2026-09-05 — v1.9.4 Selector Stability Correction — COMPLETED / CLOSED
+
+- 2026-09-04 scheduled Generation 2 production 对 140 个 EventCandidates 合法返回 `selected=[]`；同一份 byte-identical Selector request 的 bounded 10-run baseline 为 `[0, 10, 10, 17, 6, 9, 0, 10, 10, 6]`，10/10 stage succeeded、无 technical failure、无 retry，确认 `MATERIAL SELECTOR INSTABILITY`，而非 runtime correctness failure。
+- Sampling-only candidate 只显式增加 `temperature=0`，保持原 prompt；5 次结果均为 10 条，六个指定重大事件均 5/5 入选，pairwise Jaccard `0.8182–1.0`。该方案消除本样本 empty，但集合与数量高度收敛。
+- Prompt-only candidate 保持现有 generation parameters，只把两处醒目的 legal-empty encouragement 收敛为一次条件式许可：仅当没有候选自然满足 major-event standard 时返回空。5 次结果为 `[10, 12, 7, 10, 8]`，empty `0/5`，六个指定重大事件均 5/5 入选，pairwise Jaccard `0.5833–0.875`；集合规模、成员与顺序仍有合理 editorial variation。
+- 结论为 `PROMPT-ONLY SUFFICIENT`，因此未评估 Combined，也未修改 sampling parameters。实现只修改 Selector prompt wording 与两个 focused offline assertions；provider 返回 `selected=[]` 仍由既有 contract regression 验证为 legal succeeded empty，没有 fixed count、minimum count、score、quota、retry-until-non-empty、voting 或 multi-model。
+- 本轮真实调用仅为候选 A/B 各 5 次 Selector；所有调用 provider attempts 均为 1、technical failures 为空。未运行 collector、RSS、classifier、writer、Bark 或 Obsidian，未写 production artifacts，未读取或打印 secret。v1.9.4 正式 closeout scope 已锁定；2026-09-06 scheduled run 作为首次 post-release production observation，不作为 pre-commit gate。
+
 ## 2026-08-31 — v1.9.3 Classifier Boundary Correction — COMPLETED / CLOSED
 
 - 2026-08-31 scheduled production 中，韩国总统李在明内阁改组/部长提名与中国中央三部门全国性商品住房销售制度改革分别自然适用 `geopolitics` 与 `china_policy`；此前 provider 合法返回 `other` 的根因是既有 classifier prompt 缺少这两个 named category 的正向 boundary，不是 parser、overlay 或 taxonomy failure。

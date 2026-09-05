@@ -121,11 +121,11 @@ def test_prompt_encodes_the_minimal_editorial_principle_without_a_rule_system() 
         "source weighting",
         "target number",
         "minor events to fill space",
-        "selecting none is valid",
+        "return an empty selected array only when no candidate naturally satisfies this "
+        "major-event standard",
         '"selected": [',
         '"event_candidate_id": "example_event_id"',
         '"order": 1',
-        "selected array may be empty",
     ):
         assert required_text in normalized_system
     assert (
@@ -133,11 +133,13 @@ def test_prompt_encodes_the_minimal_editorial_principle_without_a_rule_system() 
         "target number of events"
     ) in normalized_system
     assert (
-        "do not select minor events to fill space; selecting none is valid"
+        "do not select minor events to fill space. return an empty selected array only "
+        "when no candidate naturally satisfies this major-event standard"
         in normalized_system
     )
-    assert 'the selected array may be empty: {"selected":[]}' in normalized_system
     for forbidden_text in (
+        "selecting none is valid",
+        "selected array may be empty",
         "material_change",
         "decision_relevance",
         "five-dimensional",

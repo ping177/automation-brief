@@ -8,11 +8,11 @@
 
 ## Current version
 
-v1.9.3 — Classifier Boundary Correction（COMPLETED / CLOSED；offline 30/30 PASS；focused real-provider validation 3/3 PASS）
+v1.9.4 — Selector Stability Correction（COMPLETED / CLOSED；offline 30/30 PASS；focused bounded real-provider validation：sampling-only 5/5、prompt-only 5/5）
 
 ## Current status
 
-COMPLETED / CLOSED — v1.9.3 Classifier Boundary Correction 已完成正式 closeout；Generation 2 继续 active production route，下一步为观察 scheduled production stability。
+COMPLETED / CLOSED — v1.9.4 Selector Stability Correction 已完成正式 closeout；Generation 2 继续 active production route，下一步为观察 2026-09-06 及后续 scheduled production stability。
 
 v1.9 已完成并关闭，Slice 1–5 均已完成且 production activation 已应用：installed LaunchAgent 现显式使用 `generation_2`，Label、script/working/log paths 与 Asia/Shanghai 08:00 schedule 保持不变；第一次 scheduled Gen2 production acceptance 已完成并为 PASS WITH ACCEPTED DEGRADATION。薄 production publication adapter 严格从 finalized Generation 2 artifact 校验并原子提升到 canonical `reports/morning-brief-YYYY-MM-DD.md`；complete、partial 与 legal empty 可发布，failed 不创建或覆盖报告，same-digest collision 为幂等成功，different-digest collision fail closed。route 只解析一次 canonical report date，并把同一日期显式传给 adapter、publisher 与 Bark；两个 active delivery channel 独立尝试并聚合 exit code，任一失败时返回非零，不重跑 semantic stages、不调用 Gen1。Bark ambiguous timeout / 无法可靠确认送达的 transport failure 不自动 resend。`overnight_brief` Gen1 route 保留为 explicit human-approved rollback；禁止 automatic fallback/rollback。category presentation-order corrective 已完成，仅改变 reader-facing section 顺序，不改变 Selector、Event 或 Brief canonical data。v1.9 保持 COMPLETED / CLOSED。
 
@@ -37,6 +37,8 @@ v0.7.3 七天真实使用验证已完成并 CLOSED。产品 review 的结论不�
 READ-ONLY Dependency Audit 已完成，迁移路线确定为 preserve mature infrastructure + rewrite news core。Architecture、Core Data 与 Runtime / Failure Contract Freeze 均已完成，v1.0 governance baseline 与 v1.1–v1.7 implementation milestones 已 COMPLETED / CLOSED，v1.3 在修正后的 24h reader-level story-bundle semantics 下完成 real-model acceptance：`intfloat/multilingual-e5-small`（immutable revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`）、`article-title-summary-v1`、threshold `0.91`，production-critical overmerge / split 为 `0 / 0`，precision / recall / F0.5 为 `1.0 / 1.0 / 1.0`，expected memberships `8 / 8` exact。v1.8 第一小步保持 manual-only side-by-side，未接入 production routing；v1.9 现已完成 production cutover，Generation 1 仅保留为 explicit rollback route。
 
 ## Latest completed
+
+2026-09-05 完成并关闭 v1.9.4 Selector Stability Correction。2026-09-04 scheduled production 对 140 个 EventCandidates 合法返回 `selected=[]`；frozen same-input baseline `[0,10,10,17,6,9,0,10,10,6]` 确认 `MATERIAL SELECTOR INSTABILITY`。Sampling-only `temperature=0` 的 5-run 为 `[10,10,10,10,10]`，但集合/数量过度收敛，未采用；chosen Prompt-only 仅将重复 legal-empty encouragement 收敛为“仅当没有候选自然满足重大事件标准时返回空”，5-run 为 `[10,12,7,10,8]`、empty `0/5`、六个指定重大事件均 `5/5` 入选且集合/顺序保持合理变化，结论为 `PROMPT-ONLY SUFFICIENT`。未评估 Combined、未修改 sampling configuration；legal-empty runtime contract、selection count 自由度与其它 stages 均未改变。focused offline regression 与最终离线 release gate 已通过；2026-09-06 scheduled run 是首次 post-release production observation。
 
 2026-08-31 完成并关闭 v1.9.3 Classifier Boundary Correction：production 中韩国总统李在明内阁改组/部长提名与中国中央三部门商品住房销售制度改革分别自然适用 `geopolitics` 与 `china_policy`，此前 provider 合法返回 `other` 的根因是 prompt 缺少对应正向 boundary；仅补充 prompt，不改 classifier runtime、taxonomy 或其它 stage。新增 fixture 精确保留 v1.9.1 五个 case 并加入两个政府边界 case；focused classifier、classifier → writer continuation 与全部 30/30 offline smoke 均 PASS。用户连续 3 次 real-provider run 每次均 `classifier_stage_status=succeeded`、`technical_failures=[]`、7/7 match。首次 `invalid_input` 只因 shell 未加载 `.env.local` / process-env credential，不是产品、fixture 或 classifier defect，不计为 quality failure。clustering 保持 frozen policy，2026-08-31 相似灾害 overmerge 与一次 VentureBeat `transport_failed` 仅作 observation / accepted transient degradation；v1.10 尚未开始，下一步继续观察 Generation 2 scheduled production stability。
 
@@ -105,7 +107,7 @@ v0.7.2 production cutover closeout：真实运行 artifact 为 `overnight-202608
 Status: local macOS production activated on Generation 2; first scheduled acceptance PASS WITH ACCEPTED DEGRADATION
 Public URL: none
 Provider: DeepSeek `deepseek-v4-flash`; prior Gen1 real production success accepted, first scheduled Gen2 acceptance PASS WITH ACCEPTED DEGRADATION
-Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。当前仓库运行时默认路径已迁移到 `.env.local`。2026-08-29 v1.9 Slice 5 已将 installed LaunchAgent route 最小切换为 `generation_2` 并 reload，保持 08:00 schedule；未 kickstart，第一次 scheduled Gen2 production acceptance 已 PASS WITH ACCEPTED DEGRADATION。该 run 的 partial 仅为已接受的 Investing.com timezone-less timestamp variation；category presentation corrective 已完成。v1.9.1 已完成 offline classifier corrective 与 3/3 focused real-provider validation；v1.9.2 已完成 source-scoped timezone corrective，offline 与 source-only controlled live RSS validation 均 PASS，Investing `UTC` localization active。v1.9.3 classifier boundary corrective 已完成：30/30 offline PASS，用户 3/3 real-provider runs 各 7/7 match 且 `technical_failures=[]`；首次 `invalid_input` invocation 仅为 shell 未加载 `.env.local` / process-env credential 的 preflight 问题，不计为 quality failure。partial banner 未修改，clustering frozen policy 与 v1.10 时序保持不变；v1.10 尚未开始。
+Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 LaunchAgent reload 和受控 kickstart；Morning Brief、Obsidian 同步及 Bark 推送均成功。当前仓库运行时默认路径已迁移到 `.env.local`。2026-08-29 v1.9 Slice 5 已将 installed LaunchAgent route 最小切换为 `generation_2` 并 reload，保持 08:00 schedule；未 kickstart，第一次 scheduled Gen2 production acceptance 已 PASS WITH ACCEPTED DEGRADATION。该 run 的 partial 仅为已接受的 Investing.com timezone-less timestamp variation；category presentation corrective 已完成。v1.9.1 已完成 offline classifier corrective 与 3/3 focused real-provider validation；v1.9.2 已完成 source-scoped timezone corrective，offline 与 source-only controlled live RSS validation 均 PASS，Investing `UTC` localization active。v1.9.3 classifier boundary corrective 已完成：30/30 offline PASS，用户 3/3 real-provider runs 各 7/7 match 且 `technical_failures=[]`；首次 `invalid_input` invocation 仅为 shell 未加载 `.env.local` / process-env credential 的 preflight 问题，不计为 quality failure。v1.9.4 Selector prompt-only stability corrective 已正式关闭：仅收敛 legal-empty wording，不改变 route、runtime contract、sampling parameters、clustering 或 delivery；2026-09-06 scheduled run 是首次 post-release observation。partial banner 未修改，clustering frozen policy 与 v1.10 时序保持不变；v1.10 尚未开始。
 
 ## Version Index
 
@@ -150,15 +152,16 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 La
 - v1.9.1 — Classifier “other” Boundary Correction（COMPLETED / CLOSED；offline regression PASS；focused real-provider validation 3/3 PASS）
 - v1.9.2 — Source Timezone Normalization（COMPLETED / CLOSED；offline ingest validation PASS；controlled live RSS validation PASS）
 - v1.9.3 — Classifier Boundary Correction（COMPLETED / CLOSED；offline 30/30 PASS；focused real-provider validation 3/3 PASS）
+- v1.9.4 — Selector Stability Correction（COMPLETED / CLOSED；prompt-only corrective；offline release gate PASS；bounded real-provider validation PASS）
 - v1.10 — Legacy Retirement & v1.x Closeout（PLANNED）
 
 ## Last verified
 
-2026-08-31
+2026-09-05
 
 ## Next Action
 
-继续观察 Generation 2 scheduled production stability；Investing 已完成 v1.9.2 source-scoped `UTC` normalization，partial banner presentation policy 仍是独立 follow-up。确认稳定后再开始 v1.10 Legacy Retirement READ-ONLY dependency audit；v1.10 implementation 与 legacy cleanup 尚未开始。
+观察 2026-09-06 及后续 Generation 2 scheduled production stability。partial banner presentation policy 仍是独立 follow-up；v1.10 implementation 与 legacy cleanup 尚未开始。
 
 ## Blockers
 
@@ -167,6 +170,7 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 La
 ## Important Context
 
 - Git branch、latest commit、working tree 由 project-command-center 实时 Git 扫描读取；PROJECT_STATE.md 不作为这些字段的权威来源。
+- v1.9.4 Selector Stability Correction 已正式 COMPLETED / CLOSED：2026-09-04 frozen Selector input 的 same-input instability 由 10-run baseline 确认，2026-09-05 bounded candidate validation 支持 `PROMPT-ONLY SUFFICIENT`。实现只收敛重复 legal-empty prompt wording 并更新 focused assertions；sampling parameters、legal-empty runtime contract、其它 stages 与 production artifacts 均未改变。2026-09-06 scheduled run 是首次 post-release observation；v1.10 尚未开始。
 - v1.9.1 是已完成的 post-v1.9 production corrective：classifier `other` boundary prompt clarification、focused offline regression、validation-only runner preparation 与 3/3 focused real-provider validation 均 PASS；partial banner 未修改，v1.10 尚未开始。
 - v1.9.2 是已完成的 post-v1.9.1 source corrective：仅对显式 source timezone 的 naive timestamp 做 deterministic localization；Investing.com 中文财经声明 `UTC`，其它 source 缺失 timezone 保持 fail-closed。offline 与 source-only controlled live RSS validation 均 PASS（10/10 entries normalized、`failure_codes=[]`）；不修改 partial banner 或 semantic/production architecture。
 - v1.9.3 是已完成的 post-v1.9.2 classifier boundary corrective：仅补充 `geopolitics` 的 foreign national-government/state-level political boundary 与 `china_policy` 的中国中央政府/国务院部门/跨部委全国性制度和监管政策 boundary；韩国内阁改组与中国住房销售制度改革由 `other` 纠正到 named categories。30/30 offline PASS；用户 3/3 real-provider runs 各 7/7 match、`technical_failures=[]`。首次 `invalid_input` 仅为 shell 未加载 `.env.local` / process-env credential 的 provider preflight 问题，不是产品、fixture 或 classifier defect，不计为 quality failure；未修改其它 stage、taxonomy 或 runtime。
@@ -227,4 +231,4 @@ Notes: 2026-08-15 用户已完成实际 `.env` 配置与 `0600` 权限、Gen1 La
 
 ## Handoff Prompt
 
-v1.9.2 Source Timezone Normalization is COMPLETED / CLOSED after v1.9.1 CLOSED. `SourceConfig` has optional IANA-validated source timezone metadata, and only Investing.com 中文财经 is declared `UTC`; offline deterministic ingest and source-only controlled live RSS validation both pass (10/10 entries normalized with no failure codes). Naive timestamps without a declaration still fail closed, aware timestamps keep their own instant, and no canonical datetime contract, semantic stage, production route, LaunchAgent, delivery, or partial banner changed. Generation 2 remains active production and v1.10 has not started.
+v1.9.4 Selector Stability Correction is COMPLETED / CLOSED. A focused 2026-09-04 frozen-input audit confirmed material same-input Selector instability without technical failures or retries. Bounded validation concluded `PROMPT-ONLY SUFFICIENT`: sampling-only `temperature=0` removed empty results but produced a highly converged 10-event set, while the prompt-only candidate produced `[10,12,7,10,8]`, preserved meaningful editorial variation, and covered the six specified major-event cases in 5/5 runs. The corrective only changes duplicate legal-empty prompt wording to one conditional permission plus focused offline assertions; legal-empty runtime semantics, sampling parameters, all other stages, routing, delivery, and production artifacts remain unchanged. The 2026-09-06 scheduled run is the first post-release production observation; v1.10 has not started.

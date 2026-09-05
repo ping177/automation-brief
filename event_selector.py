@@ -38,7 +38,8 @@ _SELECTOR_SYSTEM_INSTRUCTION = (
     "impact. Major national or societal changes and major natural disasters are examples, "
     "not categories or rules. Do not use fixed scores, category quotas or weighting, "
     "source weighting, or a target number of events. Do not select minor events to fill "
-    "space; selecting none is valid. Keep every bundle's membership unchanged. Return "
+    "space. Return an empty selected array only when no candidate naturally satisfies this "
+    "major-event standard. Keep every bundle's membership unchanged. Return "
     "exactly one JSON object with only selected. Each selected item must contain only "
     "event_candidate_id and a positive integer order. Order is relative editorial "
     "priority, not a score. The only valid JSON shape is:\n"
@@ -50,7 +51,7 @@ _SELECTOR_SYSTEM_INSTRUCTION = (
     "    }\n"
     "]\n"
     "}\n"
-    'The selected array may be empty: {"selected":[]}. Do not add prose.'
+    "Do not add prose."
 )
 
 _SELECTOR_USER_INSTRUCTION = (

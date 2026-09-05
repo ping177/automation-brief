@@ -321,7 +321,11 @@ def test_real_gateway_request_contains_json_format_and_selector_example() -> Non
     assert transport.body["thinking"] == {"type": "disabled"}
     system_prompt = transport.body["messages"][0]["content"]
     assert '"event_candidate_id": "example_event_id"' in system_prompt
-    assert "selected array may be empty" in system_prompt
+    assert (
+        "Return an empty selected array only when no candidate naturally satisfies this "
+        "major-event standard."
+    ) in system_prompt
+    assert "selected array may be empty" not in system_prompt.casefold()
 
 
 def main() -> None:
